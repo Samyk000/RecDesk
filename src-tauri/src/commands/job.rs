@@ -1,0 +1,189 @@
+use rusqlite::params;
+use tauri::State;
+
+use crate::error::{AppError, AppResult};
+use crate::models::{JobCounts, JobInput, JobWithStats};
+use crate::rows::{
+    new_id, now, row_to_job_with_stats, serialize_bools, serialize_questions,
+};
+use crate::AppState;
+
+const JOB_SELECT: &str = r#"
+  SELECT j.id, j.client_id, j.job_id, j.title, j.location, j.work_model, j.contract_type,
+         j.status, j.refined_jd, j.boolean_strings, j.candidate_pitch,
+         j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at,
+         c.name,
+         (SELECT COUNT(*) FROM candidates ca WHERE ca.job_id = j.id)
+  FROM jobs j JOIN clients c ON c.id = j.client_id
+"#;
+
+fn fetch_job(conn: &rusqlite::Connection, id: &str) -> AppResult<JobWithStats> {
+    let sql = format!("{JOB_SELECT} WHERE j.id = ?1");
+    conn.query_row(&sql, params![id], row_to_job_with_stats)
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => AppError::Msg("Job not found".into()),
+            other => other.into(),
+        })
+}
+
+#[tauri::command]
+pub fn get_jobs(
+    state: State<'_, AppState>,
+    client_id: Option<String>,
+    status: Option<String>,
+    search: Option<String>,
+) -> AppResult<Vec<JobWithStats>> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let mut conditions: Vec<String> = Vec::new();
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(cid) = &client_id {
+        conditions.push("j.client_id = ?".to_string());
+        params.push(Box::new(cid.clone()));
+    }
+    if let Some(st) = &status {
+        conditions.push("j.status = ?".to_string());
+        params.push(Box::new(st.clone()));
+    }
+    if let Some(s) = &search {
+        conditions.push(
+            "(j.title LIKE ? OR j.job_id LIKE ? OR c.name LIKE ? OR COALESCE(j.location,'') LIKE ?)"
+                .to_string(),
+        );
+        let p = format!("%{}%", s.trim());
+        for _ in 0..4 {
+            params.push(Box::new(p.clone()));
+        }
+    }
+
+    let mut sql = JOB_SELECT.to_string();
+    if !conditions.is_empty() {
+        sql.push_str(" WHERE ");
+        sql.push_str(&conditions.join(" AND "));
+    }
+    sql.push_str(" ORDER BY j.updated_at DESC");
+
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(params.iter().map(|b| b.as_ref())), |row| {
+            row_to_job_with_stats(row)
+        })?
+        .collect::<Result<Vec<_>, rusqlite::Error>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn get_job(state: State<'_, AppState>, id: String) -> AppResult<JobWithStats> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    fetch_job(&conn, &id)
+}
+
+#[tauri::command]
+pub fn get_recent_jobs(state: State<'_, AppState>, limit: Option<i64>) -> AppResult<Vec<JobWithStats>> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let lim = limit.unwrap_or(8).max(1);
+    let sql = format!("{JOB_SELECT} ORDER BY j.updated_at DESC LIMIT ?1");
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt
+        .query_map(params![lim], |row| row_to_job_with_stats(row))?
+        .collect::<Result<Vec<_>, rusqlite::Error>>()?;
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn get_job_counts(state: State<'_, AppState>) -> AppResult<JobCounts> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let total: i64 = conn.query_row("SELECT COUNT(*) FROM jobs", [], |r| r.get(0))?;
+    let active: i64 = conn.query_row("SELECT COUNT(*) FROM jobs WHERE status='active'", [], |r| r.get(0))?;
+    let closed: i64 = conn.query_row("SELECT COUNT(*) FROM jobs WHERE status='closed'", [], |r| r.get(0))?;
+    let on_hold: i64 = conn.query_row("SELECT COUNT(*) FROM jobs WHERE status='on_hold'", [], |r| r.get(0))?;
+    Ok(JobCounts {
+        total,
+        active,
+        closed,
+        on_hold,
+    })
+}
+
+#[tauri::command]
+pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobWithStats> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let id = new_id();
+    let ts = now();
+    let status = input.status.unwrap_or_else(|| "active".to_string());
+    let closed_at = if status == "closed" {
+        input.closed_at.or_else(|| Some(now()))
+    } else {
+        input.closed_at
+    };
+    conn.execute(
+        "INSERT INTO jobs (id, client_id, job_id, title, location, work_model, contract_type,
+                          status, refined_jd, boolean_strings, candidate_pitch,
+                          screening_questions, notes, created_at, updated_at, closed_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, ?15)",
+        params![
+            id,
+            input.client_id,
+            input.job_id,
+            input.title,
+            input.location,
+            input.work_model,
+            input.contract_type,
+            status,
+            input.refined_jd,
+            serialize_bools(&input.boolean_strings),
+            input.candidate_pitch,
+            serialize_questions(&input.screening_questions),
+            input.notes,
+            ts,
+            closed_at
+        ],
+    )?;
+    fetch_job(&conn, &id)
+}
+
+#[tauri::command]
+pub fn update_job(state: State<'_, AppState>, id: String, input: JobInput) -> AppResult<JobWithStats> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let status = input.status.unwrap_or_else(|| "active".to_string());
+    let closed_at = if status == "closed" {
+        input.closed_at.or_else(|| Some(now()))
+    } else {
+        None
+    };
+    let affected = conn.execute(
+        "UPDATE jobs SET client_id = ?1, job_id = ?2, title = ?3, location = ?4, work_model = ?5,
+                         contract_type = ?6, status = ?7, refined_jd = ?8, boolean_strings = ?9,
+                         candidate_pitch = ?10, screening_questions = ?11, notes = ?12,
+                         updated_at = ?13, closed_at = ?14
+         WHERE id = ?15",
+        params![
+            input.client_id,
+            input.job_id,
+            input.title,
+            input.location,
+            input.work_model,
+            input.contract_type,
+            status,
+            input.refined_jd,
+            serialize_bools(&input.boolean_strings),
+            input.candidate_pitch,
+            serialize_questions(&input.screening_questions),
+            input.notes,
+            now(),
+            closed_at,
+            id
+        ],
+    )?;
+    if affected == 0 {
+        return Err("Job not found".into());
+    }
+    fetch_job(&conn, &id)
+}
+
+#[tauri::command]
+pub fn delete_job(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    conn.execute("DELETE FROM jobs WHERE id = ?1", params![id])?;
+    Ok(())
+}

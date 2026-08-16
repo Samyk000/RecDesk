@@ -1,0 +1,117 @@
+use rusqlite::params;
+use tauri::State;
+
+use crate::error::{AppError, AppResult};
+use crate::models::{Client, ClientInput, ClientWithStats};
+use crate::rows::{new_id, now, row_to_client, row_to_client_with_stats};
+use crate::AppState;
+
+const CLIENT_SELECT: &str = r#"
+  SELECT c.id, c.name, c.company, c.email, c.phone, c.address, c.notes,
+         c.created_at, c.updated_at,
+         (SELECT COUNT(*) FROM jobs j WHERE j.client_id = c.id),
+         (SELECT COUNT(*) FROM candidates ca JOIN jobs j2 ON ca.job_id = j2.id WHERE j2.client_id = c.id)
+  FROM clients c
+"#;
+
+#[tauri::command]
+pub fn get_clients(
+    state: State<'_, AppState>,
+    search: Option<String>,
+) -> AppResult<Vec<ClientWithStats>> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let sql = match &search {
+        Some(_) => format!(
+            "{CLIENT_SELECT} WHERE c.name LIKE ?1 OR COALESCE(c.company,'') LIKE ?1 OR COALESCE(c.email,'') LIKE ?1 ORDER BY c.name"
+        ),
+        None => format!("{CLIENT_SELECT} ORDER BY c.name"),
+    };
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = match search {
+        Some(s) => stmt
+            .query_map(params![format!("%{}%", s.trim())], |row| {
+                row_to_client_with_stats(row)
+            })?
+            .collect::<Result<Vec<_>, rusqlite::Error>>()?,
+        None => stmt
+            .query_map([], |row| row_to_client_with_stats(row))?
+            .collect::<Result<Vec<_>, rusqlite::Error>>()?,
+    };
+    Ok(rows)
+}
+
+#[tauri::command]
+pub fn get_client(state: State<'_, AppState>, id: String) -> AppResult<ClientWithStats> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let sql = format!("{CLIENT_SELECT} WHERE c.id = ?1");
+    conn.query_row(&sql, params![id], |row| row_to_client_with_stats(row))
+        .map_err(|e| match e {
+            rusqlite::Error::QueryReturnedNoRows => AppError::Msg("Client not found".into()),
+            other => other.into(),
+        })
+}
+
+#[tauri::command]
+pub fn create_client(state: State<'_, AppState>, input: ClientInput) -> AppResult<Client> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let id = new_id();
+    let ts = now();
+    conn.execute(
+        "INSERT INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
+        params![
+            id,
+            input.name,
+            input.company,
+            input.email,
+            input.phone,
+            input.address,
+            input.notes,
+            ts
+        ],
+    )?;
+    let client = conn.query_row(
+        "SELECT id, name, company, email, phone, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
+        params![&id],
+        row_to_client,
+    )?;
+    Ok(client)
+}
+
+#[tauri::command]
+pub fn update_client(
+    state: State<'_, AppState>,
+    id: String,
+    input: ClientInput,
+) -> AppResult<Client> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let affected = conn.execute(
+        "UPDATE clients SET name = ?1, company = ?2, email = ?3, phone = ?4, address = ?5, notes = ?6, updated_at = ?7 WHERE id = ?8",
+        params![
+            input.name,
+            input.company,
+            input.email,
+            input.phone,
+            input.address,
+            input.notes,
+            now(),
+            id
+        ],
+    )?;
+    if affected == 0 {
+        return Err("Client not found".into());
+    }
+    let client = conn.query_row(
+        "SELECT id, name, company, email, phone, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
+        params![&id],
+        row_to_client,
+    )?;
+    Ok(client)
+}
+
+#[tauri::command]
+pub fn delete_client(state: State<'_, AppState>, id: String) -> AppResult<()> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    conn.execute("DELETE FROM clients WHERE id = ?1", params![id])?;
+    Ok(())
+}
