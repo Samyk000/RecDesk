@@ -38,6 +38,19 @@ export function timeAgo(iso: string | null | undefined): string {
   return formatDate(iso);
 }
 
+export function timeGreeting(now = new Date()): { label: string; emoji: string } {
+  const h = now.getHours();
+  if (h >= 5 && h < 12) return { label: "Good Morning", emoji: "☀️" };
+  if (h >= 12 && h < 17) return { label: "Good Afternoon", emoji: "🌤️" };
+  return { label: "Good Evening", emoji: "🌙" };
+}
+
+export function greetingLine(name: string, now = new Date()): string {
+  const { label, emoji } = timeGreeting(now);
+  const who = name.trim() ? ` ${name.trim()}` : "";
+  return `${label} ${emoji}${who}, it's ${formatDateShort(now.toISOString())}`;
+}
+
 export function titleCase(s: string): string {
   return s
     .split(/[_\s]+/)

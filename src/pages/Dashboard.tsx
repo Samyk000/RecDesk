@@ -14,11 +14,13 @@ import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
 import { jobPalette, submissionPalette } from "../lib/constants";
-import { cn, formatDateShort, timeAgo, titleCase } from "../lib/utils";
+import { cn, greetingLine, timeAgo, titleCase } from "../lib/utils";
+import { useProfile } from "../store/profile";
 
 export function Dashboard() {
   const { data, isLoading } = useDashboardStats();
   const navigate = useNavigate();
+  const { name } = useProfile();
 
   if (isLoading || !data) return <PageLoader label="Loading workspace…" />;
 
@@ -58,8 +60,8 @@ export function Dashboard() {
   return (
     <div className="px-6 pt-4 pb-6">
       <PageHeader
-        title="Workspace"
-        subtitle={isEmpty ? "Start by creating your first job." : `Everything recruiting · ${formatDateShort(new Date().toISOString())}`}
+        title={greetingLine(name)}
+        subtitle={isEmpty ? "Start by creating your first job." : undefined}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">

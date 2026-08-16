@@ -4,9 +4,11 @@ import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTheme } from "../store/theme";
+import { useProfile } from "../store/profile";
 import { apiData } from "../lib/api";
 import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
 import { errorMessage, cn } from "../lib/utils";
 import type { ThemeMode, ThemeName } from "../types";
@@ -28,6 +30,7 @@ const colorThemes: { value: ThemeName; label: string; primary: string; bg: strin
 
 export function Settings() {
   const { mode, theme, setMode, setTheme } = useTheme();
+  const { name, setName } = useProfile();
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -141,6 +144,20 @@ export function Settings() {
                   {opt.label}
                 </button>
               ))}
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Your name</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <div className="mt-3">
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Samy"
+                className="h-8 text-[13px]"
+              />
+              <p className="mt-1.5 text-[11px] text-fg-subtle">Shown in the greeting on your dashboard.</p>
             </div>
           </section>
 
