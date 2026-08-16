@@ -66,7 +66,7 @@ export function JobDetail() {
     <div className="px-6 pt-4">
       <button
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/jobs"))}
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
+        className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
       >
         <ArrowLeft className="h-4 w-4" />
         {job.client_name}
@@ -74,7 +74,7 @@ export function JobDetail() {
 
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="truncate text-lg font-semibold tracking-tight text-fg">
+          <h1 className="font-display truncate text-[22px] font-semibold tracking-tight text-fg">
             {job.title}
             <span className="font-normal text-fg-muted">
               <span className="mx-2">:</span>

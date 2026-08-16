@@ -187,3 +187,4 @@ export interface ImportSummary {
 }
 
 export type ThemeMode = "light" | "dark" | "system";
+export type ThemeAccent = "default" | "orange" | "gray" | "olive";

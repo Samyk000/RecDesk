@@ -94,24 +94,24 @@ export function Candidates() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-hover/40 text-left">
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Job</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Client</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Match</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Location</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Updated</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Name</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Job</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Client</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Status</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Match</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Location</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Updated</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {data.map((c) => (
                 <tr
                   key={c.id}
-                  className="cursor-pointer transition-colors hover:bg-surface-hover"
+                  className="cursor-pointer transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
                   onClick={() => navigate(`/candidates/${c.id}`)}
                 >
                   <td className="px-4 py-2.5">
@@ -126,7 +126,7 @@ export function Candidates() {
                         {c.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
                       </span>
                       <div className="min-w-0">
-                        <p className="truncate text-[13px] font-medium text-fg">{c.name}</p>
+                        <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{c.name}</p>
                         {c.email && (
                           <p className="truncate text-[11px] text-fg-subtle">{c.email}</p>
                         )}

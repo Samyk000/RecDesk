@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { GlobalSearch } from "../common/GlobalSearch";
@@ -9,6 +9,7 @@ import { TooltipProvider } from "../ui/tooltip";
 export function AppLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [jobFormOpen, setJobFormOpen] = useState(false);
+  const location = useLocation();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -32,7 +33,9 @@ export function AppLayout() {
         <div className="flex min-w-0 flex-1 flex-col">
           <Header onSearch={() => setSearchOpen(true)} />
           <main className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-            <Outlet />
+            <div key={location.pathname} className="h-full animate-fade-in">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>

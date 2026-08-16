@@ -11,11 +11,11 @@ interface Props {
 
 export function PageHeader({ title, subtitle, actions, className, back }: Props) {
   return (
-    <div className={cn("mb-6 flex items-start justify-between gap-4", className)}>
+    <div className={cn("mb-6 flex items-start justify-between gap-4 animate-fade-in", className)}>
       <div className="min-w-0">
         {back && <div className="mb-2">{back}</div>}
-        <h1 className="truncate text-lg font-semibold tracking-tight text-fg">{title}</h1>
-        {subtitle && <p className="mt-0.5 text-sm text-fg-muted">{subtitle}</p>}
+        <h1 className="truncate text-[22px] font-semibold tracking-tight text-fg">{title}</h1>
+        {subtitle && <p className="mt-1 text-[13px] text-fg-muted">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>

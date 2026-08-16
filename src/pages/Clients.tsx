@@ -86,27 +86,27 @@ export function Clients() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-hover/40 text-left">
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Company</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Jobs</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Candidates</th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Updated</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Name</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Company</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Jobs</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Candidates</th>
+                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Updated</th>
                 <th className="w-20 px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {data.map((client) => (
-                <tr key={client.id} className="group transition-colors hover:bg-surface-hover">
+                <tr key={client.id} className="group transition-all duration-150 hover:bg-surface-hover active:bg-surface-active">
                   <td className="px-4 py-2.5">
                     <Link to={`/clients/${client.id}`} className="flex items-center gap-2.5">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-active text-fg-muted">
+                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-active text-fg-muted transition-transform duration-150 group-hover:scale-110">
                         <Building2 className="h-3.5 w-3.5" />
                       </span>
-                      <span className="text-[13px] font-medium text-fg group-hover:underline">
+                      <span className="text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">
                         {client.name}
                       </span>
                     </Link>

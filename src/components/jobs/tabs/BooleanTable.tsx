@@ -85,7 +85,7 @@ export function BooleanTable({ job }: { job: Job }) {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col className="w-[200px]" />

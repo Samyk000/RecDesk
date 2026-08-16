@@ -18,11 +18,11 @@ export function EmptyState({ icon, title, description, action, className }: Prop
       )}
     >
       {icon && (
-        <div className="mb-1.5 flex h-10 w-10 items-center justify-center rounded-md bg-surface-hover text-fg-subtle">
+        <div className="mb-2 flex h-12 w-12 items-center justify-center rounded-xl border border-border bg-surface-hover text-fg-subtle shadow-raise">
           {icon}
         </div>
       )}
-      <p className="text-sm font-medium text-fg">{title}</p>
+      <p className="font-display text-[15px] font-semibold text-fg">{title}</p>
       {description && <p className="max-w-sm text-[13px] leading-relaxed text-fg-subtle">{description}</p>}
       {action && <div className="mt-2">{action}</div>}
     </div>

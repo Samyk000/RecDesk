@@ -1,12 +1,12 @@
 [package]
-name = "recruiting-workspace"
+name = "recdesk"
 version = "0.1.0"
-description = "Personal Recruiting Workspace - local-first recruiting cockpit"
+description = "RecDesk - local-first recruiting workspace"
 authors = ["you"]
 edition = "2021"
 
 [lib]
-name = "recruiting_workspace_lib"
+name = "recdesk_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

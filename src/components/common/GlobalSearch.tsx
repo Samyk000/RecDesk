@@ -99,7 +99,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[16vh]">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-lg border border-border bg-surface shadow-popover animate-scale-in">
+      <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-float animate-scale-in">
         <div className="flex items-center gap-3 px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-fg-subtle" />
           <input
@@ -148,8 +148,8 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                   onClick={() => go(row)}
                   onMouseEnter={() => setActive(i)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors",
-                    active === i ? "bg-surface-hover" : "hover:bg-surface-hover/50",
+                    "flex w-full cursor-pointer items-center gap-3 rounded-md px-3 py-2 text-left transition-all duration-150",
+                    active === i ? "bg-surface-hover" : "hover:bg-surface-hover/50 active:bg-surface-active",
                   )}
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-active text-fg-muted">

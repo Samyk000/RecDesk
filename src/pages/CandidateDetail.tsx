@@ -15,13 +15,13 @@ export function CandidateDetail() {
     <div className="px-6 pt-4">
       <button
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/candidates"))}
-        className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
+        className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
       >
         <ArrowLeft className="h-4 w-4" />
         Back
       </button>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
         <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
           <CandidateDetailPanel candidateId={candidate.id} onClose={() => navigate(-1)} />
         </div>

@@ -10,8 +10,8 @@ interface Props {
 }
 
 export function Header({ onSearch }: Props) {
-  const { mode, setMode } = useTheme();
-  const isDark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+  const { resolved, setMode } = useTheme();
+  const isDark = resolved === "dark";
 
   return (
     <header
@@ -21,7 +21,7 @@ export function Header({ onSearch }: Props) {
       <button
         onClick={onSearch}
         data-tauri-drag-region={false}
-        className="group flex h-8 w-full max-w-sm items-center gap-2.5 rounded-md border border-border bg-surface px-3 text-left text-[13px] text-fg-subtle transition-all duration-150 hover:border-border-strong hover:text-fg"
+        className="group flex h-8 w-full max-w-sm cursor-pointer items-center gap-2.5 rounded-md border border-border bg-surface px-3 text-left text-[13px] text-fg-subtle transition-all duration-150 hover:border-border-strong hover:text-fg hover:shadow-raise"
       >
         <Search className="h-4 w-4 transition-colors group-hover:text-fg" />
         <span className="flex-1">Search everything…</span>

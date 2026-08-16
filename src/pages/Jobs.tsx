@@ -89,17 +89,17 @@ export function Jobs() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
           <div className="divide-y divide-border">
             {data.map((job) => (
               <Link
                 key={job.id}
                 to={`/jobs/${job.id}`}
-                className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-hover"
+                className="group flex cursor-pointer items-center gap-4 px-4 py-3 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <p className="truncate text-[13px] font-medium text-fg">{job.title}</p>
+                    <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{job.title}</p>
                     <StatusBadge status={job.status} kind="job" className="shrink-0" />
                   </div>
                   <p className="mt-0.5 truncate text-xs text-fg-subtle">
@@ -151,8 +151,8 @@ function FilterChip({
     <button
       onClick={onClick}
       className={cn(
-        "flex h-8 items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-colors",
-        active ? "bg-fg text-bg" : "text-fg-muted hover:bg-surface-hover hover:text-fg",
+        "flex h-8 cursor-pointer items-center gap-1.5 rounded-md px-3 text-[13px] font-medium transition-all duration-150",
+        active ? "bg-fg text-bg shadow-raise" : "text-fg-muted hover:bg-surface-hover hover:text-fg active:bg-surface-active",
       )}
     >
       {dot && <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />}

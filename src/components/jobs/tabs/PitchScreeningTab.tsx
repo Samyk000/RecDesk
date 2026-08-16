@@ -150,7 +150,7 @@ function ScreeningList({ job }: { job: Job }) {
           {questions.map((q, i) => (
             <div
               key={i}
-              className="group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2 transition-colors focus-within:border-primary/50"
+              className="group flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 transition-all duration-150 focus-within:border-primary/50 hover:shadow-raise"
             >
               <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-fg-subtle opacity-60" />
               <span className="w-6 shrink-0 text-center font-mono text-xs text-fg-subtle">{i + 1}</span>

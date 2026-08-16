@@ -30,7 +30,7 @@ const DropdownMenuItem = React.forwardRef<
   <DropdownMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg outline-none transition-colors data-[highlighted]:bg-surface-hover",
+      "relative flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 text-[13px] text-fg outline-none transition-colors data-[highlighted]:bg-surface-hover",
       className,
     )}
     {...props}

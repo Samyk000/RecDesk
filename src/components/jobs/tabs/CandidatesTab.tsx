@@ -213,7 +213,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-hover/40 text-left">

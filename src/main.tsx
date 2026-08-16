@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "sonner";
 import "@fontsource-variable/inter";
 import "@fontsource-variable/jetbrains-mono";
+import "@fontsource-variable/plus-jakarta-sans";
 import "./index.css";
 import App from "./App";
 import { initTheme } from "./store/theme";

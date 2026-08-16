@@ -9,7 +9,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { errorMessage, cn } from "../lib/utils";
-import type { ThemeMode } from "../types";
+import type { ThemeAccent, ThemeMode } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -17,8 +17,14 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "System", icon: Monitor },
 ];
 
+const colorThemes: { value: ThemeAccent; label: string; swatch: string }[] = [
+  { value: "orange", label: "Orange", swatch: "#f97316" },
+  { value: "gray", label: "Off Gray", swatch: "#525c67" },
+  { value: "olive", label: "Olive", swatch: "#7a8f3d" },
+];
+
 export function Settings() {
-  const { mode, setMode } = useTheme();
+  const { mode, accent, setMode, setAccent } = useTheme();
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -80,8 +86,8 @@ export function Settings() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-1">
-          <section className="rounded-lg border border-border bg-surface p-6">
-            <h2 className="mb-1 text-sm font-semibold text-fg">Appearance</h2>
+          <section className="rounded-xl border border-border bg-surface p-6 shadow-raise">
+            <h2 className="font-display mb-1 text-[15px] font-semibold tracking-tight text-fg">Appearance</h2>
             <p className="mb-4 text-xs text-fg-subtle">Choose how the app looks.</p>
             <div className="flex flex-wrap items-center gap-2">
               {themeOptions.map((opt) => (
@@ -89,9 +95,9 @@ export function Settings() {
                   key={opt.value}
                   onClick={() => setMode(opt.value)}
                   className={cn(
-                    "flex h-9 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors",
+                    "flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-all duration-150 active:scale-[0.97]",
                     mode === opt.value
-                      ? "border-primary/50 bg-primary/10 text-fg"
+                      ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
                       : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
                   )}
                 >
@@ -100,22 +106,52 @@ export function Settings() {
                 </button>
               ))}
             </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Color themes</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+              {colorThemes.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setAccent(accent === opt.value ? "default" : opt.value)}
+                  title={
+                    accent === opt.value
+                      ? "Clear accent (back to default)"
+                      : "Applies as an accent over your current theme"
+                  }
+                  className={cn(
+                    "flex h-8 cursor-pointer items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-all duration-150 active:scale-[0.97]",
+                    accent === opt.value
+                      ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
+                      : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
+                  )}
+                >
+                  <span
+                    className="h-3 w-3 rounded-full"
+                    style={{ background: opt.swatch, boxShadow: "inset 0 0 0 1px rgb(0 0 0 / 0.15)" }}
+                  />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </section>
 
-          <section className="rounded-lg border border-border bg-surface p-6">
-            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
+          <section className="rounded-xl border border-border bg-surface p-6 shadow-raise">
+            <h2 className="font-display mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
               <Info className="h-4 w-4 text-fg-subtle" />
               About
             </h2>
             <p className="text-[13px] text-fg-muted">
-              Recruiting Workspace — local-first personal recruiting tracker.
+              RecDesk — local-first personal recruiting tracker.
               Built with Tauri, Rust, and React.
             </p>
           </section>
         </div>
 
-        <section className="rounded-lg border border-border bg-surface p-6 lg:col-span-2">
-          <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-fg">
+        <section className="rounded-xl border border-border bg-surface p-6 shadow-raise lg:col-span-2">
+          <h2 className="font-display mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
             <Database className="h-4 w-4 text-fg-subtle" />
             Data
           </h2>
@@ -124,7 +160,7 @@ export function Settings() {
           </p>
 
           <div className="space-y-3">
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
               <div className="flex items-center gap-3">
                 <Download className="h-4 w-4 text-fg-subtle" />
                 <div>
@@ -137,7 +173,7 @@ export function Settings() {
               </Button>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
+            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
               <div className="flex items-center gap-3">
                 <Upload className="h-4 w-4 text-fg-subtle" />
                 <div>
@@ -151,7 +187,7 @@ export function Settings() {
             </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
                 <div className="flex items-center gap-3">
                   <Database className="h-4 w-4 text-fg-subtle" />
                   <div>
@@ -162,7 +198,7 @@ export function Settings() {
                 <Switch checked={replace} onCheckedChange={setReplace} />
               </label>
 
-              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
+              <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
                 <div className="flex items-center gap-3">
                   <Sparkles className="h-4 w-4 text-fg-subtle" />
                   <div>
