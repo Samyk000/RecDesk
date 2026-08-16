@@ -48,6 +48,12 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  useEffect(() => {
+    listRef.current
+      ?.querySelector(`[data-idx="${active}"]`)
+      ?.scrollIntoView({ block: "nearest" });
+  }, [active]);
+
   if (!open) return null;
 
   const rows: Row[] = [];
@@ -87,19 +93,13 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     }
   }
 
-  useEffect(() => {
-    listRef.current
-      ?.querySelector(`[data-idx="${active}"]`)
-      ?.scrollIntoView({ block: "nearest" });
-  }, [active]);
-
   const Icon = (k: string) =>
     k === "client" ? Building2 : k === "job" ? Briefcase : FileUser;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[16vh]">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-2xl animate-scale-in">
+      <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-lg border border-border bg-surface shadow-popover animate-scale-in">
         <div className="flex items-center gap-3 px-4 py-3">
           <Search className="h-4 w-4 shrink-0 text-fg-subtle" />
           <input
@@ -148,7 +148,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                   onClick={() => go(row)}
                   onMouseEnter={() => setActive(i)}
                   className={cn(
-                    "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left transition-colors",
+                    "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors",
                     active === i ? "bg-surface-hover" : "hover:bg-surface-hover/50",
                   )}
                 >
@@ -160,8 +160,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
                     <span className="block truncate text-xs text-fg-subtle">{row.sub}</span>
                   </span>
                   {row.kind !== "client" && palette && (
-                    <span
-                      className="inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium"
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] font-medium"
                       style={{ color: palette.dot }}
                     >
                       <span className="h-1.5 w-1.5 rounded-full" style={{ background: palette.dot }} />

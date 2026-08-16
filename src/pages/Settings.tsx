@@ -79,7 +79,7 @@ export function Settings() {
       <PageHeader title="Settings" subtitle="Preferences and data management" />
 
       <div className="space-y-6">
-        <section className="rounded-xl border border-border bg-surface p-6">
+        <section className="rounded-lg border border-border bg-surface p-6">
           <h2 className="mb-1 text-sm font-semibold text-fg">Appearance</h2>
           <p className="mb-4 text-xs text-fg-subtle">Choose how the app looks.</p>
           <div className="flex items-center gap-2">
@@ -101,7 +101,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border bg-surface p-6">
+        <section className="rounded-lg border border-border bg-surface p-6">
           <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-fg">
             <Database className="h-4 w-4 text-fg-subtle" />
             Data
@@ -163,7 +163,7 @@ export function Settings() {
           </div>
         </section>
 
-        <section className="rounded-xl border border-border bg-surface p-6">
+        <section className="rounded-lg border border-border bg-surface p-6">
           <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
             <Info className="h-4 w-4 text-fg-subtle" />
             About

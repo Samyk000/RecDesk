@@ -7,13 +7,13 @@ type Size = "xs" | "sm" | "md" | "icon";
 
 const variantClasses: Record<Variant, string> = {
   primary:
-    "bg-primary text-primary-fg hover:bg-primary-hover shadow-sm focus-visible:ring-2 focus-visible:ring-primary/40",
+    "bg-primary text-primary-fg hover:bg-primary-hover focus-visible:ring-2 focus-visible:ring-primary/40",
   secondary:
     "bg-surface-hover text-fg hover:bg-surface-active border border-border",
   ghost: "text-fg-muted hover:text-fg hover:bg-surface-hover",
   outline: "border border-border text-fg hover:bg-surface-hover",
   destructive:
-    "bg-red-500 text-white hover:bg-red-600 shadow-sm focus-visible:ring-2 focus-visible:ring-red-500/40",
+    "bg-red-500 text-white hover:bg-red-600 focus-visible:ring-2 focus-visible:ring-red-500/40",
 };
 
 const sizeClasses: Record<Size, string> = {

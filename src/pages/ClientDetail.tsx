@@ -76,14 +76,14 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
   }
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6">
-      <Link
-        to="/clients"
+    <div className="px-6 pt-4">
+      <button
+        onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/clients"))}
         className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
       >
         <ArrowLeft className="h-4 w-4" />
         Clients
-      </Link>
+      </button>
 
       <PageHeader
         title={client.name}
@@ -104,7 +104,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <aside className="space-y-5">
-          <div className="rounded-xl border border-border bg-surface p-5">
+          <div className="rounded-lg border border-border bg-surface p-4">
             <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
               Contact
             </h3>
@@ -128,7 +128,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
             />
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-5">
+          <div className="rounded-lg border border-border bg-surface p-4">
             <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
               <StickyNote className="h-3.5 w-3.5" />
               Notes
@@ -147,7 +147,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
             />
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-5 text-xs text-fg-subtle">
+          <div className="rounded-lg border border-border bg-surface p-4 text-xs text-fg-subtle">
             <p className="flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
               Created {timeAgo(client.created_at)}
@@ -180,26 +180,21 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
               <div className="divide-y divide-border">
                 {jobs.map((job) => (
                   <Link
                     key={job.id}
                     to={`/jobs/${job.id}`}
-                    className="flex items-center gap-4 px-5 py-3.5 transition-colors hover:bg-surface-hover"
+                    className="flex items-center gap-4 px-4 py-3 transition-colors hover:bg-surface-hover"
                   >
                     <span
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-                      style={{
-                        background: `${jobPalette(job.status).dot}1a`,
-                        color: jobPalette(job.status).dot,
-                      }}
-                    >
-                      <Briefcase className="h-4 w-4" />
-                    </span>
+                      className="h-2 w-2 shrink-0 rounded-full"
+                      style={{ background: jobPalette(job.status).dot }}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="truncate text-sm font-medium text-fg">{job.title}</p>
+                        <p className="truncate text-[13px] font-medium text-fg">{job.title}</p>
                         <StatusBadge status={job.status} kind="job" className="shrink-0" />
                       </div>
                       <p className="mt-0.5 truncate text-xs text-fg-subtle">
@@ -213,7 +208,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-sm font-semibold tabular-nums text-fg">{job.candidate_count}</p>
+                      <p className="text-[13px] font-semibold tabular-nums text-fg">{job.candidate_count}</p>
                       <p className="text-[11px] text-fg-subtle">candidates</p>
                     </div>
                   </Link>

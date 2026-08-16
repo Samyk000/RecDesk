@@ -30,7 +30,6 @@ export function Dashboard() {
       value: data.active_jobs,
       icon: Briefcase,
       accent: "text-blue-500",
-      bg: "bg-blue-500/12 dark:bg-blue-500/20",
       to: "/jobs",
     },
     {
@@ -38,7 +37,6 @@ export function Dashboard() {
       value: data.total_candidates,
       icon: FileUser,
       accent: "text-violet-500",
-      bg: "bg-violet-500/12 dark:bg-violet-500/20",
       to: "/jobs",
     },
     {
@@ -46,7 +44,6 @@ export function Dashboard() {
       value: data.candidates_needing_action,
       icon: Clock,
       accent: "text-amber-500",
-      bg: "bg-amber-500/12 dark:bg-amber-500/20",
       to: "/jobs",
     },
     {
@@ -54,34 +51,31 @@ export function Dashboard() {
       value: data.total_clients,
       icon: Building2,
       accent: "text-emerald-500",
-      bg: "bg-emerald-500/12 dark:bg-emerald-500/20",
       to: "/clients",
     },
   ];
 
   return (
-    <div className="mx-auto max-w-6xl px-6 py-6">
+    <div className="px-6 pt-4">
       <PageHeader
         title="Workspace"
         subtitle={isEmpty ? "Start by creating your first job." : `Everything recruiting · ${formatDateShort(new Date().toISOString())}`}
       />
 
-      <div className="grid grid-cols-4 gap-4">
+      <div className="flex items-stretch divide-x divide-border rounded-lg border border-border bg-surface">
         {stats.map((s) => (
           <Link
             key={s.label}
             to={s.to}
-            className="group rounded-xl border border-border bg-surface p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md"
+            className="group flex flex-1 items-center gap-3 px-5 py-3 transition-colors hover:bg-surface-hover"
           >
-            <div className="flex items-center justify-between">
-              <span className={cn("flex h-9 w-9 items-center justify-center rounded-lg", s.bg)}>
-                <s.icon className={cn("h-[18px] w-[18px]", s.accent)} />
-              </span>
+            <s.icon className={cn("h-4 w-4 shrink-0", s.accent)} />
+            <div className="min-w-0">
+              <p className="text-lg font-semibold tabular-nums leading-tight tracking-tight text-fg">
+                {s.value}
+              </p>
+              <p className="truncate text-xs text-fg-muted">{s.label}</p>
             </div>
-            <p className="mt-3 text-2xl font-semibold tabular-nums tracking-tight text-fg">
-              {s.value}
-            </p>
-            <p className="mt-0.5 text-[13px] text-fg-muted">{s.label}</p>
           </Link>
         ))}
       </div>
@@ -110,12 +104,12 @@ export function Dashboard() {
             to="/jobs"
             empty={<p className="text-[13px] text-fg-subtle">No jobs yet.</p>}
           >
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border rounded-lg border border-border bg-surface">
               {data.recent_jobs.slice(0, 6).map((job) => (
                 <Link
                   key={job.id}
                   to={`/jobs/${job.id}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover"
+                  className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover"
                 >
                   <span
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md"
@@ -137,15 +131,15 @@ export function Dashboard() {
 
           <Section
             title="Recent candidates"
-            to="/jobs"
+            to="/candidates"
             empty={<p className="text-[13px] text-fg-subtle">No candidates yet.</p>}
           >
-            <div className="divide-y divide-border">
+            <div className="divide-y divide-border rounded-lg border border-border bg-surface">
               {data.recent_candidates.slice(0, 6).map((cand) => (
                 <Link
                   key={cand.id}
                   to={`/candidates/${cand.id}`}
-                  className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-surface-hover"
+                  className="flex items-center gap-3 px-4 py-2.5 transition-colors hover:bg-surface-hover"
                 >
                   <span
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
@@ -234,8 +228,8 @@ function Section({
   empty?: React.ReactNode;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-surface">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div>
+      <div className="mb-1.5 flex items-center justify-between px-1">
         <h2 className="text-[13px] font-semibold text-fg">{title}</h2>
         <Link
           to={to}

@@ -91,7 +91,7 @@ export function BooleanTab({ job }: { job: Job }) {
           {items.map((item, i) => (
             <div
               key={i}
-              className="rounded-xl border border-border bg-surface p-3 transition-colors focus-within:border-primary/50"
+              className="rounded-lg border border-border bg-surface p-3 transition-colors focus-within:border-primary/50"
             >
               <div className="flex items-center gap-2">
                 <Input

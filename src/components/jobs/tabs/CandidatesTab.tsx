@@ -213,10 +213,10 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        <div className="overflow-hidden rounded-lg border border-border bg-surface">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-surface-hover/50 text-left">
+              <tr className="border-b border-border bg-surface-hover/40 text-left">
                 <th className="w-10 px-3 py-2.5">
                   <input
                     type="checkbox"
@@ -273,7 +273,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
       {panelId && (
         <div className="fixed inset-0 z-40 flex justify-end">
           <div className="absolute inset-0 bg-black/25 animate-fade-in" onClick={() => setPanelId(null)} />
-          <div className="relative z-10 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-border bg-surface shadow-2xl animate-slide-in-right">
+          <div className="relative z-10 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-border bg-surface shadow-popover animate-slide-in-right">
             <CandidateDetailPanel candidateId={panelId} onClose={() => setPanelId(null)} embedded />
           </div>
         </div>
