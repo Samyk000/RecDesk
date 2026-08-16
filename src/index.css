@@ -27,17 +27,22 @@
   --shadow-float: 0 4px 12px rgb(0 0 0 / 0.08), 0 16px 40px rgb(0 0 0 / 0.16);
 }
 
+/* ============================================================
+   Base palettes — Default theme (Blue), light + dark.
+   Each theme below redefines every token for BOTH modes so the
+   app colors follow the theme while light/dark stay independent.
+   ============================================================ */
 :root {
-  --bg: #fafafa;
-  --bg-sidebar: #f3f3f5;
+  --bg: #f2f5fa;
+  --bg-sidebar: #e9edf5;
   --fg: #1a1a1e;
   --fg-muted: #4b4b55;
   --fg-subtle: #86868f;
   --surface: #ffffff;
-  --surface-hover: #f4f4f6;
-  --surface-active: #eaeaed;
-  --border: #e4e4e8;
-  --border-strong: #d4d4da;
+  --surface-hover: #eef2f8;
+  --surface-active: #e3e9f2;
+  --border: #dfe4ec;
+  --border-strong: #cdd5e1;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-fg: #ffffff;
@@ -71,28 +76,189 @@
   color-scheme: dark;
 }
 
-/* Orange accent (works over light or dark) */
-.theme-orange {
+/* ============================================================
+   Theme: Teal
+   ============================================================ */
+.theme-teal {
+  --bg: #e9f4f1;
+  --bg-sidebar: #deedea;
+  --fg: #16211f;
+  --fg-muted: #40504d;
+  --fg-subtle: #778784;
+  --surface: #fdfefe;
+  --surface-hover: #e9f3f0;
+  --surface-active: #dce9e5;
+  --border: #d2e2de;
+  --border-strong: #bfd4cf;
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --primary-fg: #ffffff;
+  --selection: #0d9488;
+}
+
+.dark.theme-teal {
+  --bg: #0a1211;
+  --bg-sidebar: #0e1817;
+  --fg: #e6efed;
+  --fg-muted: #9db3af;
+  --fg-subtle: #6d837f;
+  --surface: #12201e;
+  --surface-hover: #192826;
+  --surface-active: #1f302e;
+  --border: #1d2c2a;
+  --border-strong: #2c3d3a;
+  --primary: #2dd4bf;
+  --primary-hover: #5eead4;
+  --primary-fg: #04211d;
+  --selection: #2dd4bf;
+}
+
+/* ============================================================
+   Theme: Violet
+   ============================================================ */
+.theme-violet {
+  --bg: #f1eefb;
+  --bg-sidebar: #e6e1f8;
+  --fg: #1b1826;
+  --fg-muted: #4a455c;
+  --fg-subtle: #817a97;
+  --surface: #fdfcff;
+  --surface-hover: #f0ecfb;
+  --surface-active: #e4def6;
+  --border: #dcd5ee;
+  --border-strong: #c9c0e3;
+  --primary: #7c3aed;
+  --primary-hover: #6d28d9;
+  --primary-fg: #ffffff;
+  --selection: #7c3aed;
+}
+
+.dark.theme-violet {
+  --bg: #0d0b15;
+  --bg-sidebar: #121020;
+  --fg: #eae7f3;
+  --fg-muted: #a5a0b8;
+  --fg-subtle: #756f89;
+  --surface: #171428;
+  --surface-hover: #1e1a31;
+  --surface-active: #26213c;
+  --border: #262238;
+  --border-strong: #363152;
+  --primary: #a78bfa;
+  --primary-hover: #c4b5fd;
+  --primary-fg: #1e1038;
+  --selection: #a78bfa;
+}
+
+/* ============================================================
+   Theme: Sunset (warm orange)
+   ============================================================ */
+.theme-sunset {
+  --bg: #faf3ea;
+  --bg-sidebar: #f4e9db;
+  --fg: #211b15;
+  --fg-muted: #51463c;
+  --fg-subtle: #877a6c;
+  --surface: #fefdfb;
+  --surface-hover: #f8efe2;
+  --surface-active: #efe2d0;
+  --border: #ecdfcd;
+  --border-strong: #ddcbb3;
   --primary: #f97316;
-  --primary-hover: #fb923c;
-  --primary-fg: #1a0f00;
+  --primary-hover: #ea580c;
+  --primary-fg: #2b1503;
   --selection: #f97316;
 }
 
-/* Off gray accent */
-.theme-gray {
-  --primary: #525c67;
-  --primary-hover: #434d57;
-  --primary-fg: #ffffff;
-  --selection: #525c67;
+.dark.theme-sunset {
+  --bg: #120d08;
+  --bg-sidebar: #171209;
+  --fg: #f0e9df;
+  --fg-muted: #ab9f8e;
+  --fg-subtle: #7a6f5f;
+  --surface: #1c1610;
+  --surface-hover: #241d15;
+  --surface-active: #2b2319;
+  --border: #2a2219;
+  --border-strong: #3d3123;
+  --primary: #fb923c;
+  --primary-hover: #fdba74;
+  --primary-fg: #241203;
+  --selection: #fb923c;
 }
 
-/* Olive smooth green accent */
-.theme-olive {
+/* ============================================================
+   Theme: Forest (olive green)
+   ============================================================ */
+.theme-forest {
+  --bg: #f1f4e7;
+  --bg-sidebar: #e6ebd7;
+  --fg: #1b1f14;
+  --fg-muted: #4a5040;
+  --fg-subtle: #7f866f;
+  --surface: #fdfef9;
+  --surface-hover: #edf1df;
+  --surface-active: #e1e6d0;
+  --border: #dbe2c9;
+  --border-strong: #c8d1b0;
   --primary: #7a8f3d;
-  --primary-hover: #8aa54a;
+  --primary-hover: #647832;
   --primary-fg: #12160a;
   --selection: #7a8f3d;
+}
+
+.dark.theme-forest {
+  --bg: #0d100a;
+  --bg-sidebar: #12160e;
+  --fg: #eef0e6;
+  --fg-muted: #a4ab95;
+  --fg-subtle: #737b66;
+  --surface: #161a12;
+  --surface-hover: #1d2218;
+  --surface-active: #242a1e;
+  --border: #252b1e;
+  --border-strong: #353d2c;
+  --primary: #a3b95c;
+  --primary-hover: #b6c977;
+  --primary-fg: #141a08;
+  --selection: #a3b95c;
+}
+
+/* ============================================================
+   Theme: Rose
+   ============================================================ */
+.theme-rose {
+  --bg: #faf1f3;
+  --bg-sidebar: #f5e8eb;
+  --fg: #25181c;
+  --fg-muted: #57464c;
+  --fg-subtle: #8d7b81;
+  --surface: #fefcfd;
+  --surface-hover: #f8edf0;
+  --surface-active: #f0e0e4;
+  --border: #ecd9de;
+  --border-strong: #dcc3ca;
+  --primary: #e11d48;
+  --primary-hover: #be123c;
+  --primary-fg: #ffffff;
+  --selection: #e11d48;
+}
+
+.dark.theme-rose {
+  --bg: #150d10;
+  --bg-sidebar: #1a1115;
+  --fg: #f4e9ec;
+  --fg-muted: #b5a0a7;
+  --fg-subtle: #83707a;
+  --surface: #201519;
+  --surface-hover: #281b20;
+  --surface-active: #302228;
+  --border: #2c1f24;
+  --border-strong: #402e35;
+  --primary: #fb7185;
+  --primary-hover: #fda4af;
+  --primary-fg: #2b0a12;
+  --selection: #fb7185;
 }
 
 @layer base {

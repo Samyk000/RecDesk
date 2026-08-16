@@ -1,16 +1,35 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import type { ThemeAccent, ThemeMode } from "../types";
+import type { ThemeMode, ThemeName } from "../types";
 
 interface ThemeState {
   mode: ThemeMode;
-  accent: ThemeAccent;
+  theme: ThemeName;
   resolved: "light" | "dark";
   setMode: (mode: ThemeMode) => void;
-  setAccent: (accent: ThemeAccent) => void;
+  setTheme: (theme: ThemeName) => void;
 }
 
-const THEME_CLASSES = ["dark", "theme-orange", "theme-gray", "theme-olive"] as const;
+const THEME_CLASSES = [
+  "dark",
+  "theme-blue",
+  "theme-teal",
+  "theme-violet",
+  "theme-sunset",
+  "theme-forest",
+  "theme-rose",
+] as const;
+
+const THEMES: ThemeName[] = ["blue", "teal", "violet", "sunset", "forest", "rose"];
+
+function legacyTheme(value: unknown): ThemeName {
+  if (value === "sunset" || value === "forest" || value === "teal" || value === "violet" || value === "rose") {
+    return value as ThemeName;
+  }
+  if (value === "orange") return "sunset";
+  if (value === "olive") return "forest";
+  return "blue";
+}
 
 function resolve(mode: ThemeMode): "light" | "dark" {
   if (mode === "system") {
@@ -19,31 +38,29 @@ function resolve(mode: ThemeMode): "light" | "dark" {
   return mode;
 }
 
-function applyTheme(mode: ThemeMode, accent: ThemeAccent) {
+function applyTheme(mode: ThemeMode, theme: ThemeName) {
   const root = document.documentElement;
   root.classList.remove(...THEME_CLASSES);
   if (mode === "dark" || (mode === "system" && resolve(mode) === "dark")) {
     root.classList.add("dark");
   }
-  if (accent !== "default") {
-    root.classList.add(`theme-${accent}`);
-  }
+  root.classList.add(`theme-${theme}`);
 }
 
 export const useTheme = create<ThemeState>()(
   persist(
     (set, get) => ({
       mode: "dark",
-      accent: "default",
+      theme: "blue",
       resolved: resolve("dark"),
       setMode: (mode) => {
         const resolved = resolve(mode);
         set({ mode, resolved });
-        applyTheme(mode, get().accent);
+        applyTheme(mode, get().theme);
       },
-      setAccent: (accent) => {
-        set({ accent });
-        applyTheme(get().mode, accent);
+      setTheme: (theme) => {
+        set({ theme });
+        applyTheme(get().mode, theme);
       },
     }),
     {
@@ -55,21 +72,23 @@ export const useTheme = create<ThemeState>()(
           return {
             ...p,
             mode: "dark",
-            accent: legacy as ThemeAccent,
+            theme: legacyTheme(legacy),
             resolved: "dark",
           };
         }
         return {
           ...p,
           mode: ["light", "dark", "system"].includes(p.mode as string) ? (p.mode as ThemeMode) : "dark",
-          accent: ["orange", "gray", "olive"].includes(p.accent as string) ? (p.accent as ThemeAccent) : "default",
+          theme: THEMES.includes(p.theme as ThemeName)
+            ? (p.theme as ThemeName)
+            : legacyTheme(p.accent),
         };
       },
       onRehydrateStorage: () => (state) => {
         if (state) {
           const resolved = resolve(state.mode ?? "dark");
           state.resolved = resolved;
-          applyTheme(state.mode ?? "dark", state.accent ?? "default");
+          applyTheme(state.mode ?? "dark", state.theme ?? "blue");
         }
       },
     },
@@ -77,15 +96,15 @@ export const useTheme = create<ThemeState>()(
 );
 
 export function initTheme() {
-  const { mode, accent } = useTheme.getState();
-  applyTheme(mode, accent);
+  const { mode, theme } = useTheme.getState();
+  applyTheme(mode, theme);
   const mq = window.matchMedia("(prefers-color-scheme: dark)");
   mq.addEventListener("change", () => {
-    const { mode, accent } = useTheme.getState();
+    const { mode, theme } = useTheme.getState();
     if (mode === "system") {
       const r = resolve(mode);
       useTheme.setState({ resolved: r });
-      applyTheme(mode, accent);
+      applyTheme(mode, theme);
     }
   });
 }

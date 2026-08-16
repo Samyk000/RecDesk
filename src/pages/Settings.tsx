@@ -9,7 +9,7 @@ import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { errorMessage, cn } from "../lib/utils";
-import type { ThemeAccent, ThemeMode } from "../types";
+import type { ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -17,14 +17,17 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "system", label: "System", icon: Monitor },
 ];
 
-const colorThemes: { value: ThemeAccent; label: string; swatch: string }[] = [
-  { value: "orange", label: "Orange", swatch: "#f97316" },
-  { value: "gray", label: "Off Gray", swatch: "#525c67" },
-  { value: "olive", label: "Olive", swatch: "#7a8f3d" },
+const colorThemes: { value: ThemeName; label: string; primary: string; bg: string; darkBg: string }[] = [
+  { value: "blue", label: "Blue", primary: "#2563eb", bg: "#f2f5fa", darkBg: "#0c0c0f" },
+  { value: "teal", label: "Teal", primary: "#0d9488", bg: "#e9f4f1", darkBg: "#0a1211" },
+  { value: "violet", label: "Violet", primary: "#7c3aed", bg: "#f1eefb", darkBg: "#0d0b15" },
+  { value: "sunset", label: "Sunset", primary: "#f97316", bg: "#faf3ea", darkBg: "#120d08" },
+  { value: "forest", label: "Forest", primary: "#7a8f3d", bg: "#f1f4e7", darkBg: "#0d100a" },
+  { value: "rose", label: "Rose", primary: "#e11d48", bg: "#faf1f3", darkBg: "#150d10" },
 ];
 
 export function Settings() {
-  const { mode, accent, setMode, setAccent } = useTheme();
+  const { mode, theme, setMode, setTheme } = useTheme();
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -108,30 +111,33 @@ export function Settings() {
             </div>
 
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Color themes</span>
+              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Theme</span>
               <span className="h-px flex-1 bg-border" />
             </div>
-                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <div className="mt-3 grid grid-cols-3 gap-2">
               {colorThemes.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setAccent(accent === opt.value ? "default" : opt.value)}
-                  title={
-                    accent === opt.value
-                      ? "Clear accent (back to default)"
-                      : "Applies as an accent over your current theme"
-                  }
+                  onClick={() => setTheme(opt.value)}
+                  title={`${opt.label} theme (applies to light and dark)`}
                   className={cn(
-                    "flex h-8 cursor-pointer items-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-all duration-150 active:scale-[0.97]",
-                    accent === opt.value
+                    "flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-all duration-150 active:scale-[0.97]",
+                    theme === opt.value
                       ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
                       : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
                   )}
                 >
                   <span
-                    className="h-3 w-3 rounded-full"
-                    style={{ background: opt.swatch, boxShadow: "inset 0 0 0 1px rgb(0 0 0 / 0.15)" }}
-                  />
+                    className="relative h-4 w-4 shrink-0 overflow-hidden rounded-full border border-border-strong"
+                    style={{
+                      background: `linear-gradient(135deg, ${opt.bg} 50%, ${opt.darkBg} 50%)`,
+                    }}
+                  >
+                    <span
+                      className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                      style={{ background: opt.primary }}
+                    />
+                  </span>
                   {opt.label}
                 </button>
               ))}
