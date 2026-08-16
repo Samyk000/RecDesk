@@ -115,7 +115,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
         <form id="candidate-form" onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
           <div className="space-y-1.5">
             <Label htmlFor="cand-name">Name *</Label>
-            <Input id="cand-name" name="name" placeholder="John Smith" required />
+            <Input id="cand-name" name="name" placeholder="Amara Chen" required />
           </div>
 
           {!jobId && (

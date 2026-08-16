@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDays, FileUser, NotebookPen, RefreshCcw } from "lucide-react";
+import { BookOpen, CalendarDots, IdentificationCard, NotePencil, ArrowClockwise } from "@phosphor-icons/react";
 import { JobFieldEditor } from "../JobFieldEditor";
 import { BooleanTable } from "./BooleanTable";
 import type { JobWithStats } from "../../../types";
@@ -6,9 +6,9 @@ import { formatDate } from "../../../lib/utils";
 
 export function OverviewTab({ job }: { job: JobWithStats }) {
   const details = [
-    { icon: FileUser, label: "Candidates", value: String(job.candidate_count) },
-    { icon: CalendarDays, label: "Created", value: formatDate(job.created_at) },
-    { icon: RefreshCcw, label: "Updated", value: formatDate(job.updated_at) },
+    { icon: IdentificationCard, label: "Candidates", value: String(job.candidate_count) },
+    { icon: CalendarDots, label: "Created", value: formatDate(job.created_at) },
+    { icon: ArrowClockwise, label: "Updated", value: formatDate(job.updated_at) },
   ];
 
   return (
@@ -41,7 +41,7 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
                   </span>
                   <div className="min-w-0">
                     <p className="text-xs text-fg-subtle">{d.label}</p>
-                    <p className="truncate text-sm font-medium text-fg">{d.value}</p>
+                    <p className="truncate text-sm font-medium tabular-nums text-fg">{d.value}</p>
                   </div>
                 </div>
               ))}
@@ -50,7 +50,7 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
 
           <div className="flex min-h-[180px] flex-1 flex-col">
             <div className="mb-3 flex items-center gap-2">
-              <NotebookPen className="h-4 w-4 text-fg-subtle" />
+              <NotePencil className="h-4 w-4 text-fg-subtle" />
               <h3 className="text-[13px] font-semibold text-fg">Quick notes</h3>
             </div>
             <div className="flex-1">

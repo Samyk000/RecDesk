@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDays, FileText, Flag } from "lucide-react";
+import { CalendarDots, FileText, Flag } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -72,7 +72,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
           {status === "submitted" && (
             <div className="space-y-1.5">
               <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
-                <CalendarDays className="h-3 w-3" />
+                <CalendarDots className="h-3 w-3" />
                 Submitted date
               </p>
               <input
@@ -87,7 +87,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
           {status === "interview" && (
             <div className="space-y-1.5">
               <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
-                <CalendarDays className="h-3 w-3" />
+                <CalendarDots className="h-3 w-3" />
                 Interview date & time
               </p>
               <input

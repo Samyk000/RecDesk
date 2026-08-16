@@ -77,11 +77,11 @@ export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="client-name">Name *</Label>
-              <Input id="client-name" name="name" placeholder="John Smith" defaultValue={client?.name} required />
+              <Input id="client-name" name="name" placeholder="Sarah Mitchell" defaultValue={client?.name} required />
             </div>
             <div className="space-y-1.5">
               <Label>Company</Label>
-              <Input name="company" placeholder="Acme Corp" defaultValue={client?.company ?? ""} />
+              <Input name="company" placeholder="Brightline Partners" defaultValue={client?.company ?? ""} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
@@ -91,7 +91,7 @@ export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label>Hiring Manager</Label>
-              <Input name="hiring_manager" placeholder="Jane Doe" defaultValue={client?.hiring_manager ?? ""} />
+              <Input name="hiring_manager" placeholder="Daniel Okafor" defaultValue={client?.hiring_manager ?? ""} />
             </div>
           </div>
           <div className="space-y-1.5">

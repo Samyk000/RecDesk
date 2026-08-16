@@ -3,8 +3,8 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --font-sans: "Inter Variable", "Inter", system-ui, -apple-system, sans-serif;
-  --font-display: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", "Inter Variable", system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+  --font-display: "Plus Jakarta Sans Variable", "Plus Jakarta Sans", system-ui, sans-serif;
   --font-mono: "JetBrains Mono Variable", "JetBrains Mono", ui-monospace, monospace;
 
   --color-bg: var(--bg);
@@ -106,7 +106,6 @@
   }
   body {
     @apply bg-bg text-fg antialiased;
-    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     font-optical-sizing: auto;
     overflow: hidden;
     transition: background-color 0.2s ease, color 0.2s ease;
@@ -121,7 +120,19 @@
   h5,
   h6 {
     font-family: var(--font-display);
+    text-wrap: balance;
+  }
+  h1,
+  h2 {
+    letter-spacing: -0.025em;
+  }
+  h3,
+  h4 {
     letter-spacing: -0.02em;
+  }
+  h5,
+  h6 {
+    letter-spacing: -0.01em;
   }
   :focus-visible {
     outline: 2px solid color-mix(in srgb, var(--primary) 60%, transparent);
@@ -132,6 +143,16 @@
 @layer utilities {
   .font-display {
     font-family: var(--font-display);
+  }
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+  .text-balance {
+    text-wrap: balance;
+  }
+  .text-pretty {
+    text-wrap: pretty;
   }
   .scrollbar-thin {
     scrollbar-width: thin;

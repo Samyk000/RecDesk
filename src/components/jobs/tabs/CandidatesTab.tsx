@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import {
   ArrowUp,
-  ChevronDown,
-  ChevronUp,
-  FileUser,
-  Filter,
+  CaretDown,
+  CaretUp,
+  IdentificationCard,
+  Funnel,
   Plus,
-  Search,
-  Trash2,
+  MagnifyingGlass,
+  Trash,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useCandidates, useBulkUpdateCandidates } from "../../../hooks/useQueries";
 import { useDebounce } from "../../../hooks/useDebounce";
@@ -114,15 +114,15 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
   }
 
   const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <ChevronDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />;
-    return sortDir === "asc" ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />;
+    if (sortKey !== col) return <CaretDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />;
+    return sortDir === "asc" ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />;
   };
 
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -131,7 +131,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Filter className="h-4 w-4 text-fg-subtle" />
+          <Funnel className="h-4 w-4 text-fg-subtle" />
           <Select value={status} onValueChange={setStatus}>
             <SelectTrigger className="h-8 w-44 text-[13px]">
               <SelectValue placeholder="All statuses" />
@@ -181,7 +181,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
               toast.info("Use row actions to delete individual candidates");
             }}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash className="h-3.5 w-3.5" />
           </Button>
           <Button size="sm" variant="ghost" onClick={clearSelection}>
             <X className="h-3.5 w-3.5" />
@@ -196,7 +196,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
         </div>
       ) : !sorted.length ? (
         <EmptyState
-          icon={<FileUser className="h-5 w-5" />}
+          icon={<IdentificationCard className="h-5 w-5" />}
           title="No candidates"
           description={
             search || status !== "all"
@@ -213,7 +213,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-hover/40 text-left">
@@ -312,7 +312,7 @@ function CandidateRow({
       <td className="px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <span
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
             style={{
               background: `${submissionPalette(candidate.submission_status).dot}1f`,
               color: submissionPalette(candidate.submission_status).dot,
@@ -330,20 +330,20 @@ function CandidateRow({
       </td>
       <td className="max-w-[180px] px-3 py-2.5">
         <p className="truncate text-[13px] text-fg-muted">
-          {candidate.current_title ?? "—"}
+          {candidate.current_title ?? "-"}
           {candidate.current_company && (
             <span className="text-fg-subtle"> @ {candidate.current_company}</span>
           )}
         </p>
       </td>
-      <td className="px-3 py-2.5 text-[13px] text-fg-muted">{candidate.location ?? "—"}</td>
+      <td className="px-3 py-2.5 text-[13px] text-fg-muted">{candidate.location ?? "-"}</td>
       <td className="px-3 py-2.5">
         {candidate.match_score != null ? (
           <span className={cn("text-[13px] font-semibold tabular-nums", matchColor(candidate.match_score))}>
             {candidate.match_score}
           </span>
         ) : (
-          <span className="text-fg-subtle">—</span>
+          <span className="text-fg-subtle">-</span>
         )}
       </td>
       <td className="px-3 py-2.5">

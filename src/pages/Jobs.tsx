@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Briefcase, Plus, Search } from "lucide-react";
+import { Briefcase, Plus, MagnifyingGlass } from "@phosphor-icons/react";
 import { useJobs } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -38,7 +38,7 @@ export function Jobs() {
 
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-sm">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -89,7 +89,7 @@ export function Jobs() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
           <div className="divide-y divide-border">
             {data.map((job) => (
               <Link

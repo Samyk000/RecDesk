@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, Briefcase, FileUser, Search, X } from "lucide-react";
+import { Building, Briefcase, IdentificationCard, MagnifyingGlass, X } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { apiSearch } from "../../lib/api";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -94,14 +94,14 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
   }
 
   const Icon = (k: string) =>
-    k === "client" ? Building2 : k === "job" ? Briefcase : FileUser;
+    k === "client" ? Building : k === "job" ? Briefcase : IdentificationCard;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-start justify-center pt-[16vh]">
       <div className="fixed inset-0 bg-black/40 backdrop-blur-[2px] animate-fade-in" onClick={onClose} />
       <div className="relative z-10 w-full max-w-xl overflow-hidden rounded-xl border border-border bg-surface shadow-float animate-scale-in">
         <div className="flex items-center gap-3 px-4 py-3">
-          <Search className="h-4 w-4 shrink-0 text-fg-subtle" />
+          <MagnifyingGlass className="h-4 w-4 shrink-0 text-fg-subtle" />
           <input
             ref={inputRef}
             value={query}

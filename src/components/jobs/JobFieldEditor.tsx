@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Check, Loader2 } from "lucide-react";
+import { Check, CircleNotch } from "@phosphor-icons/react";
 import { Textarea } from "../ui/input";
 import { useUpdateJob } from "../../hooks/useQueries";
 import { useDebounce } from "../../hooks/useDebounce";
@@ -70,7 +70,7 @@ export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, hi
         <div className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5">
           {state === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
-              <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+              <CircleNotch className="h-3 w-3 animate-spin" /> Saving…
             </span>
           )}
           {state === "saved" && (

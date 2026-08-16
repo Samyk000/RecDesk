@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Copy, Minus, Moon, Search, Square, Sun, X } from "lucide-react";
+import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme } from "../../store/theme";
 import { Button } from "../ui/button";
@@ -23,7 +23,7 @@ export function Header({ onSearch }: Props) {
         data-tauri-drag-region={false}
         className="group flex h-8 w-full max-w-sm cursor-pointer items-center gap-2.5 rounded-md border border-border bg-surface px-3 text-left text-[13px] text-fg-subtle transition-all duration-150 hover:border-border-strong hover:text-fg hover:shadow-raise"
       >
-        <Search className="h-4 w-4 transition-colors group-hover:text-fg" />
+        <MagnifyingGlass className="h-4 w-4 transition-colors group-hover:text-fg" />
         <span className="flex-1">Search everything…</span>
         <kbd className="rounded border border-border bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] text-fg-muted transition-colors group-hover:bg-surface-active group-hover:text-fg-subtle">
           ⌘K

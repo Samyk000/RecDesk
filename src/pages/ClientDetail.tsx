@@ -3,14 +3,14 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
   Briefcase,
-  Building2,
-  Mail,
+  Building,
+  EnvelopeSimple,
   MapPin,
-  Pencil,
+  PencilSimple,
   Plus,
-  StickyNote,
+  Note,
   User,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   useClient,
@@ -91,7 +91,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
         actions={
           <>
             <Button variant="outline" onClick={() => setEditOpen(true)}>
-              <Pencil className="h-4 w-4" />
+              <PencilSimple className="h-4 w-4" />
               Edit
             </Button>
             <Button variant="primary" onClick={() => setNewJobOpen(true)}>
@@ -104,12 +104,12 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
         <aside className="space-y-5">
-          <div className="rounded-xl border border-border bg-surface p-4 shadow-raise">
+          <div className="rounded-xl border border-border bg-surface p-4">
             <h3 className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
               Contact
             </h3>
             <Field
-              icon={<Mail className="h-3.5 w-3.5" />}
+              icon={<EnvelopeSimple className="h-3.5 w-3.5" />}
               placeholder="No email"
               value={client.email ?? ""}
               onSave={(v) => saveField("email", v)}
@@ -128,9 +128,9 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
             />
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-4 shadow-raise">
+          <div className="rounded-xl border border-border bg-surface p-4">
             <h3 className="mb-3 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
-              <StickyNote className="h-3.5 w-3.5" />
+              <Note className="h-3.5 w-3.5" />
               Notes
             </h3>
             <Textarea
@@ -147,9 +147,9 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
             />
           </div>
 
-          <div className="rounded-xl border border-border bg-surface p-4 text-xs text-fg-subtle shadow-raise">
+          <div className="rounded-xl border border-border bg-surface p-4 text-xs text-fg-subtle">
             <p className="flex items-center gap-1.5">
-              <Building2 className="h-3.5 w-3.5" />
+              <Building className="h-3.5 w-3.5" />
               Created {timeAgo(client.created_at)}
             </p>
             <p className="mt-1.5 flex items-center gap-1.5">
@@ -162,7 +162,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
           <h2 className="font-display mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
             <Briefcase className="h-4 w-4 text-fg-subtle" />
             Jobs
-            <span className="rounded-full bg-surface-active px-2 py-0.5 text-[11px] font-medium text-fg-muted">
+            <span className="rounded-md bg-surface-active px-2 py-0.5 text-[11px] font-medium text-fg-muted">
               {jobs?.length ?? 0}
             </span>
           </h2>
@@ -180,7 +180,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
               }
             />
           ) : (
-            <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+            <div className="overflow-hidden rounded-xl border border-border bg-surface">
               <div className="divide-y divide-border">
                 {jobs.map((job) => (
                   <Link

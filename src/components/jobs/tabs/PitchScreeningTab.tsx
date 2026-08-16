@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import {
   Check,
-  GripVertical,
+  DotsSixVertical,
   ListChecks,
-  Loader2,
-  MessageSquareQuote,
+  CircleNotch,
+  ChatCircleText,
   Plus,
-  Trash2,
-} from "lucide-react";
+  Trash,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useUpdateJob } from "../../../hooks/useQueries";
 import { useDebounce } from "../../../hooks/useDebounce";
@@ -28,7 +28,7 @@ export function PitchScreeningTab({ job }: { job: Job }) {
       <div className="flex min-h-[320px] flex-col">
         <div className="mb-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <MessageSquareQuote className="h-4 w-4 text-primary" />
+            <ChatCircleText className="h-4 w-4 text-primary" />
             <h3 className="text-[13px] font-semibold text-fg">Candidate pitch</h3>
           </div>
           {hasPitch && <CopyButton text={job.candidate_pitch!} label="Copy pitch" />}
@@ -48,9 +48,9 @@ export function PitchScreeningTab({ job }: { job: Job }) {
           </div>
           {!hasPitch && (
             <EmptyState
-              icon={<MessageSquareQuote className="h-5 w-5" />}
+              icon={<ChatCircleText className="h-5 w-5" />}
               title="No pitch written yet"
-              description="Write the message you use to introduce the role — it will auto-save as you type."
+              description="Write the message you use to introduce the role. It auto-saves as you type."
             />
           )}
         </div>
@@ -115,7 +115,7 @@ function ScreeningList({ job }: { job: Job }) {
         <div className="flex items-center gap-2">
           {state === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
-              <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+              <CircleNotch className="h-3 w-3 animate-spin" /> Saving…
             </span>
           )}
           {state === "saved" && (
@@ -152,7 +152,7 @@ function ScreeningList({ job }: { job: Job }) {
               key={i}
               className="group flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 transition-all duration-150 focus-within:border-primary/50 hover:shadow-raise"
             >
-              <GripVertical className="h-4 w-4 shrink-0 cursor-grab text-fg-subtle opacity-60" />
+              <DotsSixVertical className="h-4 w-4 shrink-0 cursor-grab text-fg-subtle opacity-60" />
               <span className="w-6 shrink-0 text-center font-mono text-xs text-fg-subtle">{i + 1}</span>
               <Input
                 value={q}
@@ -173,7 +173,7 @@ function ScreeningList({ job }: { job: Job }) {
                   className="h-7 w-7 text-fg-subtle hover:text-red-500"
                   onClick={() => remove(i)}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash className="h-3.5 w-3.5" />
                 </Button>
               </div>
             </div>

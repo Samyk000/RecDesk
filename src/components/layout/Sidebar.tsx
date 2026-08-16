@@ -1,12 +1,12 @@
 import { NavLink } from "react-router-dom";
-import { Building2, Briefcase, FileUser, LayoutDashboard, Settings } from "lucide-react";
+import { Building, Briefcase, IdentificationCard, SquaresFour, Gear } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
 const navItems = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
+  { to: "/", label: "Dashboard", icon: SquaresFour, end: true },
   { to: "/jobs", label: "Jobs", icon: Briefcase },
-  { to: "/candidates", label: "Candidates", icon: FileUser },
-  { to: "/clients", label: "Clients", icon: Building2 },
+  { to: "/candidates", label: "Candidates", icon: IdentificationCard },
+  { to: "/clients", label: "Clients", icon: Building },
 ];
 
 export function Sidebar() {
@@ -14,7 +14,7 @@ export function Sidebar() {
     <aside className="flex w-50 shrink-0 flex-col border-r border-border bg-bg-sidebar">
       <div className="flex h-12 items-center gap-2.5 border-b border-border px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-fg shadow-raise transition-transform duration-150">
-          <FileUser className="h-4 w-4" />
+          <IdentificationCard className="h-4 w-4" />
         </div>
         <div className="leading-tight">
           <p className="font-display text-[14px] font-bold tracking-tight text-fg">RecDesk</p>
@@ -69,7 +69,7 @@ export function Sidebar() {
               {isActive && (
                 <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-primary" />
               )}
-              <Settings className="h-[18px] w-[18px] transition-transform duration-150 group-hover:scale-110" />
+              <Gear className="h-[18px] w-[18px] transition-transform duration-150 group-hover:scale-110" />
               Settings
             </>
           )}

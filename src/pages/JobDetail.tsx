@@ -4,11 +4,11 @@ import {
   ArrowLeft,
   BookOpen,
   Briefcase,
-  MessageSquareQuote,
-  MoreHorizontal,
-  Pencil,
-  Trash2,
-} from "lucide-react";
+  ChatCircleText,
+  DotsThree,
+  PencilSimple,
+  Trash,
+} from "@phosphor-icons/react";
 import { useDeleteJob, useJob } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -36,7 +36,7 @@ import { toJobInput } from "../components/jobs/tabUtils";
 
 const tabDefs = [
   { value: "overview", label: "Overview", icon: BookOpen },
-  { value: "pitch-screening", label: "Pitch & Screening", icon: MessageSquareQuote },
+  { value: "pitch-screening", label: "Pitch & Screening", icon: ChatCircleText },
   { value: "candidates", label: "Candidates", icon: Briefcase },
 ];
 
@@ -108,19 +108,19 @@ export function JobDetail() {
           <StatusBadge status={job.status} kind="job" className="shrink-0" />
           <StatusSwitcher job={job} />
           <Button variant="outline" onClick={() => setEditOpen(true)}>
-            <Pencil className="h-4 w-4" />
+            <PencilSimple className="h-4 w-4" />
             Edit
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button size="icon" variant="ghost">
-                <MoreHorizontal className="h-4 w-4" />
+                <DotsThree className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Actions</DropdownMenuLabel>
               <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => setDeleteOpen(true)}>
-                <Trash2 className="h-3.5 w-3.5" />
+                <Trash className="h-3.5 w-3.5" />
                 Delete job
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -144,7 +144,7 @@ export function JobDetail() {
               <t.icon className="h-3.5 w-3.5" />
               {t.label}
               {t.value === "candidates" && (
-                <span className="ml-1 rounded-full bg-surface-active px-1.5 text-[11px] font-medium text-fg-muted">
+                <span className="ml-1 rounded-md bg-surface-active px-1.5 text-[11px] font-medium text-fg-muted">
                   {job.candidate_count}
                 </span>
               )}

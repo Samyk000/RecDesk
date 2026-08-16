@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "@phosphor-icons/react";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
 import { PageLoader } from "../components/common/Spinner";
 import { useCandidate } from "../hooks/useQueries";
@@ -21,7 +21,7 @@ export function CandidateDetail() {
         Back
       </button>
 
-      <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
         <div className="max-h-[calc(100vh-9rem)] overflow-y-auto">
           <CandidateDetailPanel candidateId={candidate.id} onClose={() => navigate(-1)} />
         </div>

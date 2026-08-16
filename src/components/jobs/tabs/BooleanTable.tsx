@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Check, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { Check, CircleNotch, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useUpdateJob } from "../../../hooks/useQueries";
 import { useDebounce } from "../../../hooks/useDebounce";
@@ -49,13 +49,13 @@ export function BooleanTable({ job }: { job: Job }) {
     <div className="w-full">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Search className="h-4 w-4 text-fg-subtle" />
+          <MagnifyingGlass className="h-4 w-4 text-fg-subtle" />
           <h3 className="text-[13px] font-semibold text-fg">Boolean search strings</h3>
         </div>
         <div className="flex items-center gap-2">
           {state === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
-              <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+              <CircleNotch className="h-3 w-3 animate-spin" /> Saving…
             </span>
           )}
           {state === "saved" && (
@@ -85,7 +85,7 @@ export function BooleanTable({ job }: { job: Job }) {
           </Button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
           <table className="w-full table-fixed text-sm">
             <colgroup>
               <col className="w-[200px]" />
@@ -128,7 +128,7 @@ export function BooleanTable({ job }: { job: Job }) {
                         className="h-7 w-7 text-fg-subtle hover:text-red-500"
                         onClick={() => remove(i)}
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash className="h-3.5 w-3.5" />
                       </Button>
                     </div>
                   </td>

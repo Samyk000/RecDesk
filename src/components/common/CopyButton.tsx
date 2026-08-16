@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy } from "@phosphor-icons/react";
 import { Button } from "../ui/button";
 import { copyToClipboard, cn } from "../../lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -29,7 +29,7 @@ export function CopyButton({ text, className, label = "Copy" }: Props) {
           <span className="text-xs">{copied ? "Copied" : label}</span>
         </Button>
       </TooltipTrigger>
-      <TooltipContent>{copied ? "Copied!" : `Copy ${label.toLowerCase()} to clipboard`}</TooltipContent>
+      <TooltipContent>{copied ? "Copied" : `Copy ${label.toLowerCase()} to clipboard`}</TooltipContent>
     </Tooltip>
   );
 }

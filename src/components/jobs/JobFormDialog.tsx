@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   Dialog,

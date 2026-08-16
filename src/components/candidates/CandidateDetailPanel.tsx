@@ -2,14 +2,14 @@ import { useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
-  CalendarDays,
+  CalendarDots,
   FileText,
-  Link2,
-  Loader2,
+  Link,
+  CircleNotch,
   Paperclip,
-  Trash2,
+  Trash,
   X,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
@@ -123,7 +123,7 @@ function CandidatePanelBody({
     try {
       await openPath(candidate.resume_path);
     } catch {
-      toast.error("Could not open file — it may have been moved");
+      toast.error("Could not open file. It may have been moved");
     }
   }
 
@@ -149,7 +149,7 @@ function CandidatePanelBody({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-start gap-3 border-b border-border p-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-semibold text-primary">
+        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
           {initials}
         </span>
         <div className="min-w-0 flex-1">
@@ -173,7 +173,7 @@ function CandidatePanelBody({
       <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
         {saving && (
           <div className="absolute right-4 top-16 flex items-center gap-1 text-[11px] text-fg-subtle">
-            <Loader2 className="h-3 w-3 animate-spin" /> Saving…
+            <CircleNotch className="h-3 w-3 animate-spin" /> Saving…
           </div>
         )}
 
@@ -290,7 +290,7 @@ function CandidatePanelBody({
                   {candidate.resume_path.split(/[\\/]/).pop()}
                 </span>
                 <Button size="xs" variant="ghost" onClick={openResume}>
-                  <Link2 className="h-3.5 w-3.5" />
+                  <Link className="h-3.5 w-3.5" />
                   Open
                 </Button>
                 <Button
@@ -305,7 +305,7 @@ function CandidatePanelBody({
                     }
                   }}
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash className="h-3.5 w-3.5" />
                 </Button>
               </div>
             ) : (
@@ -319,7 +319,7 @@ function CandidatePanelBody({
 
         {/* Date added */}
         <div className="flex items-center gap-2 text-[11px] text-fg-subtle">
-          <CalendarDays className="h-3 w-3" />
+          <CalendarDots className="h-3 w-3" />
           Added {formatDate(candidate.date_added)}
         </div>
       </div>
@@ -353,7 +353,7 @@ function CandidatePanelBody({
             className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
             onClick={() => setConfirmDelete(true)}
           >
-            <Trash2 className="h-3.5 w-3.5" />
+            <Trash className="h-3.5 w-3.5" />
             Delete
           </Button>
         )}

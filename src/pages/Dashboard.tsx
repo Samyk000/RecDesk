@@ -2,11 +2,11 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Briefcase,
-  Building2,
+  Building,
   Clock,
-  FileUser,
+  IdentificationCard,
   Plus,
-} from "lucide-react";
+} from "@phosphor-icons/react";
 import { useDashboardStats } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
@@ -35,7 +35,7 @@ export function Dashboard() {
     {
       label: "Total candidates",
       value: data.total_candidates,
-      icon: FileUser,
+      icon: IdentificationCard,
       accent: "text-violet-500",
       to: "/jobs",
     },
@@ -49,7 +49,7 @@ export function Dashboard() {
     {
       label: "Clients",
       value: data.total_clients,
-      icon: Building2,
+      icon: Building,
       accent: "text-emerald-500",
       to: "/clients",
     },
@@ -68,7 +68,7 @@ export function Dashboard() {
             key={s.label}
             to={s.to}
             style={{ animationDelay: `${i * 40}ms` }}
-            className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 shadow-raise transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
+            className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-4 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
           >
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
               <s.icon className={cn("h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
@@ -88,7 +88,7 @@ export function Dashboard() {
           <EmptyState
             icon={<Briefcase className="h-5 w-5" />}
             title="No jobs yet"
-            description="Create a client, add a job, then start tracking candidates — everything lives in one place."
+            description="Create a client, add a job, then start tracking candidates. Everything lives in one place."
             action={
               <Button
                 variant="primary"
@@ -107,7 +107,7 @@ export function Dashboard() {
             to="/jobs"
             empty={<p className="text-[13px] text-fg-subtle">No jobs yet.</p>}
           >
-            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
               {data.recent_jobs.slice(0, 6).map((job) => (
                 <Link
                   key={job.id}
@@ -123,7 +123,8 @@ export function Dashboard() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-medium text-fg">{job.title}</span>
                     <span className="block truncate text-xs text-fg-subtle">
-                      {job.client_name} · {job.job_id} · {job.candidate_count} candidates
+                      {job.client_name} · {job.job_id}
+                      <span className="ml-2 text-fg-muted">{job.candidate_count} candidates</span>
                     </span>
                   </span>
                   <span className="shrink-0 text-xs text-fg-subtle">{timeAgo(job.updated_at)}</span>
@@ -137,7 +138,7 @@ export function Dashboard() {
             to="/candidates"
             empty={<p className="text-[13px] text-fg-subtle">No candidates yet.</p>}
           >
-            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
               {data.recent_candidates.slice(0, 6).map((cand) => (
                 <Link
                   key={cand.id}
@@ -145,7 +146,7 @@ export function Dashboard() {
                   className="flex items-center gap-3 px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
                 >
                   <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
                     style={{
                       background: `${submissionPalette(cand.submission_status).dot}1a`,
                       color: submissionPalette(cand.submission_status).dot,
@@ -162,7 +163,7 @@ export function Dashboard() {
                     <span className="block truncate text-[13px] font-medium text-fg">{cand.name}</span>
                     <span className="block truncate text-xs text-fg-subtle">
                       {cand.current_title ? `${cand.current_title} · ` : ""}
-                      {cand.current_company ?? "—"}
+                      {cand.current_company ?? "-"}
                     </span>
                   </span>
                   <StatusBadge status={cand.submission_status} className="shrink-0" />

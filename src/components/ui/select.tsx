@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, ChevronDown } from "lucide-react";
+import { Check, CaretDown } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
 const Select = SelectPrimitive.Root;
@@ -20,7 +20,7 @@ const SelectTrigger = React.forwardRef<
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 text-fg-subtle" />
+      <CaretDown className="h-4 w-4 text-fg-subtle" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));

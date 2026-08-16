@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileUser, Plus, Search } from "lucide-react";
+import { IdentificationCard, Plus, MagnifyingGlass } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiCandidates } from "../lib/api";
@@ -71,7 +71,7 @@ export function Candidates() {
 
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-xs">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
+          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -85,7 +85,7 @@ export function Candidates() {
         <Spinner className="py-16" />
       ) : !data?.length ? (
         <EmptyState
-          icon={<FileUser className="h-5 w-5" />}
+          icon={<IdentificationCard className="h-5 w-5" />}
           title="No candidates"
           description={
             debounced
@@ -94,7 +94,7 @@ export function Candidates() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-raise">
+        <div className="overflow-hidden rounded-xl border border-border bg-surface">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-hover/40 text-left">
@@ -117,7 +117,7 @@ export function Candidates() {
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2.5">
                       <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold"
+                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
                         style={{
                           background: `${submissionPalette(c.submission_status).dot}1f`,
                           color: submissionPalette(c.submission_status).dot,
@@ -141,10 +141,10 @@ export function Candidates() {
                       onUpdate={(v) => handleStatusChange(c, v)}
                     />
                   </td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">
-                    {c.match_score != null ? c.match_score : "—"}
+                  <td className="px-4 py-2.5 text-[13px] tabular-nums text-fg-muted">
+                    {c.match_score != null ? c.match_score : "-"}
                   </td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "—"}</td>
+                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
                 </tr>
               ))}

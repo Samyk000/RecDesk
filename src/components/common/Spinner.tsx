@@ -1,8 +1,8 @@
-import { Loader2 } from "lucide-react";
+import { CircleNotch } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
 export function Spinner({ className }: { className?: string }) {
-  return <Loader2 className={cn("h-5 w-5 animate-spin text-fg-subtle", className)} />;
+  return <CircleNotch className={cn("h-5 w-5 animate-spin text-fg-subtle", className)} />;
 }
 
 export function PageLoader({ label = "Loading…" }: { label?: string }) {

@@ -320,7 +320,7 @@ const DEMO_JSON: &str = r#"
       "boolean_strings": [
         { "name": "Tight", "query": "(\"Data Engineer\") AND (Spark OR Databricks) AND (Python OR Scala) AND Atlanta" }
       ],
-      "candidate_pitch": "Hi {name}! Delta Systems is looking for a Data Engineer to modernize their analytics platform - Spark/Databricks stack. Hybrid in Atlanta. Interested?",
+      "candidate_pitch": "Hi {name}, Delta Systems is looking for a Data Engineer to modernize their analytics platform - Spark/Databricks stack. Hybrid in Atlanta. Interested?",
       "screening_questions": [
         "Walk me through a data pipeline you built end-to-end.",
         "Databricks vs Snowflake - where is your comfort zone?",
@@ -360,8 +360,8 @@ const DEMO_JSON: &str = r#"
     {
       "id": "demo-cand-1",
       "job_id": "demo-job-1",
-      "name": "John Smith",
-      "email": "john.smith@gmail.com",
+      "name": "Daniel Okafor",
+      "email": "daniel.okafor@gmail.com",
       "phone": "+1 (617) 555-0101",
       "location": "Boston, MA",
       "current_title": "Senior Java Developer",

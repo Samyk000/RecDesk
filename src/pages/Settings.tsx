@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Database, Download, Info, Monitor, Moon, Sun, Upload, Sparkles } from "lucide-react";
+import { Database, DownloadSimple, Info, Monitor, Moon, Sun, UploadSimple, Sparkle } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -86,7 +86,7 @@ export function Settings() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-1">
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-raise">
+          <section className="rounded-xl border border-border bg-surface p-6">
             <h2 className="font-display mb-1 text-[15px] font-semibold tracking-tight text-fg">Appearance</h2>
             <p className="mb-4 text-xs text-fg-subtle">Choose how the app looks.</p>
             <div className="flex flex-wrap items-center gap-2">
@@ -138,19 +138,19 @@ export function Settings() {
             </div>
           </section>
 
-          <section className="rounded-xl border border-border bg-surface p-6 shadow-raise">
+          <section className="rounded-xl border border-border bg-surface p-6">
             <h2 className="font-display mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
               <Info className="h-4 w-4 text-fg-subtle" />
               About
             </h2>
             <p className="text-[13px] text-fg-muted">
-              RecDesk — local-first personal recruiting tracker.
+              RecDesk. A local-first personal recruiting tracker.
               Built with Tauri, Rust, and React.
             </p>
           </section>
         </div>
 
-        <section className="rounded-xl border border-border bg-surface p-6 shadow-raise lg:col-span-2">
+        <section className="rounded-xl border border-border bg-surface p-6 lg:col-span-2">
           <h2 className="font-display mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
             <Database className="h-4 w-4 text-fg-subtle" />
             Data
@@ -162,7 +162,7 @@ export function Settings() {
           <div className="space-y-3">
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
               <div className="flex items-center gap-3">
-                <Download className="h-4 w-4 text-fg-subtle" />
+                <DownloadSimple className="h-4 w-4 text-fg-subtle" />
                 <div>
                   <p className="text-[13px] font-medium text-fg">Export backup</p>
                   <p className="text-xs text-fg-subtle">Save all data to a JSON file.</p>
@@ -175,7 +175,7 @@ export function Settings() {
 
             <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
               <div className="flex items-center gap-3">
-                <Upload className="h-4 w-4 text-fg-subtle" />
+                <UploadSimple className="h-4 w-4 text-fg-subtle" />
                 <div>
                   <p className="text-[13px] font-medium text-fg">Import backup</p>
                   <p className="text-xs text-fg-subtle">Load data from a JSON file.</p>
@@ -200,7 +200,7 @@ export function Settings() {
 
               <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="h-4 w-4 text-fg-subtle" />
+                  <Sparkle className="h-4 w-4 text-fg-subtle" />
                   <div>
                     <p className="text-[13px] font-medium text-fg">Load demo data</p>
                     <p className="text-xs text-fg-subtle">Add sample data to explore the app.</p>
