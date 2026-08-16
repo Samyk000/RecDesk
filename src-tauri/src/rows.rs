@@ -34,7 +34,7 @@ pub fn row_to_client(row: &Row) -> rusqlite::Result<Client> {
         name: row.get(1)?,
         company: row.get(2)?,
         email: row.get(3)?,
-        phone: row.get(4)?,
+        hiring_manager: row.get(4)?,
         address: row.get(5)?,
         notes: row.get(6)?,
         created_at: row.get(7)?,
@@ -100,17 +100,20 @@ pub fn row_to_candidate(row: &Row) -> rusqlite::Result<Candidate> {
         interview_status: row.get(13)?,
         client_feedback: row.get(14)?,
         candidate_status: row.get(15)?,
-        date_added: row.get(16)?,
-        last_updated: row.get(17)?,
+        submitted_at: row.get(16)?,
+        interview_at: row.get(17)?,
+        rejection_reason: row.get(18)?,
+        date_added: row.get(19)?,
+        last_updated: row.get(20)?,
     })
 }
 
-// Candidate + job_title + job_id_ref + client_name (indices 18, 19, 20 appended)
+// Candidate + job_title + job_id_ref + client_name (indices 21, 22, 23 appended)
 pub fn row_to_candidate_with_job(row: &Row) -> rusqlite::Result<CandidateWithJob> {
     Ok(CandidateWithJob {
         candidate: row_to_candidate(row)?,
-        job_title: row.get(18)?,
-        job_id_ref: row.get(19)?,
-        client_name: row.get(20)?,
+        job_title: row.get(21)?,
+        job_id_ref: row.get(22)?,
+        client_name: row.get(23)?,
     })
 }

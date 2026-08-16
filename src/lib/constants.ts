@@ -1,10 +1,10 @@
 export const SUBMISSION_STATUSES = [
-  "new",
+  "sourced",
+  "in_touch",
   "submitted",
-  "interviewing",
-  "offer",
-  "hired",
+  "interview",
   "rejected",
+  "not_interested",
 ] as const;
 
 export const JOB_STATUSES = ["active", "on_hold", "closed"] as const;
@@ -25,13 +25,21 @@ type Palette = {
 };
 
 export const SUBMISSION_PALETTE: Record<string, Palette> = {
-  new: {
+  sourced: {
     dot: "#64748b",
     badge: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
     badgeText: "text-slate-700 dark:text-slate-300",
     chip: "bg-slate-100 text-slate-700 dark:bg-slate-700/40 dark:text-slate-200",
     chipText: "text-slate-600 dark:text-slate-300",
     bar: "bg-slate-400",
+  },
+  in_touch: {
+    dot: "#3b82f6",
+    badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
+    badgeText: "text-blue-700 dark:text-blue-300",
+    chip: "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200",
+    chipText: "text-blue-700 dark:text-blue-300",
+    bar: "bg-blue-400",
   },
   submitted: {
     dot: "#f59e0b",
@@ -41,29 +49,13 @@ export const SUBMISSION_PALETTE: Record<string, Palette> = {
     chipText: "text-amber-700 dark:text-amber-300",
     bar: "bg-amber-400",
   },
-  interviewing: {
+  interview: {
     dot: "#8b5cf6",
     badge: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
     badgeText: "text-violet-700 dark:text-violet-300",
     chip: "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200",
     chipText: "text-violet-700 dark:text-violet-300",
     bar: "bg-violet-400",
-  },
-  offer: {
-    dot: "#10b981",
-    badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
-    badgeText: "text-emerald-700 dark:text-emerald-300",
-    chip: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
-    chipText: "text-emerald-700 dark:text-emerald-300",
-    bar: "bg-emerald-400",
-  },
-  hired: {
-    dot: "#059669",
-    badge: "bg-emerald-600/15 text-emerald-700 dark:text-emerald-300",
-    badgeText: "text-emerald-700 dark:text-emerald-300",
-    chip: "bg-emerald-600/10 text-emerald-800 dark:bg-emerald-500/25 dark:text-emerald-200",
-    chipText: "text-emerald-700 dark:text-emerald-300",
-    bar: "bg-emerald-500",
   },
   rejected: {
     dot: "#ef4444",
@@ -72,6 +64,14 @@ export const SUBMISSION_PALETTE: Record<string, Palette> = {
     chip: "bg-red-100 text-red-800 dark:bg-red-500/20 dark:text-red-200",
     chipText: "text-red-700 dark:text-red-300",
     bar: "bg-red-400",
+  },
+  not_interested: {
+    dot: "#a3a3ad",
+    badge: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
+    badgeText: "text-slate-600 dark:text-slate-400",
+    chip: "bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300",
+    chipText: "text-slate-500 dark:text-slate-400",
+    bar: "bg-slate-400",
   },
 };
 
@@ -130,7 +130,7 @@ export const CANDIDATE_PALETTE: Record<string, Palette> = {
 };
 
 export function submissionPalette(status: string): Palette {
-  return SUBMISSION_PALETTE[status] ?? SUBMISSION_PALETTE.new;
+  return SUBMISSION_PALETTE[status] ?? SUBMISSION_PALETTE.sourced;
 }
 
 export function jobPalette(status: string): Palette {

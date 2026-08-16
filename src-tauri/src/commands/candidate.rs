@@ -11,7 +11,8 @@ const CANDIDATE_SELECT: &str = r#"
   SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
-         c.candidate_status, c.date_added, c.last_updated
+         c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
+         c.date_added, c.last_updated
   FROM candidates c
 "#;
 
@@ -19,7 +20,8 @@ const CANDIDATE_SELECT_JOIN: &str = r#"
   SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
-         c.candidate_status, c.date_added, c.last_updated,
+         c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
+         c.date_added, c.last_updated,
          j.title, j.job_id, cl.name
   FROM candidates c
   JOIN jobs j ON j.id = c.job_id
@@ -95,8 +97,9 @@ pub fn create_candidate(
         "INSERT INTO candidates (id, job_id, name, email, phone, location, current_title,
                                  current_company, experience_years, resume_path, recruiter_notes,
                                  match_score, submission_status, interview_status, client_feedback,
-                                 candidate_status, date_added, last_updated)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?17)",
+                                 candidate_status, submitted_at, interview_at, rejection_reason,
+                                 date_added, last_updated)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?20)",
         params![
             id,
             input.job_id,
@@ -110,17 +113,21 @@ pub fn create_candidate(
             input.resume_path,
             input.recruiter_notes,
             input.match_score,
-            input.submission_status.unwrap_or_else(|| "new".to_string()),
+            input.submission_status.unwrap_or_else(|| "sourced".to_string()),
             input.interview_status,
             input.client_feedback,
             input.candidate_status.unwrap_or_else(|| "active".to_string()),
+            input.submitted_at,
+            input.interview_at,
+            input.rejection_reason,
             ts
         ],
     )?;
     let cand = conn.query_row(
         "SELECT id, job_id, name, email, phone, location, current_title, current_company,
                 experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, date_added, last_updated
+                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
+                rejection_reason, date_added, last_updated
          FROM candidates WHERE id = ?1",
         params![&id],
         row_to_candidate,
@@ -140,8 +147,10 @@ pub fn update_candidate(
                                current_title = ?6, current_company = ?7, experience_years = ?8,
                                resume_path = ?9, recruiter_notes = ?10, match_score = ?11,
                                submission_status = ?12, interview_status = ?13,
-                               client_feedback = ?14, candidate_status = ?15, last_updated = ?16
-         WHERE id = ?17",
+                               client_feedback = ?14, candidate_status = ?15,
+                               submitted_at = ?16, interview_at = ?17, rejection_reason = ?18,
+                               last_updated = ?19
+         WHERE id = ?20",
         params![
             input.job_id,
             input.name,
@@ -154,10 +163,13 @@ pub fn update_candidate(
             input.resume_path,
             input.recruiter_notes,
             input.match_score,
-            input.submission_status.unwrap_or_else(|| "new".to_string()),
+            input.submission_status.unwrap_or_else(|| "sourced".to_string()),
             input.interview_status,
             input.client_feedback,
             input.candidate_status.unwrap_or_else(|| "active".to_string()),
+            input.submitted_at,
+            input.interview_at,
+            input.rejection_reason,
             now(),
             id
         ],
@@ -168,7 +180,8 @@ pub fn update_candidate(
     let cand = conn.query_row(
         "SELECT id, job_id, name, email, phone, location, current_title, current_company,
                 experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, date_added, last_updated
+                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
+                rejection_reason, date_added, last_updated
          FROM candidates WHERE id = ?1",
         params![&id],
         row_to_candidate,
@@ -202,6 +215,12 @@ pub struct CandidatePatch {
     pub client_feedback: Option<String>,
     #[serde(default)]
     pub candidate_status: Option<String>,
+    #[serde(default)]
+    pub submitted_at: Option<String>,
+    #[serde(default)]
+    pub interview_at: Option<String>,
+    #[serde(default)]
+    pub rejection_reason: Option<String>,
 }
 
 #[tauri::command]
@@ -221,7 +240,10 @@ pub fn bulk_update_candidates(
                                 client_feedback = COALESCE(?3, client_feedback),
                                 match_score = COALESCE(?4, match_score),
                                 candidate_status = COALESCE(?5, candidate_status),
-                                last_updated = ?6
+                                submitted_at = COALESCE(?6, submitted_at),
+                                interview_at = COALESCE(?7, interview_at),
+                                rejection_reason = COALESCE(?8, rejection_reason),
+                                last_updated = ?9
          WHERE id IN ({})",
         placeholders.join(",")
     );
@@ -231,6 +253,9 @@ pub fn bulk_update_candidates(
         Box::new(patch.client_feedback),
         Box::new(patch.match_score),
         Box::new(patch.candidate_status),
+        Box::new(patch.submitted_at),
+        Box::new(patch.interview_at),
+        Box::new(patch.rejection_reason),
         Box::new(now()),
     ];
     for id in &ids {

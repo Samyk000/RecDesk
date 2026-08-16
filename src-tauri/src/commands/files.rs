@@ -62,7 +62,8 @@ pub fn attach_resume(
     let cand = conn.query_row(
         "SELECT id, job_id, name, email, phone, location, current_title, current_company,
                 experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, date_added, last_updated
+                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
+                rejection_reason, date_added, last_updated
          FROM candidates WHERE id = ?1",
         params![&candidate_id],
         row_to_candidate,
@@ -80,7 +81,8 @@ pub fn remove_resume(state: State<'_, AppState>, candidate_id: String) -> AppRes
     let cand = conn.query_row(
         "SELECT id, job_id, name, email, phone, location, current_title, current_company,
                 experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, date_added, last_updated
+                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
+                rejection_reason, date_added, last_updated
          FROM candidates WHERE id = ?1",
         params![&candidate_id],
         row_to_candidate,

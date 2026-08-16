@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS clients (
   name TEXT NOT NULL,
   company TEXT,
   email TEXT,
-  phone TEXT,
+  hiring_manager TEXT,
   address TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
@@ -47,10 +47,13 @@ CREATE TABLE IF NOT EXISTS candidates (
   resume_path TEXT,
   recruiter_notes TEXT,
   match_score INTEGER,
-  submission_status TEXT NOT NULL DEFAULT 'new',
+  submission_status TEXT NOT NULL DEFAULT 'sourced',
   interview_status TEXT,
   client_feedback TEXT,
   candidate_status TEXT NOT NULL DEFAULT 'active',
+  submitted_at TEXT,
+  interview_at TEXT,
+  rejection_reason TEXT,
   date_added TEXT NOT NULL,
   last_updated TEXT NOT NULL
 );
@@ -73,5 +76,64 @@ CREATE INDEX IF NOT EXISTS idx_candidates_updated ON candidates(last_updated);
 
 pub fn create_schema(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(SCHEMA_SQL)?;
+    migrate_clients(conn)?;
+    migrate_candidates(conn)?;
+    Ok(())
+}
+
+// Idempotent migration: adds new columns to the clients table.
+fn migrate_clients(conn: &Connection) -> AppResult<()> {
+    let existing: Vec<String> = conn
+        .prepare("PRAGMA table_info(clients)")?
+        .query_map([], |row| row.get(1))?
+        .collect::<Result<_, _>>()?;
+
+    let additions = [
+        ("hiring_manager", "TEXT"),
+    ];
+    for (col, ty) in additions {
+        if !existing.iter().any(|c| c == col) {
+            conn.execute(&format!("ALTER TABLE clients ADD COLUMN {col} {ty}"), [])?;
+        }
+    }
+
+    Ok(())
+}
+
+// Idempotent migration: adds new columns and maps old status values.
+fn migrate_candidates(conn: &Connection) -> AppResult<()> {
+    let existing: Vec<String> = conn
+        .prepare("PRAGMA table_info(candidates)")?
+        .query_map([], |row| row.get(1))?
+        .collect::<Result<_, _>>()?;
+
+    let additions = [
+        ("submitted_at", "TEXT"),
+        ("interview_at", "TEXT"),
+        ("rejection_reason", "TEXT"),
+    ];
+    for (col, ty) in additions {
+        if !existing.iter().any(|c| c == col) {
+            conn.execute(&format!("ALTER TABLE candidates ADD COLUMN {col} {ty}"), [])?;
+        }
+    }
+
+    conn.execute(
+        "UPDATE candidates SET submission_status = 'sourced' WHERE submission_status = 'new'",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE candidates SET submission_status = 'submitted' WHERE submission_status = 'interviewing'",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE candidates SET submission_status = 'interview' WHERE submission_status = 'offer'",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE candidates SET submission_status = 'sourced' WHERE submission_status = 'hired'",
+        [],
+    )?;
+
     Ok(())
 }

@@ -30,7 +30,7 @@ export function AppLayout() {
       <div className="flex h-full overflow-hidden">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <Header onSearch={() => setSearchOpen(true)} onNewJob={() => setJobFormOpen(true)} />
+          <Header onSearch={() => setSearchOpen(true)} />
           <main className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             <Outlet />
           </main>

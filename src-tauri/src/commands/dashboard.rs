@@ -9,7 +9,8 @@ const CANDIDATE_SELECT: &str = r#"
   SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
-         c.candidate_status, c.date_added, c.last_updated
+         c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
+         c.date_added, c.last_updated
   FROM candidates c
 "#;
 
@@ -42,7 +43,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     let total_candidates: i64 = conn.query_row("SELECT COUNT(*) FROM candidates", [], |r| r.get(0))?;
     let total_clients: i64 = conn.query_row("SELECT COUNT(*) FROM clients", [], |r| r.get(0))?;
     let candidates_needing_action: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM candidates WHERE submission_status IN ('new','submitted','interviewing') AND candidate_status = 'active'",
+        "SELECT COUNT(*) FROM candidates WHERE submission_status IN ('in_touch','submitted','interview') AND candidate_status = 'active'",
         [],
         |r| r.get(0),
     )?;

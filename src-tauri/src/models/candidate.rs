@@ -31,6 +31,12 @@ pub struct Candidate {
     pub client_feedback: Option<String>,
     #[serde(default)]
     pub candidate_status: String,
+    #[serde(default)]
+    pub submitted_at: Option<String>,
+    #[serde(default)]
+    pub interview_at: Option<String>,
+    #[serde(default)]
+    pub rejection_reason: Option<String>,
     pub date_added: String,
     pub last_updated: String,
 }
@@ -65,6 +71,12 @@ pub struct CandidateInput {
     pub client_feedback: Option<String>,
     #[serde(default)]
     pub candidate_status: Option<String>,
+    #[serde(default)]
+    pub submitted_at: Option<String>,
+    #[serde(default)]
+    pub interview_at: Option<String>,
+    #[serde(default)]
+    pub rejection_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

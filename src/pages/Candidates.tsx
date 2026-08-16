@@ -1,28 +1,74 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { FileUser, Search } from "lucide-react";
+import { FileUser, Plus, Search } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { apiCandidates } from "../lib/api";
 import { useDebounce } from "../hooks/useDebounce";
 import { Input } from "../components/ui/input";
-import { StatusBadge } from "../components/common/StatusBadge";
+import { Button } from "../components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { EmptyState } from "../components/common/EmptyState";
 import { Spinner } from "../components/common/Spinner";
-import { submissionPalette } from "../lib/constants";
-import { timeAgo } from "../lib/utils";
+import { PageHeader } from "../components/common/PageHeader";
+import { CandidateForm } from "../components/candidates/CandidateForm";
+import { StatusChangeDialog } from "../components/candidates/StatusChangeDialog";
+import { submissionPalette, SUBMISSION_STATUSES } from "../lib/constants";
+import { timeAgo, titleCase } from "../lib/utils";
+import { useBulkUpdateCandidates } from "../hooks/useQueries";
+import type { CandidateWithJob } from "../types";
+
+const DETAIL_STATUSES = new Set(["submitted", "interview", "rejected"]);
 
 export function Candidates() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
+  const [formOpen, setFormOpen] = useState(false);
+  const [statusDialog, setStatusDialog] = useState<{
+    candidate: CandidateWithJob;
+    status: string;
+  } | null>(null);
+  const bulkUpdate = useBulkUpdateCandidates();
 
   const { data, isLoading } = useQuery({
     queryKey: ["candidatesWithJob", debounced],
     queryFn: () => apiCandidates.withJob(undefined, debounced || undefined),
   });
 
+  function handleStatusChange(candidate: CandidateWithJob, status: string) {
+    if (DETAIL_STATUSES.has(status)) {
+      setStatusDialog({ candidate, status });
+      return;
+    }
+    bulkUpdate.mutate(
+      { ids: [candidate.id], patch: { submission_status: status } },
+      {
+        onSuccess: () => toast.success(`${candidate.name} marked ${titleCase(status)}`),
+        onError: () => toast.error("Failed to update status"),
+      },
+    );
+  }
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden px-6 pt-4">
+      <PageHeader
+        title="Candidates"
+        subtitle={`${data?.length ?? 0} candidates`}
+        actions={
+          <Button variant="primary" onClick={() => setFormOpen(true)}>
+            <Plus className="h-4 w-4" />
+            New Candidate
+          </Button>
+        }
+      />
+
       <div className="mb-4 flex items-center gap-3">
         <div className="relative w-full max-w-xs">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
@@ -33,9 +79,6 @@ export function Candidates() {
             className="pl-9"
           />
         </div>
-        <span className="ml-auto text-xs text-fg-subtle">
-          {data ? `${data.length} candidate${data.length !== 1 ? "s" : ""}` : ""}
-        </span>
       </div>
 
       {isLoading ? (
@@ -93,7 +136,10 @@ export function Candidates() {
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.job_title}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.client_name}</td>
                   <td className="px-4 py-2.5">
-                    <StatusBadge status={c.submission_status} />
+                    <InlineStatus
+                      candidate={c}
+                      onUpdate={(v) => handleStatusChange(c, v)}
+                    />
                   </td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">
                     {c.match_score != null ? c.match_score : "—"}
@@ -106,6 +152,53 @@ export function Candidates() {
           </table>
         </div>
       )}
+
+      <CandidateForm open={formOpen} onOpenChange={setFormOpen} />
+      {statusDialog && (
+        <StatusChangeDialog
+          candidate={statusDialog.candidate}
+          initialStatus={statusDialog.status}
+          onClose={() => setStatusDialog(null)}
+        />
+      )}
     </div>
+  );
+}
+
+function InlineStatus({
+  candidate,
+  onUpdate,
+}: {
+  candidate: CandidateWithJob;
+  onUpdate: (status: string) => void;
+}) {
+  return (
+    <Select
+      value={candidate.submission_status}
+      onValueChange={(v) => {
+        if (v === candidate.submission_status) return;
+        onUpdate(v);
+      }}
+    >
+      <SelectTrigger
+        className="h-7 w-[118px] text-[12px]"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {SUBMISSION_STATUSES.map((s) => (
+          <SelectItem key={s} value={s}>
+            <span className="flex items-center gap-1.5">
+              <span
+                className="h-1.5 w-1.5 rounded-full"
+                style={{ background: submissionPalette(s).dot }}
+              />
+              {titleCase(s)}
+            </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

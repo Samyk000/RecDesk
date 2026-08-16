@@ -32,17 +32,17 @@ mod tests {
         let id = new_id();
         let ts = now();
         conn.execute(
-            "INSERT INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
             params![
-                id, "Acme Corp", "Acme Corp Inc", "hiring@acme.com", "555", "NY", "note", ts
+                id, "Acme Corp", "Acme Corp Inc", "hiring@acme.com", "Jane Doe", "NY", "note", ts
             ],
         )
         .unwrap();
 
         let client = conn
             .query_row(
-                "SELECT id, name, company, email, phone, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
+                "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
                 params![&id],
                 row_to_client,
             )
@@ -63,7 +63,7 @@ mod tests {
         let cid = new_id();
         let ts = now();
         conn.execute(
-            "INSERT INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
              VALUES (?1, 'Acme', NULL, NULL, NULL, NULL, NULL, ?2, ?2)",
             params![cid, ts],
         )
@@ -104,7 +104,7 @@ mod tests {
         let jid = new_id();
         let ts = now();
         conn.execute(
-            "INSERT INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
              VALUES (?1, 'Acme', NULL, NULL, NULL, NULL, NULL, ?2, ?2)",
             params![cid, ts],
         )
@@ -129,6 +129,7 @@ mod tests {
                 r#"SELECT id, job_id, name, email, phone, location, current_title, current_company,
                           experience_years, resume_path, recruiter_notes, match_score,
                           submission_status, interview_status, client_feedback, candidate_status,
+                          submitted_at, interview_at, rejection_reason,
                           date_added, last_updated
                    FROM candidates WHERE id = ?1"#,
                 params![&cand_id],
@@ -139,6 +140,9 @@ mod tests {
         assert_eq!(cand.name, "Jane Doe");
         assert_eq!(cand.submission_status, "interviewing");
         assert_eq!(cand.email.as_deref(), Some("jane@x.com"));
+        assert_eq!(cand.submitted_at, None);
+        assert_eq!(cand.interview_at, None);
+        assert_eq!(cand.rejection_reason, None);
 
         // cascade delete on job delete
         conn.execute("DELETE FROM jobs WHERE id = ?1", params![&jid]).unwrap();

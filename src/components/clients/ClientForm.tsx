@@ -19,9 +19,10 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   client?: Client | null;
+  onCreated?: (client: Client) => void;
 }
 
-export function ClientForm({ open, onOpenChange, client }: Props) {
+export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
   const create = useCreateClient();
   const update = useUpdateClient();
   const isEdit = !!client;
@@ -39,7 +40,7 @@ export function ClientForm({ open, onOpenChange, client }: Props) {
       name: (fd.get("name") as string) || "",
       company: (fd.get("company") as string) || null,
       email: (fd.get("email") as string) || null,
-      phone: (fd.get("phone") as string) || null,
+      hiring_manager: (fd.get("hiring_manager") as string) || null,
       address: (fd.get("address") as string) || null,
       notes: (fd.get("notes") as string) || null,
     };
@@ -52,8 +53,9 @@ export function ClientForm({ open, onOpenChange, client }: Props) {
         await update.mutateAsync({ id: client!.id, input });
         toast.success("Client updated");
       } else {
-        await create.mutateAsync(input);
+        const created = await create.mutateAsync(input);
         toast.success("Client added");
+        onCreated?.(created);
       }
       onOpenChange(false);
     } catch (err) {
@@ -88,8 +90,8 @@ export function ClientForm({ open, onOpenChange, client }: Props) {
               <Input name="email" type="email" placeholder="john@acme.com" defaultValue={client?.email ?? ""} />
             </div>
             <div className="space-y-1.5">
-              <Label>Phone</Label>
-              <Input name="phone" placeholder="+1 (555) 000-0000" defaultValue={client?.phone ?? ""} />
+              <Label>Hiring Manager</Label>
+              <Input name="hiring_manager" placeholder="Jane Doe" defaultValue={client?.hiring_manager ?? ""} />
             </div>
           </div>
           <div className="space-y-1.5">

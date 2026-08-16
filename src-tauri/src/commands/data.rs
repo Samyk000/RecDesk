@@ -9,7 +9,7 @@ use crate::rows::{
 use crate::AppState;
 
 const CLIENT_SELECT: &str =
-    "SELECT id, name, company, email, phone, address, notes, created_at, updated_at FROM clients";
+    "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at FROM clients";
 const JOB_SELECT: &str = r#"SELECT id, client_id, job_id, title, location, work_model, contract_type,
      status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
      created_at, updated_at, closed_at FROM jobs"#;
@@ -82,10 +82,10 @@ pub fn import_data(
 
     for client in &envelope.clients {
         tx.execute(
-            "INSERT OR IGNORE INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+            "INSERT OR IGNORE INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
-                client.id, client.name, client.company, client.email, client.phone,
+                client.id, client.name, client.company, client.email, client.hiring_manager,
                 client.address, client.notes, client.created_at, client.updated_at
             ],
         )?;
@@ -149,10 +149,10 @@ pub fn seed_demo_data(state: State<'_, AppState>) -> AppResult<ImportSummary> {
     for client in &demo.clients {
         let id = if client.id.is_empty() { new_id() } else { client.id.clone() };
         tx.execute(
-            "INSERT OR IGNORE INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+            "INSERT OR IGNORE INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
             params![
-                id, client.name, client.company, client.email, client.phone,
+                id, client.name, client.company, client.email, client.hiring_manager,
                 client.address, client.notes, client.created_at, client.updated_at
             ],
         )?;
@@ -215,7 +215,7 @@ const DEMO_JSON: &str = r#"
       "name": "MassMutual",
       "company": "MassMutual Insurance",
       "email": "hiring@massmutual.com",
-      "phone": "+1 (413) 744-1000",
+      "hiring_manager": "Sarah Thompson",
       "address": "1295 State St, Springfield, MA 01111",
       "notes": "Large insurance client. Prefers contract-to-hire for engineering roles.",
       "created_at": "2026-07-01T09:00:00Z",
@@ -226,7 +226,7 @@ const DEMO_JSON: &str = r#"
       "name": "Delta Systems",
       "company": "Delta Systems LLC",
       "email": "jobs@deltasystems.com",
-      "phone": "+1 (404) 555-0134",
+      "hiring_manager": "Marcus Reed",
       "address": "900 Technology Pkwy, Atlanta, GA 30313",
       "notes": "",
       "created_at": "2026-07-12T10:00:00Z",
@@ -237,7 +237,7 @@ const DEMO_JSON: &str = r#"
       "name": "GreenWay Financial",
       "company": "GreenWay Financial Group",
       "email": "recruiting@greenwayfin.com",
-      "phone": "+1 (212) 555-0187",
+      "hiring_manager": "Elena Vargas",
       "address": "250 Madison Ave, New York, NY 10016",
       "notes": "Fintech. Strong culture fit focus.",
       "created_at": "2026-07-20T08:30:00Z",
@@ -370,7 +370,7 @@ const DEMO_JSON: &str = r#"
       "resume_path": null,
       "recruiter_notes": "Strong Spring Boot background. Led 3 microservices migrations.",
       "match_score": 92,
-      "submission_status": "interviewing",
+      "submission_status": "submitted",
       "interview_status": "Technical round 2 scheduled",
       "client_feedback": "Positive after first round. Wants to see Kafka depth.",
       "candidate_status": "active",
@@ -410,7 +410,7 @@ const DEMO_JSON: &str = r#"
       "resume_path": null,
       "recruiter_notes": "Overqualified for title but interested in contract. Rate higher than budget.",
       "match_score": 85,
-      "submission_status": "new",
+      "submission_status": "sourced",
       "interview_status": null,
       "client_feedback": null,
       "candidate_status": "active",
@@ -430,7 +430,7 @@ const DEMO_JSON: &str = r#"
       "resume_path": null,
       "recruiter_notes": "Insurance BA with Agile cert. Good culture fit.",
       "match_score": 88,
-      "submission_status": "offer",
+      "submission_status": "interview",
       "interview_status": "Final interview passed",
       "client_feedback": "Client made verbal offer, waiting on written.",
       "candidate_status": "active",
@@ -450,7 +450,7 @@ const DEMO_JSON: &str = r#"
       "resume_path": null,
       "recruiter_notes": "Solid Spark/Databricks portfolio. Local to Atlanta.",
       "match_score": 90,
-      "submission_status": "interviewing",
+      "submission_status": "submitted",
       "interview_status": "Panel interview this week",
       "client_feedback": "Shortlisted for panel.",
       "candidate_status": "active",
@@ -470,7 +470,7 @@ const DEMO_JSON: &str = r#"
       "resume_path": null,
       "recruiter_notes": "Strong TypeScript. Interested but has other active processes.",
       "match_score": 82,
-      "submission_status": "new",
+      "submission_status": "sourced",
       "interview_status": null,
       "client_feedback": null,
       "candidate_status": "active",

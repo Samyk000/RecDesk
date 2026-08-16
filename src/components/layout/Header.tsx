@@ -1,14 +1,13 @@
-import { Moon, Plus, Search, Sun } from "lucide-react";
+import { Moon, Search, Sun } from "lucide-react";
 import { useTheme } from "../../store/theme";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
 interface Props {
   onSearch: () => void;
-  onNewJob: () => void;
 }
 
-export function Header({ onSearch, onNewJob }: Props) {
+export function Header({ onSearch }: Props) {
   const { mode, setMode } = useTheme();
   const isDark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
@@ -40,10 +39,6 @@ export function Header({ onSearch, onNewJob }: Props) {
           </TooltipTrigger>
           <TooltipContent>Toggle theme</TooltipContent>
         </Tooltip>
-        <Button variant="primary" size="sm" onClick={onNewJob}>
-          <Plus className="h-4 w-4" />
-          New Job
-        </Button>
       </div>
     </header>
   );

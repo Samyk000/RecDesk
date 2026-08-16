@@ -3,7 +3,7 @@ export interface Client {
   name: string;
   company?: string | null;
   email?: string | null;
-  phone?: string | null;
+  hiring_manager?: string | null;
   address?: string | null;
   notes?: string | null;
   created_at: string;
@@ -14,7 +14,7 @@ export interface ClientInput {
   name: string;
   company?: string | null;
   email?: string | null;
-  phone?: string | null;
+  hiring_manager?: string | null;
   address?: string | null;
   notes?: string | null;
 }
@@ -77,12 +77,12 @@ export interface JobCounts {
 }
 
 export type SubmissionStatus =
-  | "new"
+  | "sourced"
+  | "in_touch"
   | "submitted"
-  | "interviewing"
-  | "offer"
-  | "hired"
-  | "rejected";
+  | "interview"
+  | "rejected"
+  | "not_interested";
 
 export type CandidateStatus = "active" | "inactive" | "archived";
 
@@ -103,6 +103,9 @@ export interface Candidate {
   interview_status?: string | null;
   client_feedback?: string | null;
   candidate_status: string;
+  submitted_at?: string | null;
+  interview_at?: string | null;
+  rejection_reason?: string | null;
   date_added: string;
   last_updated: string;
 }
@@ -123,6 +126,9 @@ export interface CandidateInput {
   interview_status?: string | null;
   client_feedback?: string | null;
   candidate_status?: string | null;
+  submitted_at?: string | null;
+  interview_at?: string | null;
+  rejection_reason?: string | null;
 }
 
 export interface CandidateWithJob extends Candidate {
@@ -144,6 +150,9 @@ export interface CandidatePatch {
   interview_status?: string | null;
   client_feedback?: string | null;
   candidate_status?: string | null;
+  submitted_at?: string | null;
+  interview_at?: string | null;
+  rejection_reason?: string | null;
 }
 
 export interface StatusCount {

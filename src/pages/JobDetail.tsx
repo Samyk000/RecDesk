@@ -4,13 +4,9 @@ import {
   ArrowLeft,
   BookOpen,
   Briefcase,
-  FileText,
-  ListChecks,
   MessageSquareQuote,
   MoreHorizontal,
-  NotebookPen,
   Pencil,
-  Search,
   Trash2,
 } from "lucide-react";
 import { useDeleteJob, useJob } from "../hooks/useQueries";
@@ -29,11 +25,7 @@ import {
   DropdownMenuTrigger,
 } from "../components/ui/dropdown";
 import { OverviewTab } from "../components/jobs/tabs/OverviewTab";
-import { JdTab } from "../components/jobs/tabs/JdTab";
-import { BooleanTab } from "../components/jobs/tabs/BooleanTab";
-import { PitchTab } from "../components/jobs/tabs/PitchTab";
-import { ScreeningTab } from "../components/jobs/tabs/ScreeningTab";
-import { NotesTab } from "../components/jobs/tabs/NotesTab";
+import { PitchScreeningTab } from "../components/jobs/tabs/PitchScreeningTab";
 import { CandidatesTab } from "../components/jobs/tabs/CandidatesTab";
 import { JOB_STATUSES, jobPalette } from "../lib/constants";
 import { titleCase } from "../lib/utils";
@@ -44,12 +36,8 @@ import { toJobInput } from "../components/jobs/tabUtils";
 
 const tabDefs = [
   { value: "overview", label: "Overview", icon: BookOpen },
-  { value: "jd", label: "Job Description", icon: FileText },
-  { value: "boolean", label: "Boolean", icon: Search },
-  { value: "pitch", label: "Candidate Pitch", icon: MessageSquareQuote },
-  { value: "screening", label: "Screening Questions", icon: ListChecks },
+  { value: "pitch-screening", label: "Pitch & Screening", icon: MessageSquareQuote },
   { value: "candidates", label: "Candidates", icon: Briefcase },
-  { value: "notes", label: "Notes", icon: NotebookPen },
 ];
 
 export function JobDetail() {
@@ -84,34 +72,41 @@ export function JobDetail() {
         {job.client_name}
       </button>
 
-      <div className="mb-5 flex items-start justify-between gap-4">
+      <div className="mb-5 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-3">
-            <h1 className="truncate text-lg font-semibold tracking-tight text-fg">{job.title}</h1>
-            <StatusBadge status={job.status} kind="job" className="shrink-0" />
-            <StatusSwitcher job={job} />
-          </div>
-          <p className="mt-1.5 text-[13px] text-fg-muted">
-            <span className="font-mono text-xs">{job.job_id}</span>
-            <span className="mx-1.5">·</span>
-            {job.client_name}
-            {job.location && (
-              <>
-                <span className="mx-1.5">·</span>
-                {job.location}
-                {job.work_model && ` · ${job.work_model}`}
-              </>
-            )}
-            {job.contract_type && (
-              <>
-                <span className="mx-1.5">·</span>
-                {job.contract_type}
-              </>
-            )}
-          </p>
+          <h1 className="truncate text-lg font-semibold tracking-tight text-fg">
+            {job.title}
+            <span className="font-normal text-fg-muted">
+              <span className="mx-2">:</span>
+              <span className="font-mono text-sm">{job.job_id}</span>
+              <span className="mx-1">·</span>
+              {job.client_name}
+              {job.location && (
+                <>
+                  <span className="mx-1">·</span>
+                  {job.location}
+                </>
+              )}
+              {job.work_model && (
+                <>
+                  <span className="mx-1.5">·</span>
+                  {job.work_model}
+                </>
+              )}
+              {job.contract_type && (
+                <>
+                  <span className="mx-1">·</span>
+                  {job.contract_type}
+                </>
+              )}
+              <span>.</span>
+            </span>
+          </h1>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
+          <StatusBadge status={job.status} kind="job" className="shrink-0" />
+          <StatusSwitcher job={job} />
           <Button variant="outline" onClick={() => setEditOpen(true)}>
             <Pencil className="h-4 w-4" />
             Edit
@@ -160,23 +155,11 @@ export function JobDetail() {
         <TabsContent value="overview">
           <OverviewTab job={job} />
         </TabsContent>
-        <TabsContent value="jd">
-          <JdTab job={job} />
-        </TabsContent>
-        <TabsContent value="boolean">
-          <BooleanTab job={job} />
-        </TabsContent>
-        <TabsContent value="pitch">
-          <PitchTab job={job} />
-        </TabsContent>
-        <TabsContent value="screening">
-          <ScreeningTab job={job} />
+        <TabsContent value="pitch-screening">
+          <PitchScreeningTab job={job} />
         </TabsContent>
         <TabsContent value="candidates">
           <CandidatesTab jobId={job.id} />
-        </TabsContent>
-        <TabsContent value="notes">
-          <NotesTab job={job} />
         </TabsContent>
       </Tabs>
 

@@ -9,7 +9,7 @@ pub struct Client {
     #[serde(default)]
     pub email: Option<String>,
     #[serde(default)]
-    pub phone: Option<String>,
+    pub hiring_manager: Option<String>,
     #[serde(default)]
     pub address: Option<String>,
     #[serde(default)]
@@ -26,7 +26,7 @@ pub struct ClientInput {
     #[serde(default)]
     pub email: Option<String>,
     #[serde(default)]
-    pub phone: Option<String>,
+    pub hiring_manager: Option<String>,
     #[serde(default)]
     pub address: Option<String>,
     #[serde(default)]

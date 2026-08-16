@@ -7,7 +7,7 @@ use crate::rows::{new_id, now, row_to_client, row_to_client_with_stats};
 use crate::AppState;
 
 const CLIENT_SELECT: &str = r#"
-  SELECT c.id, c.name, c.company, c.email, c.phone, c.address, c.notes,
+  SELECT c.id, c.name, c.company, c.email, c.hiring_manager, c.address, c.notes,
          c.created_at, c.updated_at,
          (SELECT COUNT(*) FROM jobs j WHERE j.client_id = c.id),
          (SELECT COUNT(*) FROM candidates ca JOIN jobs j2 ON ca.job_id = j2.id WHERE j2.client_id = c.id)
@@ -57,21 +57,21 @@ pub fn create_client(state: State<'_, AppState>, input: ClientInput) -> AppResul
     let id = new_id();
     let ts = now();
     conn.execute(
-        "INSERT INTO clients (id, name, company, email, phone, address, notes, created_at, updated_at)
+        "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8)",
         params![
             id,
             input.name,
             input.company,
             input.email,
-            input.phone,
+            input.hiring_manager,
             input.address,
             input.notes,
             ts
         ],
     )?;
     let client = conn.query_row(
-        "SELECT id, name, company, email, phone, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
+        "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
         params![&id],
         row_to_client,
     )?;
@@ -86,12 +86,12 @@ pub fn update_client(
 ) -> AppResult<Client> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let affected = conn.execute(
-        "UPDATE clients SET name = ?1, company = ?2, email = ?3, phone = ?4, address = ?5, notes = ?6, updated_at = ?7 WHERE id = ?8",
+        "UPDATE clients SET name = ?1, company = ?2, email = ?3, hiring_manager = ?4, address = ?5, notes = ?6, updated_at = ?7 WHERE id = ?8",
         params![
             input.name,
             input.company,
             input.email,
-            input.phone,
+            input.hiring_manager,
             input.address,
             input.notes,
             now(),
@@ -102,7 +102,7 @@ pub fn update_client(
         return Err("Client not found".into());
     }
     let client = conn.query_row(
-        "SELECT id, name, company, email, phone, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
+        "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
         params![&id],
         row_to_client,
     )?;

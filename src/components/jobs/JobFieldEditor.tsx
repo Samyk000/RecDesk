@@ -15,9 +15,10 @@ interface Props {
   mono?: boolean;
   minRows?: number;
   hint?: string;
+  fill?: boolean;
 }
 
-export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, hint }: Props) {
+export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, hint, fill }: Props) {
   const update = useUpdateJob();
   const [draft, setDraft] = useState(job[field] ?? "");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -53,14 +54,18 @@ export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, hi
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="space-y-2">
-      <div className="relative">
+    <div className={cn("space-y-2", fill && "flex h-full flex-col")}>
+      <div className={cn("relative", fill && "flex-1 min-h-0")}>
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder={placeholder}
           minRows={minRows}
-          className={cn("resize-y leading-relaxed", mono && "font-mono text-[13px]")}
+          className={cn(
+            "resize-y leading-relaxed",
+            fill && "h-full min-h-0 overflow-y-auto",
+            mono && "font-mono text-[13px]",
+          )}
         />
         <div className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5">
           {state === "saving" && (

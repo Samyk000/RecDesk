@@ -7,9 +7,9 @@ import {
   Mail,
   MapPin,
   Pencil,
-  Phone,
   Plus,
   StickyNote,
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -52,7 +52,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
       name: client.name,
       company: client.company,
       email: client.email,
-      phone: client.phone,
+      hiring_manager: client.hiring_manager,
       address: client.address,
       notes: client.notes,
       [field]: value || null,
@@ -115,10 +115,10 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
               onSave={(v) => saveField("email", v)}
             />
             <Field
-              icon={<Phone className="h-3.5 w-3.5" />}
-              placeholder="No phone"
-              value={client.phone ?? ""}
-              onSave={(v) => saveField("phone", v)}
+              icon={<User className="h-3.5 w-3.5" />}
+              placeholder="No hiring manager"
+              value={client.hiring_manager ?? ""}
+              onSave={(v) => saveField("hiring_manager", v)}
             />
             <Field
               icon={<MapPin className="h-3.5 w-3.5" />}

@@ -180,6 +180,7 @@ export function useBulkUpdateCandidates() {
       apiCandidates.bulkUpdate(ids, patch),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
     },

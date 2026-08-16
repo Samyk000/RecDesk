@@ -75,33 +75,46 @@ export function Settings() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-6 py-6">
+    <div className="px-6 pt-4">
       <PageHeader title="Settings" subtitle="Preferences and data management" />
 
-      <div className="space-y-6">
-        <section className="rounded-lg border border-border bg-surface p-6">
-          <h2 className="mb-1 text-sm font-semibold text-fg">Appearance</h2>
-          <p className="mb-4 text-xs text-fg-subtle">Choose how the app looks.</p>
-          <div className="flex items-center gap-2">
-            {themeOptions.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => setMode(opt.value)}
-                className={cn(
-                  "flex h-9 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors",
-                  mode === opt.value
-                    ? "border-primary/50 bg-primary/10 text-fg"
-                    : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
-                )}
-              >
-                <opt.icon className="h-4 w-4" />
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </section>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-1">
+          <section className="rounded-lg border border-border bg-surface p-6">
+            <h2 className="mb-1 text-sm font-semibold text-fg">Appearance</h2>
+            <p className="mb-4 text-xs text-fg-subtle">Choose how the app looks.</p>
+            <div className="flex flex-wrap items-center gap-2">
+              {themeOptions.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setMode(opt.value)}
+                  className={cn(
+                    "flex h-9 items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-colors",
+                    mode === opt.value
+                      ? "border-primary/50 bg-primary/10 text-fg"
+                      : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
+                  )}
+                >
+                  <opt.icon className="h-4 w-4" />
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </section>
 
-        <section className="rounded-lg border border-border bg-surface p-6">
+          <section className="rounded-lg border border-border bg-surface p-6">
+            <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
+              <Info className="h-4 w-4 text-fg-subtle" />
+              About
+            </h2>
+            <p className="text-[13px] text-fg-muted">
+              Recruiting Workspace — local-first personal recruiting tracker.
+              Built with Tauri, Rust, and React.
+            </p>
+          </section>
+        </div>
+
+        <section className="rounded-lg border border-border bg-surface p-6 lg:col-span-2">
           <h2 className="mb-1 flex items-center gap-2 text-sm font-semibold text-fg">
             <Database className="h-4 w-4 text-fg-subtle" />
             Data
@@ -137,41 +150,32 @@ export function Settings() {
               </Button>
             </div>
 
-            <label className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Database className="h-4 w-4 text-fg-subtle" />
-                <div>
-                  <p className="text-[13px] font-medium text-fg">Replace on import</p>
-                  <p className="text-xs text-fg-subtle">Delete existing data before importing.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <label className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Database className="h-4 w-4 text-fg-subtle" />
+                  <div>
+                    <p className="text-[13px] font-medium text-fg">Replace on import</p>
+                    <p className="text-xs text-fg-subtle">Delete existing data before importing.</p>
+                  </div>
                 </div>
-              </div>
-              <Switch checked={replace} onCheckedChange={setReplace} />
-            </label>
+                <Switch checked={replace} onCheckedChange={setReplace} />
+              </label>
 
-            <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
-              <div className="flex items-center gap-3">
-                <Sparkles className="h-4 w-4 text-fg-subtle" />
-                <div>
-                  <p className="text-[13px] font-medium text-fg">Load demo data</p>
-                  <p className="text-xs text-fg-subtle">Add sample clients, jobs, and candidates to explore the app.</p>
+              <div className="flex items-center justify-between gap-4 rounded-lg border border-border bg-surface-hover/40 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-4 w-4 text-fg-subtle" />
+                  <div>
+                    <p className="text-[13px] font-medium text-fg">Load demo data</p>
+                    <p className="text-xs text-fg-subtle">Add sample data to explore the app.</p>
+                  </div>
                 </div>
+                <Button size="sm" variant="outline" onClick={seedDemo} disabled={busy !== null}>
+                  {busy === "seed" ? "Seeding…" : "Seed demo"}
+                </Button>
               </div>
-              <Button size="sm" variant="outline" onClick={seedDemo} disabled={busy !== null}>
-                {busy === "seed" ? "Seeding…" : "Seed demo"}
-              </Button>
             </div>
           </div>
-        </section>
-
-        <section className="rounded-lg border border-border bg-surface p-6">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
-            <Info className="h-4 w-4 text-fg-subtle" />
-            About
-          </h2>
-          <p className="text-[13px] text-fg-muted">
-            Recruiting Workspace — local-first personal recruiting tracker.
-            Built with Tauri, Rust, and React.
-          </p>
         </section>
       </div>
     </div>

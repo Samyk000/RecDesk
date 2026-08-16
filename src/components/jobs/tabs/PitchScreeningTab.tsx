@@ -1,9 +1,18 @@
 import { useEffect, useState } from "react";
-import { Check, GripVertical, ListChecks, Loader2, Plus, Trash2 } from "lucide-react";
+import {
+  Check,
+  GripVertical,
+  ListChecks,
+  Loader2,
+  MessageSquareQuote,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useUpdateJob } from "../../../hooks/useQueries";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { toJobInput } from "../tabUtils";
+import { JobFieldEditor } from "../JobFieldEditor";
 import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { CopyButton } from "../../common/CopyButton";
@@ -11,7 +20,50 @@ import { EmptyState } from "../../common/EmptyState";
 import { errorMessage } from "../../../lib/utils";
 import type { Job } from "../../../types";
 
-export function ScreeningTab({ job }: { job: Job }) {
+export function PitchScreeningTab({ job }: { job: Job }) {
+  const hasPitch = !!job.candidate_pitch?.trim();
+
+  return (
+    <div className="grid grid-cols-2 items-stretch gap-6">
+      <div className="flex min-h-[320px] flex-col">
+        <div className="mb-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <MessageSquareQuote className="h-4 w-4 text-primary" />
+            <h3 className="text-[13px] font-semibold text-fg">Candidate pitch</h3>
+          </div>
+          {hasPitch && <CopyButton text={job.candidate_pitch!} label="Copy pitch" />}
+        </div>
+        <div className="flex flex-1 flex-col gap-3">
+          <p className="text-xs text-fg-subtle">
+            Use <span className="font-mono">{"{name}"}</span> as a placeholder for the candidate’s name.
+          </p>
+          <div className="flex-1">
+            <JobFieldEditor
+              job={job}
+              field="candidate_pitch"
+              placeholder="The concise explanation you send when presenting this opportunity to a candidate…"
+              minRows={10}
+              fill
+            />
+          </div>
+          {!hasPitch && (
+            <EmptyState
+              icon={<MessageSquareQuote className="h-5 w-5" />}
+              title="No pitch written yet"
+              description="Write the message you use to introduce the role — it will auto-save as you type."
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="flex min-h-[320px] flex-col">
+        <ScreeningList job={job} />
+      </div>
+    </div>
+  );
+}
+
+function ScreeningList({ job }: { job: Job }) {
   const update = useUpdateJob();
   const [questions, setQuestions] = useState<string[]>(job.screening_questions);
   const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
@@ -54,11 +106,11 @@ export function ScreeningTab({ job }: { job: Job }) {
   const copyAll = questions.filter((q) => q.trim()).map((q, i) => `${i + 1}. ${q.trim()}`).join("\n");
 
   return (
-    <div className="max-w-3xl">
+    <div className="flex flex-col">
       <div className="mb-3 flex items-center justify-between">
-        <div>
-          <h3 className="text-sm font-semibold text-fg">Screening questions</h3>
-          <p className="text-xs text-fg-subtle">Questions you want to ask candidates.</p>
+        <div className="flex items-center gap-2">
+          <ListChecks className="h-4 w-4 text-primary" />
+          <h3 className="text-[13px] font-semibold text-fg">Screening questions</h3>
         </div>
         <div className="flex items-center gap-2">
           {state === "saving" && (
@@ -80,19 +132,21 @@ export function ScreeningTab({ job }: { job: Job }) {
       </div>
 
       {questions.length === 0 ? (
-        <EmptyState
-          icon={<ListChecks className="h-5 w-5" />}
-          title="No screening questions yet"
-          description="Add the questions you ask every candidate for this role."
-          action={
-            <Button variant="primary" size="sm" onClick={add}>
-              <Plus className="h-4 w-4" />
-              Add your first question
-            </Button>
-          }
-        />
+        <div className="flex flex-1 flex-col">
+          <EmptyState
+            icon={<ListChecks className="h-5 w-5" />}
+            title="No screening questions yet"
+            description="Add the questions you ask every candidate for this role."
+            action={
+              <Button variant="primary" size="sm" onClick={add}>
+                <Plus className="h-4 w-4" />
+                Add your first question
+              </Button>
+            }
+          />
+        </div>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-2 overflow-y-auto">
           {questions.map((q, i) => (
             <div
               key={i}

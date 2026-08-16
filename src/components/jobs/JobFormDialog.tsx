@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Plus } from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -16,7 +17,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { CONTRACT_TYPES, JOB_STATUSES, WORK_MODELS } from "../../lib/constants";
 import { errorMessage, titleCase } from "../../lib/utils";
 import { useCreateJob, useClients, useJob, useUpdateJob } from "../../hooks/useQueries";
-import type { JobInput } from "../../types";
+import { ClientForm } from "../clients/ClientForm";
+import type { Client, JobInput } from "../../types";
 
 interface Props {
   open: boolean;
@@ -24,6 +26,8 @@ interface Props {
   jobId?: string;
   defaultClientId?: string;
 }
+
+const NEW_CLIENT = "__new__";
 
 export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Props) {
   const navigate = useNavigate();
@@ -33,26 +37,29 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
   const updateJob = useUpdateJob();
   const isEdit = !!jobId;
   const job = jobQuery.data;
+  const [clientId, setClientId] = useState(defaultClientId ?? job?.client_id ?? "");
+  const [clientFormOpen, setClientFormOpen] = useState(false);
 
   // Reset form fields via uncontrolled DOM when dialog opens
   useEffect(() => {
-    if (open && job) {
+    if (open) {
+      setClientId(defaultClientId ?? job?.client_id ?? "");
       const set = (id: string, val: string | null | undefined) => {
         const el = document.getElementById(id) as HTMLInputElement | null;
         if (el) el.value = val ?? "";
       };
-      set("job-form-title", job.title);
-      set("job-form-jobid", job.job_id);
-      set("job-form-location", job.location);
-      set("job-form-notes", job.notes);
+      set("job-form-title", job?.title);
+      set("job-form-jobid", job?.job_id);
+      set("job-form-location", job?.location);
+      set("job-form-notes", job?.notes);
     }
-  }, [open, job]);
+  }, [open, job, defaultClientId]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
     const input: JobInput = {
-      client_id: (fd.get("client_id") as string) || defaultClientId || "",
+      client_id: clientId || "",
       job_id: (fd.get("job_id") as string) || "",
       title: (fd.get("title") as string) || "",
       location: (fd.get("location") as string) || null,
@@ -107,7 +114,16 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label htmlFor="job-form-client">Client</Label>
-              <Select name="client_id" defaultValue={defaultClientId ?? job?.client_id ?? ""}>
+              <Select
+                value={clientId}
+                onValueChange={(v) => {
+                  if (v === NEW_CLIENT) {
+                    setClientFormOpen(true);
+                  } else {
+                    setClientId(v);
+                  }
+                }}
+              >
                 <SelectTrigger id="job-form-client" className="w-full">
                   <SelectValue placeholder="Select client…" />
                 </SelectTrigger>
@@ -117,6 +133,12 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
                       {c.name}
                     </SelectItem>
                   ))}
+                  <SelectItem value={NEW_CLIENT} className="text-primary">
+                    <span className="flex items-center gap-1.5">
+                      <Plus className="h-3.5 w-3.5" />
+                      New client…
+                    </span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -211,6 +233,12 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <ClientForm
+        open={clientFormOpen}
+        onOpenChange={setClientFormOpen}
+        onCreated={(c: Client) => setClientId(c.id)}
+      />
     </Dialog>
   );
 }

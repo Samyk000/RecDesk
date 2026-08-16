@@ -20,7 +20,7 @@ pub fn global_search(state: State<'_, AppState>, query: String) -> AppResult<Sea
     let pattern = format!("%{}%", q);
 
     let clients: Vec<_> = {
-        let sql = r#"SELECT c.id, c.name, c.company, c.email, c.phone, c.address, c.notes,
+        let sql = r#"SELECT c.id, c.name, c.company, c.email, c.hiring_manager, c.address, c.notes,
                             c.created_at, c.updated_at
                      FROM clients c
                      WHERE c.name LIKE ?1 OR COALESCE(c.company,'') LIKE ?1 OR COALESCE(c.email,'') LIKE ?1
@@ -52,7 +52,8 @@ pub fn global_search(state: State<'_, AppState>, query: String) -> AppResult<Sea
         let sql = r#"SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
                             c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
                             c.match_score, c.submission_status, c.interview_status, c.client_feedback,
-                            c.candidate_status, c.date_added, c.last_updated,
+                            c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
+                            c.date_added, c.last_updated,
                             j.title, j.job_id, cl.name
                      FROM candidates c
                      JOIN jobs j ON j.id = c.job_id

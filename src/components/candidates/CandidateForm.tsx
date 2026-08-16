@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -9,46 +9,86 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Input, Textarea } from "../ui/input";
+import { Input } from "../ui/input";
 import { Label } from "../ui/label";
-import { useCreateCandidate } from "../../hooks/useQueries";
-import { errorMessage } from "../../lib/utils";
-import type { CandidateInput } from "../../types";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { useCreateCandidate, useJobs } from "../../hooks/useQueries";
+import { SUBMISSION_STATUSES } from "../../lib/constants";
+import { errorMessage, titleCase } from "../../lib/utils";
+import type { CandidateInput, JobWithStats } from "../../types";
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  jobId: string;
+  jobId?: string;
 }
 
 export function CandidateForm({ open, onOpenChange, jobId }: Props) {
   const create = useCreateCandidate();
+  const { data: allJobs } = useJobs();
+
+  const [selectedRole, setSelectedRole] = useState("");
+  const [selectedClient, setSelectedClient] = useState("");
+  const [selectedJobId, setSelectedJobId] = useState(jobId ?? "");
+  const [status, setStatus] = useState("sourced");
+
+  const roles = useMemo(() => {
+    if (!allJobs) return [];
+    const map = new Map<string, JobWithStats>();
+    for (const j of allJobs) {
+      if (!map.has(j.title)) map.set(j.title, j);
+    }
+    return Array.from(map.values());
+  }, [allJobs]);
+
+  const clientsForRole = useMemo(() => {
+    if (!allJobs || !selectedRole) return [];
+    const filtered = allJobs.filter((j) => j.title === selectedRole);
+    const unique = new Map(filtered.map((j) => [j.client_name, j]));
+    return Array.from(unique.values());
+  }, [allJobs, selectedRole]);
 
   useEffect(() => {
     if (!open) return;
+    setSelectedRole("");
+    setSelectedClient("");
+    setSelectedJobId(jobId ?? "");
+    setStatus("sourced");
     const form = document.getElementById("candidate-form") as HTMLFormElement | null;
     form?.reset();
-  }, [open]);
+  }, [open, jobId]);
+
+  useEffect(() => {
+    if (!selectedRole || !selectedClient || !allJobs) {
+      if (!jobId) setSelectedJobId("");
+      return;
+    }
+    const match = allJobs.find(
+      (j) => j.title === selectedRole && j.client_name === selectedClient,
+    );
+    if (match) setSelectedJobId(match.id);
+  }, [selectedRole, selectedClient, allJobs, jobId]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!selectedJobId) {
+      toast.error("Please select a role and client");
+      return;
+    }
     const fd = new FormData(e.currentTarget);
     const input: CandidateInput = {
-      job_id: jobId,
+      job_id: selectedJobId,
       name: (fd.get("name") as string) || "",
       email: (fd.get("email") as string) || null,
       phone: (fd.get("phone") as string) || null,
       location: (fd.get("location") as string) || null,
-      current_title: (fd.get("current_title") as string) || null,
-      current_company: (fd.get("current_company") as string) || null,
-      experience_years: (fd.get("experience_years") as string)
-        ? Number(fd.get("experience_years"))
-        : null,
-      match_score: (fd.get("match_score") as string)
-        ? Math.min(100, Math.max(0, Number(fd.get("match_score"))))
-        : null,
-      recruiter_notes: (fd.get("recruiter_notes") as string) || null,
-      submission_status: "new",
+      submission_status: status,
       candidate_status: "active",
     };
     if (!input.name.trim()) {
@@ -77,6 +117,46 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
             <Label htmlFor="cand-name">Name *</Label>
             <Input id="cand-name" name="name" placeholder="John Smith" required />
           </div>
+
+          {!jobId && (
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1.5">
+                <Label>Role *</Label>
+                <Select value={selectedRole} onValueChange={(v) => { setSelectedRole(v); setSelectedClient(""); }}>
+                  <SelectTrigger className="h-8 text-[13px]">
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {roles.map((r) => (
+                      <SelectItem key={r.title} value={r.title}>
+                        {r.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label>Client *</Label>
+                <Select
+                  value={selectedClient}
+                  onValueChange={setSelectedClient}
+                  disabled={!selectedRole}
+                >
+                  <SelectTrigger className="h-8 text-[13px]">
+                    <SelectValue placeholder={selectedRole ? "Select client" : "Select role first"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {clientsForRole.map((c) => (
+                      <SelectItem key={c.client_name} value={c.client_name}>
+                        {c.client_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Email</Label>
@@ -87,33 +167,26 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
               <Input name="phone" placeholder="+1 (555) 000-0000" />
             </div>
           </div>
+
           <div className="space-y-1.5">
             <Label>Location</Label>
             <Input name="location" placeholder="Boston, MA" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Current title</Label>
-              <Input name="current_title" placeholder="Senior Java Developer" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Current company</Label>
-              <Input name="current_company" placeholder="Fidelity" />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Experience (years)</Label>
-              <Input name="experience_years" type="number" min={0} placeholder="8" />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Match score (0-100)</Label>
-              <Input name="match_score" type="number" min={0} max={100} placeholder="85" />
-            </div>
-          </div>
+
           <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea name="recruiter_notes" rows={3} placeholder="First impressions, source, availability…" />
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="h-8 text-[13px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUBMISSION_STATUSES.map((s) => (
+                  <SelectItem key={s} value={s}>
+                    {titleCase(s)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         </form>
 
