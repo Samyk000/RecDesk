@@ -1,4 +1,6 @@
-import { Moon, Search, Sun } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Copy, Minus, Moon, Search, Square, Sun, X } from "lucide-react";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme } from "../../store/theme";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -12,9 +14,13 @@ export function Header({ onSearch }: Props) {
   const isDark = mode === "dark" || (mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   return (
-    <header className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur">
+    <header
+      data-tauri-drag-region
+      className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur"
+    >
       <button
         onClick={onSearch}
+        data-tauri-drag-region={false}
         className="group flex h-8 w-full max-w-sm items-center gap-2.5 rounded-md border border-border bg-surface px-3 text-left text-[13px] text-fg-subtle transition-all duration-150 hover:border-border-strong hover:text-fg"
       >
         <Search className="h-4 w-4 transition-colors group-hover:text-fg" />
@@ -39,7 +45,56 @@ export function Header({ onSearch }: Props) {
           </TooltipTrigger>
           <TooltipContent>Toggle theme</TooltipContent>
         </Tooltip>
+
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <WindowControls />
       </div>
     </header>
+  );
+}
+
+function WindowControls() {
+  const [maximized, setMaximized] = useState(false);
+
+  useEffect(() => {
+    const appWindow = getCurrentWindow();
+    let unlisten: (() => void) | undefined;
+    const setup = async () => {
+      setMaximized(await appWindow.isMaximized());
+      unlisten = await appWindow.onResized(() => {
+        appWindow.isMaximized().then(setMaximized);
+      });
+    };
+    setup();
+    return () => unlisten?.();
+  }, []);
+
+  const appWindow = getCurrentWindow();
+
+  return (
+    <div className="flex items-center gap-0.5" data-tauri-drag-region={false}>
+      <button
+        onClick={() => appWindow.minimize()}
+        aria-label="Minimize"
+        className="flex h-7 w-9 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
+      >
+        <Minus className="h-3.5 w-3.5" />
+      </button>
+      <button
+        onClick={() => appWindow.toggleMaximize()}
+        aria-label={maximized ? "Restore" : "Maximize"}
+        className="flex h-7 w-9 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
+      >
+        {maximized ? <Copy className="h-3 w-3" /> : <Square className="h-3 w-3" />}
+      </button>
+      <button
+        onClick={() => appWindow.close()}
+        aria-label="Close"
+        className="ml-0.5 flex h-7 w-9 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-red-500 hover:text-white"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
   );
 }
