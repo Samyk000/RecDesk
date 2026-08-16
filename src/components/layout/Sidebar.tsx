@@ -11,7 +11,7 @@ const navItems = [
 
 export function Sidebar() {
   return (
-    <aside className="flex w-50 shrink-0 flex-col border-r border-border bg-bg-sidebar">
+    <aside className="flex w-48 shrink-0 flex-col border-r border-border bg-bg-sidebar">
       <div className="flex h-12 items-center gap-2.5 border-b border-border px-4">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-fg shadow-raise transition-transform duration-150">
           <IdentificationCard className="h-4 w-4" />
@@ -24,7 +24,7 @@ export function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-0.5 overflow-y-auto p-2 scrollbar-thin">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 pb-2 pt-[20px] scrollbar-thin">
         {navItems.map((item) => (
           <NavLink
             key={item.to}

@@ -30,6 +30,7 @@ export function useCreateClient() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -42,7 +43,9 @@ export function useUpdateClient() {
     onSuccess: (client) => {
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["client", client.id] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -53,7 +56,11 @@ export function useDeleteClient() {
     mutationFn: (id: string) => apiClients.remove(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -89,6 +96,7 @@ export function useCreateJob() {
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -102,7 +110,9 @@ export function useUpdateJob() {
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["job", job.id] });
       qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -114,7 +124,10 @@ export function useDeleteJob() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -141,8 +154,11 @@ export function useCreateCandidate() {
     mutationFn: (input: CandidateInput) => apiCandidates.create(input),
     onSuccess: (cand) => {
       qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -154,9 +170,12 @@ export function useUpdateCandidate() {
       apiCandidates.update(id, input),
     onSuccess: (cand) => {
       qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["candidate", cand.id] });
       qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -167,8 +186,11 @@ export function useDeleteCandidate() {
     mutationFn: (id: string) => apiCandidates.remove(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["job"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }
@@ -183,6 +205,7 @@ export function useBulkUpdateCandidates() {
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }

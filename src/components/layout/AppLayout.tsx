@@ -32,7 +32,7 @@ export function AppLayout() {
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Header onSearch={() => setSearchOpen(true)} />
-          <main className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+          <main className="min-h-0 flex-1 overflow-y-auto pl-1 scrollbar-thin">
             <div key={location.pathname} className="h-full animate-fade-in">
               <Outlet />
             </div>

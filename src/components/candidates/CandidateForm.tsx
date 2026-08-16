@@ -37,6 +37,9 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(jobId ?? "");
   const [status, setStatus] = useState("sourced");
+  const [submittedAt, setSubmittedAt] = useState("");
+  const [interviewAt, setInterviewAt] = useState("");
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const roles = useMemo(() => {
     if (!allJobs) return [];
@@ -60,6 +63,9 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     setSelectedClient("");
     setSelectedJobId(jobId ?? "");
     setStatus("sourced");
+    setSubmittedAt("");
+    setInterviewAt("");
+    setRejectionReason("");
     const form = document.getElementById("candidate-form") as HTMLFormElement | null;
     form?.reset();
   }, [open, jobId]);
@@ -90,6 +96,9 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
       location: (fd.get("location") as string) || null,
       submission_status: status,
       candidate_status: "active",
+      submitted_at: status === "submitted" ? submittedAt || null : null,
+      interview_at: status === "interview" ? interviewAt || null : null,
+      rejection_reason: status === "rejected" ? rejectionReason.trim() || null : null,
     };
     if (!input.name.trim()) {
       toast.error("Candidate name is required");
@@ -160,7 +169,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-1.5">
               <Label>Email</Label>
-              <Input name="email" type="email" placeholder="john@email.com" />
+              <Input name="email" type="email" placeholder="name@email.com" />
             </div>
             <div className="space-y-1.5">
               <Label>Phone</Label>
@@ -188,6 +197,42 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
               </SelectContent>
             </Select>
           </div>
+
+          {status === "submitted" && (
+            <div className="space-y-1.5">
+              <Label>Submitted date</Label>
+              <input
+                type="date"
+                value={submittedAt}
+                onChange={(e) => setSubmittedAt(e.target.value)}
+                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          )}
+
+          {status === "interview" && (
+            <div className="space-y-1.5">
+              <Label>Interview date & time</Label>
+              <input
+                type="datetime-local"
+                value={interviewAt}
+                onChange={(e) => setInterviewAt(e.target.value)}
+                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          )}
+
+          {status === "rejected" && (
+            <div className="space-y-1.5">
+              <Label>Rejection reason (optional)</Label>
+              <Input
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Reason for rejection…"
+                className="h-8 text-[13px]"
+              />
+            </div>
+          )}
         </form>
 
         <DialogFooter>

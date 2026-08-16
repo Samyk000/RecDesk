@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IdentificationCard, Plus, MagnifyingGlass } from "@phosphor-icons/react";
+import { IdentificationCard, Plus, PencilSimple, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { apiCandidates } from "../lib/api";
@@ -17,11 +17,12 @@ import {
 import { EmptyState } from "../components/common/EmptyState";
 import { Spinner } from "../components/common/Spinner";
 import { PageHeader } from "../components/common/PageHeader";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { StatusChangeDialog } from "../components/candidates/StatusChangeDialog";
 import { submissionPalette, SUBMISSION_STATUSES } from "../lib/constants";
-import { timeAgo, titleCase } from "../lib/utils";
-import { useBulkUpdateCandidates } from "../hooks/useQueries";
+import { errorMessage, timeAgo, titleCase } from "../lib/utils";
+import { useBulkUpdateCandidates, useDeleteCandidate } from "../hooks/useQueries";
 import type { CandidateWithJob } from "../types";
 
 const DETAIL_STATUSES = new Set(["submitted", "interview", "rejected"]);
@@ -35,7 +36,20 @@ export function Candidates() {
     candidate: CandidateWithJob;
     status: string;
   } | null>(null);
+  const [deleting, setDeleting] = useState<CandidateWithJob | null>(null);
   const bulkUpdate = useBulkUpdateCandidates();
+  const deleteCandidate = useDeleteCandidate();
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    try {
+      await deleteCandidate.mutateAsync(deleting.id);
+      toast.success("Candidate deleted");
+      setDeleting(null);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
 
   const { data, isLoading } = useQuery({
     queryKey: ["candidatesWithJob", debounced],
@@ -105,13 +119,14 @@ export function Candidates() {
                 <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Match</th>
                 <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Location</th>
                 <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Updated</th>
+                <th className="w-20 px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {data.map((c) => (
                 <tr
                   key={c.id}
-                  className="cursor-pointer transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                  className="group cursor-pointer transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
                   onClick={() => navigate(`/candidates/${c.id}`)}
                 >
                   <td className="px-4 py-2.5">
@@ -146,6 +161,32 @@ export function Candidates() {
                   </td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
+                  <td className="px-4 py-2.5">
+                    <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/candidates/${c.id}`);
+                        }}
+                      >
+                        <PencilSimple className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-fg-subtle hover:text-red-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setDeleting(c);
+                        }}
+                      >
+                        <Trash className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -161,6 +202,14 @@ export function Candidates() {
           onClose={() => setStatusDialog(null)}
         />
       )}
+      <ConfirmDialog
+        open={!!deleting}
+        onOpenChange={(o) => !o && setDeleting(null)}
+        title="Delete candidate?"
+        description={`This will permanently delete "${deleting?.name}". This cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 }
@@ -181,10 +230,10 @@ function InlineStatus({
       }}
     >
       <SelectTrigger
-        className="h-7 w-[118px] text-[12px]"
+        className="h-7 w-[118px] text-[11px]"
         onClick={(e) => e.stopPropagation()}
       >
-        <SelectValue />
+        <SelectValue className="truncate" />
       </SelectTrigger>
       <SelectContent>
         {SUBMISSION_STATUSES.map((s) => (
