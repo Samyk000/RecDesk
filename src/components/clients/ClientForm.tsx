@@ -38,11 +38,11 @@ export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
     const fd = new FormData(e.currentTarget);
     const input: ClientInput = {
       name: (fd.get("name") as string) || "",
-      company: (fd.get("company") as string) || null,
-      email: isEdit ? client!.email ?? null : null,
-      hiring_manager: isEdit ? client!.hiring_manager ?? null : null,
-      address: (fd.get("address") as string) || null,
-      notes: isEdit ? client!.notes ?? null : null,
+      company: client?.company ?? null,
+      email: client?.email ?? null,
+      hiring_manager: client?.hiring_manager ?? null,
+      address: client?.address ?? null,
+      notes: client?.notes ?? null,
     };
     if (!input.name.trim()) {
       toast.error("Client name is required");
@@ -74,19 +74,9 @@ export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
         </DialogHeader>
 
         <form id="client-form" onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="client-name">Name *</Label>
-              <Input id="client-name" name="name" placeholder="Sarah Mitchell" defaultValue={client?.name} required />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Company</Label>
-              <Input name="company" placeholder="Brightline Partners" defaultValue={client?.company ?? ""} />
-            </div>
-          </div>
           <div className="space-y-1.5">
-            <Label>Address</Label>
-            <Input name="address" placeholder="1 Main St, Boston, MA" defaultValue={client?.address ?? ""} />
+            <Label htmlFor="client-name">Name *</Label>
+            <Input id="client-name" name="name" placeholder="Sarah Mitchell" defaultValue={client?.name} required />
           </div>
         </form>
 

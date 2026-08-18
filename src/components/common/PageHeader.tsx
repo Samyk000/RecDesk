@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { cn } from "../../lib/utils";
 
 interface Props {
-  title: string;
+  title: ReactNode;
   subtitle?: string;
   actions?: ReactNode;
   className?: string;

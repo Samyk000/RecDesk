@@ -12,10 +12,8 @@ import { Input } from "../components/ui/input";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { ClientForm } from "../components/clients/ClientForm";
-import { cn, errorMessage, timeAgo } from "../lib/utils";
+import { errorMessage, formatDateTime } from "../lib/utils";
 import type { ClientWithStats } from "../types";
-
-const COLS = "grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_64px_90px_110px_auto]";
 
 export function Clients() {
   const [search, setSearch] = useState("");
@@ -93,81 +91,83 @@ export function Clients() {
         />
       ) : (
         <div ref={flipRef} className="overflow-hidden rounded-xl border border-border bg-surface">
-          <div className={cn("grid items-center border-b border-border bg-surface-hover/40 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted", COLS)}>
-            <span>Name</span>
-            <span>Company</span>
-            <span>Jobs</span>
-            <span>Candidates</span>
-            <span>Updated</span>
-            <span />
-          </div>
-          <div className="divide-y divide-border">
-            {data.map((client, i) => {
-              return (
-                <div
-                  key={client.id}
-                  data-flip-id={client.id}
-                  className={cn("group grid items-center px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active", COLS)}
-                >
-                  <div>
-                    <Link to={`/clients/${client.id}`} className="flex items-center gap-2.5">
-                      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-active text-fg-muted transition-transform duration-150 group-hover:scale-110">
-                        <Building className="h-3.5 w-3.5" />
-                      </span>
-                      <span className="text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">
-                        {client.name}
-                      </span>
-                    </Link>
-                  </div>
-                  <div className="text-[13px] text-fg-muted">{client.company ?? "-"}</div>
-                  <div className="text-[13px] tabular-nums text-fg">{client.jobs_count}</div>
-                  <div className="text-[13px] tabular-nums text-fg">{client.candidates_count}</div>
-                  <div className="text-xs text-fg-muted">{timeAgo(client.updated_at)}</div>
-                  <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      title="Move up"
-                      disabled={!canReorder || i === 0 || moveClient.isPending}
-                      onClick={() => moveClient.mutate({ id: client.id, direction: -1 })}
-                    >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      title="Move down"
-                      disabled={!canReorder || i === data.length - 1 || moveClient.isPending}
-                      onClick={() => moveClient.mutate({ id: client.id, direction: 1 })}
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6"
-                      onClick={() => {
-                        setEditing(client);
-                        setFormOpen(true);
-                      }}
-                    >
-                      <PencilSimple className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      className="h-6 w-6 text-fg-subtle hover:text-red-500"
-                      onClick={() => setDeleting(client)}
-                    >
-                      <Trash className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-border bg-surface-hover/40 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                <th className="px-4 py-2.5 text-left font-semibold">Name</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Created</th>
+                <th className="px-4 py-2.5 text-left font-semibold">Jobs</th>
+                <th className="px-4 py-2.5" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {data.map((client, i) => {
+                return (
+                  <tr
+                    key={client.id}
+                    data-flip-id={client.id}
+                    className="group transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                  >
+                    <td className="px-4 py-2.5">
+                      <Link to={`/clients/${client.id}`} className="flex min-w-0 items-center gap-2.5">
+                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-active text-fg-muted transition-transform duration-150 group-hover:scale-110">
+                          <Building className="h-3.5 w-3.5" />
+                        </span>
+                        <span className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">
+                          {client.name}
+                        </span>
+                      </Link>
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-xs text-fg-muted">{formatDateTime(client.created_at)}</td>
+                    <td className="px-4 py-2.5 text-[13px] tabular-nums text-fg">{client.jobs_count}</td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          title="Move up"
+                          disabled={!canReorder || i === 0 || moveClient.isPending}
+                          onClick={() => moveClient.mutate({ id: client.id, direction: -1 })}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          title="Move down"
+                          disabled={!canReorder || i === data.length - 1 || moveClient.isPending}
+                          onClick={() => moveClient.mutate({ id: client.id, direction: 1 })}
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6"
+                          onClick={() => {
+                            setEditing(client);
+                            setFormOpen(true);
+                          }}
+                        >
+                          <PencilSimple className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-6 w-6 text-fg-subtle hover:text-red-500"
+                          onClick={() => setDeleting(client)}
+                        >
+                          <Trash className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 
