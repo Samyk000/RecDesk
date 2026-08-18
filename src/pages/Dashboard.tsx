@@ -207,14 +207,35 @@ export function Dashboard() {
         </Section>
 
         <Section title="Jobs by status" to="/jobs">
-          <div className="flex flex-wrap gap-x-4 gap-y-2">
-            {data.jobs_by_status.map((s) => (
-              <Link key={s.status} to={`/jobs?status=${s.status}`} className="group flex cursor-pointer items-center gap-2">
-                <span className="font-display text-[26px] font-bold tabular-nums text-fg transition-colors duration-150 group-hover:text-primary">{s.count}</span>
-                <span className="text-[13px] text-fg-muted">{titleCase(s.status)}</span>
-                <ArrowRight className="h-3.5 w-3.5 text-fg-subtle opacity-0 transition-all duration-150 group-hover:translate-x-0.5 group-hover:opacity-100" />
-              </Link>
-            ))}
+          <div className="flex h-2 overflow-hidden rounded-full bg-surface-active">
+            {data.jobs_by_status.map((s) => {
+              const p = jobPalette(s.status);
+              const pct = data.total_jobs ? (s.count / data.total_jobs) * 100 : 0;
+              return (
+                <div
+                  key={s.status}
+                  className="h-full transition-all duration-500"
+                  style={{ width: `${pct}%`, background: p.dot }}
+                  title={`${titleCase(s.status)}: ${s.count}`}
+                />
+              );
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5">
+            {data.jobs_by_status.map((s) => {
+              const p = jobPalette(s.status);
+              return (
+                <Link
+                  key={s.status}
+                  to={`/jobs?status=${s.status}`}
+                  className="group flex cursor-pointer items-center gap-1.5 text-xs text-fg-muted transition-colors hover:text-fg"
+                >
+                  <span className="h-2 w-2 rounded-full" style={{ background: p.dot }} />
+                  {titleCase(s.status)}
+                  <span className="font-medium tabular-nums text-fg transition-colors group-hover:text-primary">{s.count}</span>
+                </Link>
+              );
+            })}
           </div>
         </Section>
       </div>
