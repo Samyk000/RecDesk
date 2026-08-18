@@ -161,6 +161,13 @@ export function useCandidates(jobId?: string, status?: string, search?: string) 
   });
 }
 
+export function useCandidatesWithJob(search?: string, status?: string) {
+  return useQuery({
+    queryKey: ["candidatesWithJob", search ?? "", status ?? ""],
+    queryFn: () => apiCandidates.withJob(undefined, search, status),
+  });
+}
+
 export function useCandidate(id: string | undefined) {
   return useQuery({
     queryKey: ["candidate", id],
@@ -257,6 +264,21 @@ export function useBulkUpdateCandidates() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
+export function useBulkDeleteCandidates() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => apiCandidates.bulkRemove(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["job"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["globalSearch"] });

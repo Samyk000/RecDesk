@@ -189,6 +189,52 @@ mod tests {
     }
 
     #[test]
+    fn bulk_delete_candidates() {
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let ts = now();
+        conn.execute(
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
+             VALUES (?1, 'Acme', NULL, NULL, NULL, NULL, NULL, ?2, ?2)",
+            params![cid, ts],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-1', 'Java Dev', 'active', '[]', '[]', ?3, ?3)",
+            params![jid, cid, ts],
+        )
+        .unwrap();
+
+        let mut ids = Vec::new();
+        for name in ["Alice", "Bob", "Carol"] {
+            let cand_id = new_id();
+            conn.execute(
+                "INSERT INTO candidates (id, job_id, name, submission_status, candidate_status, date_added, last_updated)
+                 VALUES (?1, ?2, ?3, 'sourced', 'active', ?4, ?4)",
+                params![cand_id, jid, name, ts],
+            )
+            .unwrap();
+            ids.push(cand_id);
+        }
+
+        let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+        let affected = conn
+            .execute(
+                &format!("DELETE FROM candidates WHERE id IN ({})", placeholders.join(",")),
+                rusqlite::params_from_iter(ids.iter()),
+            )
+            .unwrap();
+        assert_eq!(affected, 3);
+
+        let remaining: i64 = conn
+            .query_row("SELECT COUNT(*) FROM candidates", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(remaining, 0);
+    }
+
+    #[test]
     fn export_import_roundtrip_preserves_sort_order_and_updated_at() {
         let mut conn = test_conn();
         let ts = now();

@@ -52,6 +52,7 @@ pub fn run() {
             commands::candidate::create_candidate,
             commands::candidate::update_candidate,
             commands::candidate::delete_candidate,
+            commands::candidate::delete_candidates,
             commands::candidate::bulk_update_candidates,
             commands::candidate::get_candidates_with_job,
             // dashboard / search

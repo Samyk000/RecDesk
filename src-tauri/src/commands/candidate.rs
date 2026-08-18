@@ -275,9 +275,30 @@ pub fn delete_candidate(state: State<'_, AppState>, id: String) -> AppResult<()>
 }
 
 #[tauri::command]
+pub fn delete_candidates(state: State<'_, AppState>, ids: Vec<String>) -> AppResult<usize> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+    let sql = format!(
+        "DELETE FROM candidates WHERE id IN ({})",
+        placeholders.join(",")
+    );
+    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    for id in &ids {
+        p.push(Box::new(id.clone()));
+    }
+    let affected =
+        conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
+    Ok(affected)
+}
+
+#[tauri::command]
 pub fn get_candidates_with_job(
     state: State<'_, AppState>,
     client_id: Option<String>,
+    status: Option<String>,
     search: Option<String>,
 ) -> AppResult<Vec<CandidateWithJob>> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
@@ -287,6 +308,10 @@ pub fn get_candidates_with_job(
     if let Some(cid) = &client_id {
         conditions.push("cl.id = ?".to_string());
         params.push(Box::new(cid.clone()));
+    }
+    if let Some(st) = &status {
+        conditions.push("c.submission_status = ?".to_string());
+        params.push(Box::new(st.clone()));
     }
     if let Some(s) = &search {
         conditions.push(

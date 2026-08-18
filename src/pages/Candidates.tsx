@@ -1,10 +1,26 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { IdentificationCard, Plus, PencilSimple, MagnifyingGlass, Trash } from "@phosphor-icons/react";
-import { useQuery } from "@tanstack/react-query";
+import {
+  IdentificationCard,
+  Plus,
+  PencilSimple,
+  MagnifyingGlass,
+  Trash,
+  Funnel,
+  CaretDown,
+  CaretUp,
+  X,
+  ListChecks,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { apiCandidates } from "../lib/api";
+import {
+  useBulkUpdateCandidates,
+  useBulkDeleteCandidates,
+  useCandidatesWithJob,
+  useDeleteCandidate,
+} from "../hooks/useQueries";
 import { useDebounce } from "../hooks/useDebounce";
+import { useSelection } from "../hooks/useSelection";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/common/EmptyState";
@@ -14,25 +30,96 @@ import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { StatusChangeDialog } from "../components/candidates/StatusChangeDialog";
 import { SubmissionStatusSelect } from "../components/candidates/SubmissionStatusSelect";
-import { submissionPalette } from "../lib/constants";
-import { errorMessage, timeAgo, titleCase } from "../lib/utils";
-import { useBulkUpdateCandidates, useDeleteCandidate } from "../hooks/useQueries";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
+import { SUBMISSION_STATUSES, BULK_STATUSES, submissionIcon, submissionPalette } from "../lib/constants";
+import { cn, errorMessage, formatDateShort, timeAgo, titleCase } from "../lib/utils";
 import type { CandidateWithJob } from "../types";
 
 const DETAIL_STATUSES = new Set(["submitted", "interview", "rejected"]);
+
+type SortKey = "job_title" | "client_name" | "location" | "date_added" | "last_updated";
 
 export function Candidates() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
+  const [status, setStatus] = useState("all");
+  const [selectMode, setSelectMode] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("last_updated");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [formOpen, setFormOpen] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [statusDialog, setStatusDialog] = useState<{
     candidate: CandidateWithJob;
     status: string;
   } | null>(null);
   const [deleting, setDeleting] = useState<CandidateWithJob | null>(null);
   const bulkUpdate = useBulkUpdateCandidates();
+  const bulkDelete = useBulkDeleteCandidates();
   const deleteCandidate = useDeleteCandidate();
+
+  const { data, isLoading } = useCandidatesWithJob(
+    debounced || undefined,
+    status === "all" ? undefined : status,
+  );
+
+  const sorted = useMemo(() => {
+    if (!data) return [];
+    const arr = [...data];
+    arr.sort((a, b) => {
+      let cmp = 0;
+      if (sortKey === "job_title") cmp = a.job_title.localeCompare(b.job_title);
+      else if (sortKey === "client_name") cmp = a.client_name.localeCompare(b.client_name);
+      else if (sortKey === "location") cmp = (a.location ?? "").localeCompare(b.location ?? "");
+      else if (sortKey === "date_added") cmp = a.date_added.localeCompare(b.date_added);
+      else cmp = a.last_updated.localeCompare(b.last_updated);
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return arr;
+  }, [data, sortKey, sortDir]);
+
+  const selection = useSelection(
+    sorted.map((c) => c.id),
+    `${status}|${debounced}|${selectMode}`,
+  );
+
+  function toggleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  async function confirmBulkDelete() {
+    try {
+      await bulkDelete.mutateAsync(Array.from(selection.selected));
+      toast.success("Candidates deleted");
+      selection.clear();
+      setBulkDeleteOpen(false);
+    } catch {
+      toast.error("Bulk delete failed");
+    }
+  }
+
+  async function bulkStatus(newStatus: string) {
+    const ids = Array.from(selection.selected);
+    if (!ids.length) return;
+    try {
+      await bulkUpdate.mutateAsync({ ids, patch: { submission_status: newStatus } });
+      toast.success(`${ids.length} candidate(s) marked ${titleCase(newStatus)}`);
+      selection.clear();
+    } catch {
+      toast.error("Bulk update failed");
+    }
+  }
 
   async function confirmDelete() {
     if (!deleting) return;
@@ -45,24 +132,31 @@ export function Candidates() {
     }
   }
 
-  const { data, isLoading } = useQuery({
-    queryKey: ["candidatesWithJob", debounced],
-    queryFn: () => apiCandidates.withJob(undefined, debounced || undefined),
-  });
-
-  function handleStatusChange(candidate: CandidateWithJob, status: string) {
-    if (DETAIL_STATUSES.has(status)) {
-      setStatusDialog({ candidate, status });
+  function handleStatusChange(candidate: CandidateWithJob, value: string) {
+    if (DETAIL_STATUSES.has(value)) {
+      setStatusDialog({ candidate, status: value });
       return;
     }
     bulkUpdate.mutate(
-      { ids: [candidate.id], patch: { submission_status: status } },
+      { ids: [candidate.id], patch: { submission_status: value } },
       {
-        onSuccess: () => toast.success(`${candidate.name} marked ${titleCase(status)}`),
+        onSuccess: () => toast.success(`${candidate.name} marked ${titleCase(value)}`),
         onError: () => toast.error("Failed to update status"),
       },
     );
   }
+
+  const filtered = status !== "all" || search.length > 0;
+
+  function clearFilters() {
+    setStatus("all");
+    setSearch("");
+  }
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <CaretDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />;
+    return sortDir === "asc" ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />;
+  };
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden px-6 pt-4">
@@ -87,7 +181,88 @@ export function Candidates() {
             className="pl-9"
           />
         </div>
+        <div className="flex items-center gap-2">
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger className="h-8 w-40 text-[13px]">
+              <Funnel
+                className={cn("h-3.5 w-3.5 shrink-0", filtered ? "text-primary" : "text-fg-subtle")}
+              />
+              <SelectValue placeholder="All statuses" />
+            </SelectTrigger>
+            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectItem value="all">All statuses</SelectItem>
+              {SUBMISSION_STATUSES.map((s) => {
+                const StatusIcon = submissionIcon(s);
+                return (
+                  <SelectItem key={s} value={s}>
+                    <span className="flex items-center gap-1.5">
+                      <StatusIcon className="h-3.5 w-3.5" style={{ color: submissionPalette(s).dot }} />
+                      {titleCase(s)}
+                    </span>
+                  </SelectItem>
+                );
+              })}
+            </SelectContent>
+          </Select>
+          {filtered && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Clear filters"
+              onClick={clearFilters}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
+        </div>
+        <div className="ml-auto">
+          <Button
+            size="icon"
+            variant="ghost"
+            title={selectMode ? "Exit selection mode" : "Select multiple candidates"}
+            className={cn(
+              "h-8 w-8",
+              selectMode && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
+            )}
+            onClick={() => setSelectMode((m) => !m)}
+          >
+            <ListChecks className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      {selectMode && selection.selected.size > 0 && (
+        <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 animate-slide-up">
+          <span className="text-[13px] font-medium text-fg">
+            {selection.selected.size} selected
+          </span>
+          <Select value="" onValueChange={bulkStatus}>
+            <SelectTrigger className="h-8 w-44 text-[13px]">
+              <SelectValue placeholder="Set status…" />
+            </SelectTrigger>
+            <SelectContent>
+              {BULK_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {titleCase(s)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
+            onClick={() => setBulkDeleteOpen(true)}
+          >
+            <Trash className="h-3.5 w-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={selection.clear}>
+            <X className="h-3.5 w-3.5" />
+            Clear
+          </Button>
+        </div>
+      )}
 
       {isLoading ? (
         <Spinner className="py-16" />
@@ -96,8 +271,8 @@ export function Candidates() {
           icon={<IdentificationCard className="h-5 w-5" />}
           title="No candidates"
           description={
-            debounced
-              ? "Try a different search."
+            debounced || status !== "all"
+              ? "Try adjusting your search or filters."
               : "Candidates appear here when added to jobs."
           }
         />
@@ -106,23 +281,81 @@ export function Candidates() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border bg-surface-hover/40 text-left">
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Name</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Job</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Client</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Status</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Match</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Location</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Updated</th>
+                {selectMode && (
+                  <th className="w-10 px-4 py-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selection.allSelected}
+                      onChange={selection.toggleAll}
+                      className="h-3.5 w-3.5 rounded border-border accent-primary"
+                    />
+                  </th>
+                )}
+                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
+                <th className="px-4 py-2.5">
+                  <button
+                    onClick={() => toggleSort("job_title")}
+                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                  >
+                    Job <SortIcon col="job_title" />
+                  </button>
+                </th>
+                <th className="px-4 py-2.5">
+                  <button
+                    onClick={() => toggleSort("client_name")}
+                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                  >
+                    Client <SortIcon col="client_name" />
+                  </button>
+                </th>
+                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
+                <th className="px-4 py-2.5">
+                  <button
+                    onClick={() => toggleSort("location")}
+                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                  >
+                    Location <SortIcon col="location" />
+                  </button>
+                </th>
+                <th className="px-4 py-2.5">
+                  <button
+                    onClick={() => toggleSort("date_added")}
+                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                  >
+                    Added <SortIcon col="date_added" />
+                  </button>
+                </th>
+                <th className="px-4 py-2.5">
+                  <button
+                    onClick={() => toggleSort("last_updated")}
+                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                  >
+                    Updated <SortIcon col="last_updated" />
+                  </button>
+                </th>
                 <th className="w-20 px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {data.map((c) => (
+              {sorted.map((c) => (
                 <tr
                   key={c.id}
-                  className="group cursor-pointer transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                  className={cn(
+                    "group cursor-pointer transition-colors hover:bg-surface-hover",
+                    selection.selected.has(c.id) && "bg-primary/5 hover:bg-primary/5",
+                  )}
                   onClick={() => navigate(`/candidates/${c.id}`)}
                 >
+                  {selectMode && (
+                    <td className="w-10 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selection.selected.has(c.id)}
+                        onChange={() => selection.toggle(c.id)}
+                        className="h-3.5 w-3.5 rounded border-border accent-primary"
+                      />
+                    </td>
+                  )}
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2.5">
                       <span
@@ -145,15 +378,10 @@ export function Candidates() {
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.job_title}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.client_name}</td>
                   <td className="px-4 py-2.5">
-                    <InlineStatus
-                      candidate={c}
-                      onUpdate={(v) => handleStatusChange(c, v)}
-                    />
-                  </td>
-                  <td className="px-4 py-2.5 text-[13px] tabular-nums text-fg-muted">
-                    {c.match_score != null ? c.match_score : "-"}
+                    <InlineStatus candidate={c} onUpdate={(v) => handleStatusChange(c, v)} />
                   </td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
+                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{formatDateShort(c.date_added)}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
@@ -185,6 +413,9 @@ export function Candidates() {
               ))}
             </tbody>
           </table>
+          <div className="border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
+            {sorted.length} candidate{sorted.length !== 1 ? "s" : ""}
+          </div>
         </div>
       )}
 
@@ -203,6 +434,16 @@ export function Candidates() {
         description={`This will permanently delete "${deleting?.name}". This cannot be undone.`}
         confirmLabel="Delete"
         onConfirm={confirmDelete}
+      />
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onOpenChange={(o) => !o && setBulkDeleteOpen(false)}
+        title="Delete candidates?"
+        description={`This will permanently delete ${selection.selected.size} candidate(s). This cannot be undone.`}
+        confirmLabel="Delete"
+        destructive
+        loading={bulkDelete.isPending}
+        onConfirm={confirmBulkDelete}
       />
     </div>
   );

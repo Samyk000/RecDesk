@@ -49,8 +49,9 @@ export const apiCandidates = {
   remove: (id: string) => call<void>("delete_candidate", { id }),
   bulkUpdate: (ids: string[], patch: CandidatePatch) =>
     call<number>("bulk_update_candidates", { ids, patch }),
-  withJob: (clientId?: string, search?: string) =>
-    call<CandidateWithJob[]>("get_candidates_with_job", { clientId, search }),
+  bulkRemove: (ids: string[]) => call<number>("delete_candidates", { ids }),
+  withJob: (clientId?: string, search?: string, status?: string) =>
+    call<CandidateWithJob[]>("get_candidates_with_job", { clientId, search, status }),
 };
 
 // ---- Dashboard / Search ----

@@ -7,6 +7,8 @@ export const SUBMISSION_STATUSES = [
   "not_interested",
 ] as const;
 
+export const BULK_STATUSES = ["sourced", "in_touch", "not_interested"] as const;
+
 export const JOB_STATUSES = ["active", "on_hold", "closed"] as const;
 
 export const WORK_MODELS = ["Remote", "Hybrid", "Onsite"] as const;

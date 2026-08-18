@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowUp,
   CaretDown,
@@ -11,12 +11,18 @@ import {
   X,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useCandidates, useBulkUpdateCandidates } from "../../../hooks/useQueries";
+import {
+  useCandidates,
+  useBulkUpdateCandidates,
+  useBulkDeleteCandidates,
+} from "../../../hooks/useQueries";
 import { useDebounce } from "../../../hooks/useDebounce";
+import { useSelection } from "../../../hooks/useSelection";
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import { EmptyState } from "../../common/EmptyState";
 import { StatusBadge } from "../../common/StatusBadge";
+import { ConfirmDialog } from "../../common/ConfirmDialog";
 import {
   Select,
   SelectContent,
@@ -26,11 +32,11 @@ import {
 } from "../../ui/select";
 import { CandidateForm } from "../../candidates/CandidateForm";
 import { CandidateDetailPanel } from "../../candidates/CandidateDetailPanel";
-import { SUBMISSION_STATUSES, matchColor, submissionPalette } from "../../../lib/constants";
+import { SUBMISSION_STATUSES, BULK_STATUSES, submissionIcon, submissionPalette } from "../../../lib/constants";
 import { cn, formatDateShort, timeAgo, titleCase } from "../../../lib/utils";
 import type { Candidate } from "../../../types";
 
-type SortKey = "name" | "match_score" | "date_added" | "last_updated";
+type SortKey = "date_added" | "last_updated";
 
 export function CandidatesTab({ jobId }: { jobId: string }) {
   const [search, setSearch] = useState("");
@@ -38,14 +44,11 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
   const [status, setStatus] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("last_updated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelId, setPanelId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
-
-  useEffect(() => {
-    setSelected(new Set());
-  }, [status, debounced]);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const bulkUpdate = useBulkUpdateCandidates();
+  const bulkDelete = useBulkDeleteCandidates();
 
   const { data: candidates, isLoading } = useCandidates(
     jobId,
@@ -57,39 +60,25 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
     if (!candidates) return [];
     const arr = [...candidates];
     arr.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "name") cmp = a.name.localeCompare(b.name);
-      else if (sortKey === "match_score") cmp = (a.match_score ?? -1) - (b.match_score ?? -1);
-      else if (sortKey === "date_added") cmp = a.date_added.localeCompare(b.date_added);
-      else cmp = a.last_updated.localeCompare(b.last_updated);
+      const cmp =
+        sortKey === "date_added"
+          ? a.date_added.localeCompare(b.date_added)
+          : a.last_updated.localeCompare(b.last_updated);
       return sortDir === "asc" ? cmp : -cmp;
     });
     return arr;
   }, [candidates, sortKey, sortDir]);
 
-  const allIds = sorted.map((c) => c.id);
-  const allSelected = allIds.length > 0 && allIds.every((id) => selected.has(id));
+  const selection = useSelection(
+    sorted.map((c) => c.id),
+    `${status}|${debounced}`,
+  );
 
-  function toggleAll() {
-    setSelected((prev) => {
-      if (allSelected) {
-        const next = new Set(prev);
-        allIds.forEach((id) => next.delete(id));
-        return next;
-      }
-      const next = new Set(prev);
-      allIds.forEach((id) => next.add(id));
-      return next;
-    });
-  }
+  const filtered = status !== "all" || search.length > 0;
 
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  function clearFilters() {
+    setStatus("all");
+    setSearch("");
   }
 
   function toggleSort(key: SortKey) {
@@ -101,19 +90,26 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
     }
   }
 
-  function clearSelection() {
-    setSelected(new Set());
-  }
-
   async function bulkStatus(newStatus: string) {
-    const ids = Array.from(selected);
+    const ids = Array.from(selection.selected);
     if (!ids.length) return;
     try {
       await bulkUpdate.mutateAsync({ ids, patch: { submission_status: newStatus } });
       toast.success(`${ids.length} candidate(s) marked ${titleCase(newStatus)}`);
-      clearSelection();
+      selection.clear();
     } catch {
       toast.error("Bulk update failed");
+    }
+  }
+
+  async function confirmBulkDelete() {
+    try {
+      await bulkDelete.mutateAsync(Array.from(selection.selected));
+      toast.success("Candidates deleted");
+      selection.clear();
+      setDeleteOpen(false);
+    } catch {
+      toast.error("Bulk delete failed");
     }
   }
 
@@ -135,20 +131,39 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
           />
         </div>
         <div className="flex items-center gap-2">
-          <Funnel className="h-4 w-4 text-fg-subtle" />
           <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="h-8 w-44 text-[13px]">
+            <SelectTrigger className="h-8 w-40 text-[13px]">
+              <Funnel
+                className={cn("h-3.5 w-3.5 shrink-0", filtered ? "text-primary" : "text-fg-subtle")}
+              />
               <SelectValue placeholder="All statuses" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="w-[var(--radix-select-trigger-width)]">
               <SelectItem value="all">All statuses</SelectItem>
-              {SUBMISSION_STATUSES.map((s) => (
-                <SelectItem key={s} value={s}>
-                  {titleCase(s)}
-                </SelectItem>
-              ))}
+              {SUBMISSION_STATUSES.map((s) => {
+                const StatusIcon = submissionIcon(s);
+                return (
+                  <SelectItem key={s} value={s}>
+                    <span className="flex items-center gap-1.5">
+                      <StatusIcon className="h-3.5 w-3.5" style={{ color: submissionPalette(s).dot }} />
+                      {titleCase(s)}
+                    </span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
+          {filtered && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-8 w-8"
+              title="Clear filters"
+              onClick={clearFilters}
+            >
+              <X className="h-3.5 w-3.5" />
+            </Button>
+          )}
         </div>
         <div className="ml-auto">
           <Button variant="primary" size="sm" onClick={() => setFormOpen(true)}>
@@ -158,17 +173,17 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
         </div>
       </div>
 
-      {selected.size > 0 && (
+      {selection.selected.size > 0 && (
         <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 animate-slide-up">
           <span className="text-[13px] font-medium text-fg">
-            {selected.size} selected
+            {selection.selected.size} selected
           </span>
           <Select value="" onValueChange={bulkStatus}>
             <SelectTrigger className="h-8 w-44 text-[13px]">
               <SelectValue placeholder="Set status…" />
             </SelectTrigger>
             <SelectContent>
-              {SUBMISSION_STATUSES.map((s) => (
+              {BULK_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
                   {titleCase(s)}
                 </SelectItem>
@@ -179,15 +194,11 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
             size="sm"
             variant="ghost"
             className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
-            onClick={() => {
-              // Bulk delete handled via per-row for safety; clear instead
-              clearSelection();
-              toast.info("Use row actions to delete individual candidates");
-            }}
+            onClick={() => setDeleteOpen(true)}
           >
             <Trash className="h-3.5 w-3.5" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={clearSelection}>
+          <Button size="sm" variant="ghost" onClick={selection.clear}>
             <X className="h-3.5 w-3.5" />
             Clear
           </Button>
@@ -224,23 +235,14 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
                 <th className="w-10 px-3 py-2.5">
                   <input
                     type="checkbox"
-                    checked={allSelected}
-                    onChange={toggleAll}
+                    checked={selection.allSelected}
+                    onChange={selection.toggleAll}
                     className="h-3.5 w-3.5 rounded border-border accent-primary"
                   />
                 </th>
-                <th className="px-3 py-2.5">
-                  <button onClick={() => toggleSort("name")} className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg">
-                    Name <SortIcon col="name" />
-                  </button>
-                </th>
+                <th className="px-3 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
                 <th className="px-3 py-2.5 text-xs font-semibold text-fg-muted">Current role</th>
                 <th className="px-3 py-2.5 text-xs font-semibold text-fg-muted">Location</th>
-                <th className="px-3 py-2.5">
-                  <button onClick={() => toggleSort("match_score")} className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg">
-                    Match <SortIcon col="match_score" />
-                  </button>
-                </th>
                 <th className="px-3 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
                 <th className="px-3 py-2.5">
                   <button onClick={() => toggleSort("date_added")} className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg">
@@ -259,8 +261,8 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
                 <CandidateRow
                   key={cand.id}
                   candidate={cand}
-                  selected={selected.has(cand.id)}
-                  onToggle={() => toggle(cand.id)}
+                  selected={selection.selected.has(cand.id)}
+                  onToggle={() => selection.toggle(cand.id)}
                   onOpen={() => setPanelId(cand.id)}
                 />
               ))}
@@ -282,6 +284,17 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
           </div>
         </div>
       )}
+
+      <ConfirmDialog
+        open={deleteOpen}
+        onOpenChange={(o) => !o && setDeleteOpen(false)}
+        title="Delete candidates?"
+        description={`This will permanently delete ${selection.selected.size} candidate(s). This cannot be undone.`}
+        confirmLabel="Delete"
+        destructive
+        loading={bulkDelete.isPending}
+        onConfirm={confirmBulkDelete}
+      />
     </div>
   );
 }
@@ -341,15 +354,6 @@ function CandidateRow({
         </p>
       </td>
       <td className="px-3 py-2.5 text-[13px] text-fg-muted">{candidate.location ?? "-"}</td>
-      <td className="px-3 py-2.5">
-        {candidate.match_score != null ? (
-          <span className={cn("text-[13px] font-semibold tabular-nums", matchColor(candidate.match_score))}>
-            {candidate.match_score}
-          </span>
-        ) : (
-          <span className="text-fg-subtle">-</span>
-        )}
-      </td>
       <td className="px-3 py-2.5">
         <StatusBadge status={candidate.submission_status} />
       </td>
