@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS clients (
   address TEXT,
   notes TEXT,
   created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
+  updated_at TEXT NOT NULL,
+  sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS jobs (
@@ -31,7 +32,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   notes TEXT,
   created_at TEXT NOT NULL,
   updated_at TEXT NOT NULL,
-  closed_at TEXT
+  closed_at TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS candidates (
@@ -45,6 +47,7 @@ CREATE TABLE IF NOT EXISTS candidates (
   current_company TEXT,
   experience_years INTEGER,
   resume_path TEXT,
+  linkedin_url TEXT,
   recruiter_notes TEXT,
   match_score INTEGER,
   submission_status TEXT NOT NULL DEFAULT 'sourced',
@@ -77,6 +80,7 @@ CREATE INDEX IF NOT EXISTS idx_candidates_updated ON candidates(last_updated);
 pub fn create_schema(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(SCHEMA_SQL)?;
     migrate_clients(conn)?;
+    migrate_jobs(conn)?;
     migrate_candidates(conn)?;
     Ok(())
 }
@@ -90,10 +94,28 @@ fn migrate_clients(conn: &Connection) -> AppResult<()> {
 
     let additions = [
         ("hiring_manager", "TEXT"),
+        ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
     ];
     for (col, ty) in additions {
         if !existing.iter().any(|c| c == col) {
             conn.execute(&format!("ALTER TABLE clients ADD COLUMN {col} {ty}"), [])?;
+        }
+    }
+
+    Ok(())
+}
+
+// Idempotent migration: adds new columns to the jobs table.
+fn migrate_jobs(conn: &Connection) -> AppResult<()> {
+    let existing: Vec<String> = conn
+        .prepare("PRAGMA table_info(jobs)")?
+        .query_map([], |row| row.get(1))?
+        .collect::<Result<_, _>>()?;
+
+    let additions = [("sort_order", "INTEGER NOT NULL DEFAULT 0")];
+    for (col, ty) in additions {
+        if !existing.iter().any(|c| c == col) {
+            conn.execute(&format!("ALTER TABLE jobs ADD COLUMN {col} {ty}"), [])?;
         }
     }
 
@@ -111,6 +133,7 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
         ("submitted_at", "TEXT"),
         ("interview_at", "TEXT"),
         ("rejection_reason", "TEXT"),
+        ("linkedin_url", "TEXT"),
     ];
     for (col, ty) in additions {
         if !existing.iter().any(|c| c == col) {

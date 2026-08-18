@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Building, PencilSimple, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Building, PencilSimple, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useClients, useDeleteClient } from "../hooks/useQueries";
+import { useClients, useDeleteClient, useMoveClient } from "../hooks/useQueries";
 import { useDebounce } from "../hooks/useDebounce";
+import { useFlipList } from "../hooks/useFlipList";
 import { PageLoader } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
@@ -11,8 +12,10 @@ import { Input } from "../components/ui/input";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { ClientForm } from "../components/clients/ClientForm";
-import { errorMessage, timeAgo } from "../lib/utils";
+import { cn, errorMessage, timeAgo } from "../lib/utils";
 import type { ClientWithStats } from "../types";
+
+const COLS = "grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_64px_90px_110px_auto]";
 
 export function Clients() {
   const [search, setSearch] = useState("");
@@ -21,7 +24,10 @@ export function Clients() {
   const [editing, setEditing] = useState<ClientWithStats | null>(null);
   const [deleting, setDeleting] = useState<ClientWithStats | null>(null);
   const deleteClient = useDeleteClient();
+  const moveClient = useMoveClient();
+  const flipRef = useFlipList();
   const { data, isLoading } = useClients(debounced || undefined);
+  const canReorder = !debounced;
 
   async function confirmDelete() {
     if (!deleting) return;
@@ -86,22 +92,24 @@ export function Clients() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-hover/40 text-left">
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Name</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Company</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Jobs</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Candidates</th>
-                <th className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">Updated</th>
-                <th className="w-20 px-4 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {data.map((client) => (
-                <tr key={client.id} className="group transition-all duration-150 hover:bg-surface-hover active:bg-surface-active">
-                  <td className="px-4 py-2.5">
+        <div ref={flipRef} className="overflow-hidden rounded-xl border border-border bg-surface">
+          <div className={cn("grid items-center border-b border-border bg-surface-hover/40 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted", COLS)}>
+            <span>Name</span>
+            <span>Company</span>
+            <span>Jobs</span>
+            <span>Candidates</span>
+            <span>Updated</span>
+            <span />
+          </div>
+          <div className="divide-y divide-border">
+            {data.map((client, i) => {
+              return (
+                <div
+                  key={client.id}
+                  data-flip-id={client.id}
+                  className={cn("group grid items-center px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active", COLS)}
+                >
+                  <div>
                     <Link to={`/clients/${client.id}`} className="flex items-center gap-2.5">
                       <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-surface-active text-fg-muted transition-transform duration-150 group-hover:scale-110">
                         <Building className="h-3.5 w-3.5" />
@@ -110,38 +118,56 @@ export function Clients() {
                         {client.name}
                       </span>
                     </Link>
-                  </td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{client.company ?? "-"}</td>
-                  <td className="px-4 py-2.5 text-[13px] tabular-nums text-fg">{client.jobs_count}</td>
-                  <td className="px-4 py-2.5 text-[13px] tabular-nums text-fg">{client.candidates_count}</td>
-                  <td className="px-4 py-2.5 text-xs text-fg-muted">{timeAgo(client.updated_at)}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={() => {
-                          setEditing(client);
-                          setFormOpen(true);
-                        }}
-                      >
-                        <PencilSimple className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-fg-subtle hover:text-red-500"
-                        onClick={() => setDeleting(client)}
-                      >
-                        <Trash className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                  <div className="text-[13px] text-fg-muted">{client.company ?? "-"}</div>
+                  <div className="text-[13px] tabular-nums text-fg">{client.jobs_count}</div>
+                  <div className="text-[13px] tabular-nums text-fg">{client.candidates_count}</div>
+                  <div className="text-xs text-fg-muted">{timeAgo(client.updated_at)}</div>
+                  <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      title="Move up"
+                      disabled={!canReorder || i === 0 || moveClient.isPending}
+                      onClick={() => moveClient.mutate({ id: client.id, direction: -1 })}
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      title="Move down"
+                      disabled={!canReorder || i === data.length - 1 || moveClient.isPending}
+                      onClick={() => moveClient.mutate({ id: client.id, direction: 1 })}
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6"
+                      onClick={() => {
+                        setEditing(client);
+                        setFormOpen(true);
+                      }}
+                    >
+                      <PencilSimple className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-6 w-6 text-fg-subtle hover:text-red-500"
+                      onClick={() => setDeleting(client)}
+                    >
+                      <Trash className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
 

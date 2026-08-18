@@ -7,20 +7,14 @@ import { apiCandidates } from "../lib/api";
 import { useDebounce } from "../hooks/useDebounce";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../components/ui/select";
 import { EmptyState } from "../components/common/EmptyState";
 import { Spinner } from "../components/common/Spinner";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { StatusChangeDialog } from "../components/candidates/StatusChangeDialog";
-import { submissionPalette, SUBMISSION_STATUSES } from "../lib/constants";
+import { SubmissionStatusSelect } from "../components/candidates/SubmissionStatusSelect";
+import { submissionPalette } from "../lib/constants";
 import { errorMessage, timeAgo, titleCase } from "../lib/utils";
 import { useBulkUpdateCandidates, useDeleteCandidate } from "../hooks/useQueries";
 import type { CandidateWithJob } from "../types";
@@ -222,32 +216,13 @@ function InlineStatus({
   onUpdate: (status: string) => void;
 }) {
   return (
-    <Select
+    <SubmissionStatusSelect
       value={candidate.submission_status}
+      triggerClassName="h-7 w-[118px] text-[11px]"
       onValueChange={(v) => {
         if (v === candidate.submission_status) return;
         onUpdate(v);
       }}
-    >
-      <SelectTrigger
-        className="h-7 w-[118px] text-[11px]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <SelectValue className="truncate" />
-      </SelectTrigger>
-      <SelectContent>
-        {SUBMISSION_STATUSES.map((s) => (
-          <SelectItem key={s} value={s}>
-            <span className="flex items-center gap-1.5">
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: submissionPalette(s).dot }}
-              />
-              {titleCase(s)}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+    />
   );
 }

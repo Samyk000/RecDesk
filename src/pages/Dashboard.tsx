@@ -39,14 +39,14 @@ export function Dashboard() {
       value: data.total_candidates,
       icon: IdentificationCard,
       accent: "text-violet-500",
-      to: "/jobs",
+      to: "/candidates",
     },
     {
       label: "Needing action",
       value: data.candidates_needing_action,
       icon: Clock,
       accent: "text-amber-500",
-      to: "/jobs",
+      to: "/candidates",
     },
     {
       label: "Clients",

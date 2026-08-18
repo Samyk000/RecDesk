@@ -27,6 +27,42 @@ mod tests {
     }
 
     #[test]
+    fn sort_order_controls_list_order() {
+        let conn = test_conn();
+        let ts = now();
+        for (name, order) in [("Zebra", 0), ("Alpha", 1), ("Mid", 2)] {
+            let id = new_id();
+            conn.execute(
+                "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order)
+                 VALUES (?1, ?2, NULL, NULL, NULL, NULL, NULL, ?3, ?3, ?4)",
+                params![id, name, ts, order],
+            )
+            .unwrap();
+        }
+        let names: Vec<String> = conn
+            .prepare("SELECT name FROM clients ORDER BY sort_order, name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(names, vec!["Zebra", "Alpha", "Mid"]);
+
+        conn.execute("UPDATE clients SET sort_order = 1 WHERE name = 'Zebra'", [])
+            .unwrap();
+        conn.execute("UPDATE clients SET sort_order = 0 WHERE name = 'Alpha'", [])
+            .unwrap();
+        let names: Vec<String> = conn
+            .prepare("SELECT name FROM clients ORDER BY sort_order, name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        assert_eq!(names, vec!["Alpha", "Zebra", "Mid"]);
+    }
+
+    #[test]
     fn client_crud_roundtrip() {
         let conn = test_conn();
         let id = new_id();
@@ -42,7 +78,7 @@ mod tests {
 
         let client = conn
             .query_row(
-                "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at FROM clients WHERE id = ?1",
+                "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order FROM clients WHERE id = ?1",
                 params![&id],
                 row_to_client,
             )
@@ -83,7 +119,7 @@ mod tests {
             .query_row(
                 r#"SELECT id, client_id, job_id, title, location, work_model, contract_type, status,
                           refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
-                          created_at, updated_at, closed_at
+                          created_at, updated_at, closed_at, sort_order
                    FROM jobs WHERE id = ?1"#,
                 params![&jid],
                 row_to_job,
@@ -130,7 +166,7 @@ mod tests {
                           experience_years, resume_path, recruiter_notes, match_score,
                           submission_status, interview_status, client_feedback, candidate_status,
                           submitted_at, interview_at, rejection_reason,
-                          date_added, last_updated
+                          date_added, last_updated, linkedin_url
                    FROM candidates WHERE id = ?1"#,
                 params![&cand_id],
                 row_to_candidate,
@@ -150,6 +186,47 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM candidates", [], |r| r.get(0))
             .unwrap();
         assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn export_import_roundtrip_preserves_sort_order_and_updated_at() {
+        let mut conn = test_conn();
+        let ts = now();
+        let cid = new_id();
+        conn.execute(
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order)
+             VALUES (?1, 'Acme', NULL, NULL, NULL, NULL, NULL, ?2, ?2, 3)",
+            params![cid, ts],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at, sort_order)
+             VALUES (?1, ?2, 'REQ-9', 'Java Dev', 'active', '[]', '[]', ?3, '2026-01-02T03:04:05Z', 7)",
+            params![new_id(), cid, ts],
+        )
+        .unwrap();
+
+        let json = crate::commands::data::export_json(&conn).unwrap();
+
+        conn.execute("DELETE FROM candidates", []).unwrap();
+        conn.execute("DELETE FROM jobs", []).unwrap();
+        conn.execute("DELETE FROM clients", []).unwrap();
+
+        let summary = crate::commands::data::import_json(&mut conn, &json, false).unwrap();
+        assert_eq!(summary.clients, 1);
+        assert_eq!(summary.jobs, 1);
+
+        let sort_order: i64 = conn
+            .query_row("SELECT sort_order FROM clients", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(sort_order, 3);
+        let (job_sort, updated_at): (i64, String) = conn
+            .query_row("SELECT sort_order, updated_at FROM jobs", [], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+        assert_eq!(job_sort, 7);
+        assert_eq!(updated_at, "2026-01-02T03:04:05Z");
     }
 
     #[test]

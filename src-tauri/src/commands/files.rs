@@ -63,8 +63,8 @@ pub fn attach_resume(
         "SELECT id, job_id, name, email, phone, location, current_title, current_company,
                 experience_years, resume_path, recruiter_notes, match_score, submission_status,
                 interview_status, client_feedback, candidate_status, submitted_at, interview_at,
-                rejection_reason, date_added, last_updated
-         FROM candidates WHERE id = ?1",
+rejection_reason, date_added, last_updated, linkedin_url
+        FROM candidates WHERE id = ?1",
         params![&candidate_id],
         row_to_candidate,
     )?;
@@ -74,23 +74,26 @@ pub fn attach_resume(
 #[tauri::command]
 pub fn remove_resume(state: State<'_, AppState>, candidate_id: String) -> AppResult<Candidate> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let path: Option<String> = conn.query_row(
+        "SELECT resume_path FROM candidates WHERE id = ?1",
+        params![&candidate_id],
+        |r| r.get(0),
+    )?;
     conn.execute(
         "UPDATE candidates SET resume_path = NULL, last_updated = ?1 WHERE id = ?2",
         params![crate::rows::now(), candidate_id],
     )?;
+    if let Some(p) = path {
+        let _ = std::fs::remove_file(p);
+    }
     let cand = conn.query_row(
         "SELECT id, job_id, name, email, phone, location, current_title, current_company,
                 experience_years, resume_path, recruiter_notes, match_score, submission_status,
                 interview_status, client_feedback, candidate_status, submitted_at, interview_at,
-                rejection_reason, date_added, last_updated
-         FROM candidates WHERE id = ?1",
+rejection_reason, date_added, last_updated, linkedin_url
+        FROM candidates WHERE id = ?1",
         params![&candidate_id],
         row_to_candidate,
     )?;
     Ok(cand)
-}
-
-#[tauri::command]
-pub fn resume_exists(_state: State<'_, AppState>, path: String) -> AppResult<bool> {
-    Ok(PathBuf::from(path).exists())
 }

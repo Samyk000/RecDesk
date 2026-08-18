@@ -38,14 +38,14 @@ pub fn run() {
             commands::client::create_client,
             commands::client::update_client,
             commands::client::delete_client,
+            commands::client::move_client,
             // jobs
             commands::job::get_jobs,
             commands::job::get_job,
-            commands::job::get_recent_jobs,
-            commands::job::get_job_counts,
             commands::job::create_job,
             commands::job::update_job,
             commands::job::delete_job,
+            commands::job::move_job,
             // candidates
             commands::candidate::get_candidates,
             commands::candidate::get_candidate,
@@ -64,7 +64,6 @@ pub fn run() {
             // files
             commands::files::attach_resume,
             commands::files::remove_resume,
-            commands::files::resume_exists,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

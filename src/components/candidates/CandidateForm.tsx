@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { useCreateCandidate, useJobs } from "../../hooks/useQueries";
-import { SUBMISSION_STATUSES } from "../../lib/constants";
+import { SUBMISSION_STATUSES, submissionIcon, submissionPalette } from "../../lib/constants";
 import { errorMessage, titleCase } from "../../lib/utils";
 import type { CandidateInput, JobWithStats } from "../../types";
 
@@ -94,6 +94,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
       email: (fd.get("email") as string) || null,
       phone: (fd.get("phone") as string) || null,
       location: (fd.get("location") as string) || null,
+      linkedin_url: (fd.get("linkedin") as string) || null,
       submission_status: status,
       candidate_status: "active",
       submitted_at: status === "submitted" ? submittedAt || null : null,
@@ -177,9 +178,15 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Location</Label>
-            <Input name="location" placeholder="Boston, MA" />
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label>Location</Label>
+              <Input name="location" placeholder="Boston, MA" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>LinkedIn</Label>
+              <Input name="linkedin" placeholder="https://linkedin.com/in/…" />
+            </div>
           </div>
 
           <div className="space-y-1.5">
@@ -189,11 +196,17 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SUBMISSION_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {titleCase(s)}
-                  </SelectItem>
-                ))}
+                {SUBMISSION_STATUSES.map((s) => {
+                  const StatusIcon = submissionIcon(s);
+                  return (
+                    <SelectItem key={s} value={s}>
+                      <span className="flex items-center gap-1.5">
+                        <StatusIcon className="h-3.5 w-3.5" style={{ color: submissionPalette(s).dot }} />
+                        {titleCase(s)}
+                      </span>
+                    </SelectItem>
+                  );
+                })}
               </SelectContent>
             </Select>
           </div>

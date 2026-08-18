@@ -9,7 +9,7 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import { Button } from "../ui/button";
-import { Input, Textarea } from "../ui/input";
+import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { useCreateClient, useUpdateClient } from "../../hooks/useQueries";
 import { errorMessage } from "../../lib/utils";
@@ -39,10 +39,10 @@ export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
     const input: ClientInput = {
       name: (fd.get("name") as string) || "",
       company: (fd.get("company") as string) || null,
-      email: (fd.get("email") as string) || null,
-      hiring_manager: (fd.get("hiring_manager") as string) || null,
+      email: isEdit ? client!.email ?? null : null,
+      hiring_manager: isEdit ? client!.hiring_manager ?? null : null,
       address: (fd.get("address") as string) || null,
-      notes: (fd.get("notes") as string) || null,
+      notes: isEdit ? client!.notes ?? null : null,
     };
     if (!input.name.trim()) {
       toast.error("Client name is required");
@@ -84,23 +84,9 @@ export function ClientForm({ open, onOpenChange, client, onCreated }: Props) {
               <Input name="company" placeholder="Brightline Partners" defaultValue={client?.company ?? ""} />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
-              <Label>Email</Label>
-              <Input name="email" type="email" placeholder="john@acme.com" defaultValue={client?.email ?? ""} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Hiring Manager</Label>
-              <Input name="hiring_manager" placeholder="Daniel Okafor" defaultValue={client?.hiring_manager ?? ""} />
-            </div>
-          </div>
           <div className="space-y-1.5">
             <Label>Address</Label>
             <Input name="address" placeholder="1 Main St, Boston, MA" defaultValue={client?.address ?? ""} />
-          </div>
-          <div className="space-y-1.5">
-            <Label>Notes</Label>
-            <Textarea name="notes" rows={3} placeholder="Client preferences, rate agreement, communication style…" defaultValue={client?.notes ?? ""} />
           </div>
         </form>
 

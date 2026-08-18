@@ -69,23 +69,6 @@ export interface JobWithStats extends Job {
   client_name: string;
 }
 
-export interface JobCounts {
-  total: number;
-  active: number;
-  closed: number;
-  on_hold: number;
-}
-
-export type SubmissionStatus =
-  | "sourced"
-  | "in_touch"
-  | "submitted"
-  | "interview"
-  | "rejected"
-  | "not_interested";
-
-export type CandidateStatus = "active" | "inactive" | "archived";
-
 export interface Candidate {
   id: string;
   job_id: string;
@@ -97,6 +80,7 @@ export interface Candidate {
   current_company?: string | null;
   experience_years?: number | null;
   resume_path?: string | null;
+  linkedin_url?: string | null;
   recruiter_notes?: string | null;
   match_score?: number | null;
   submission_status: string;
@@ -120,6 +104,7 @@ export interface CandidateInput {
   current_company?: string | null;
   experience_years?: number | null;
   resume_path?: string | null;
+  linkedin_url?: string | null;
   recruiter_notes?: string | null;
   match_score?: number | null;
   submission_status?: string | null;

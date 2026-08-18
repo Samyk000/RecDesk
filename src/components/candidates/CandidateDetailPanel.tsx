@@ -1,36 +1,31 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Briefcase,
   CalendarDots,
+  Copy,
   FileText,
-  Link,
+  LinkedinLogo,
   CircleNotch,
   Paperclip,
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { openPath, openUrl } from "@tauri-apps/plugin-opener";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import {
+  useAttachResume,
   useCandidate,
   useDeleteCandidate,
+  useRemoveResume,
   useUpdateCandidate,
 } from "../../hooks/useQueries";
-import { apiFiles } from "../../lib/api";
-import { Input, Textarea } from "../ui/input";
+import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { StatusBadge } from "../common/StatusBadge";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
-import { SUBMISSION_STATUSES } from "../../lib/constants";
-import { errorMessage, formatDate, titleCase } from "../../lib/utils";
+import { RichTextEditor } from "../common/RichTextEditor";
+import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
+import { errorMessage, formatDate } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput } from "../../types";
 
@@ -63,6 +58,8 @@ function CandidatePanelBody({
 }) {
   const update = useUpdateCandidate();
   const deleteCandidate = useDeleteCandidate();
+  const attachResumeMut = useAttachResume();
+  const removeResumeMut = useRemoveResume();
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -82,6 +79,7 @@ function CandidatePanelBody({
           current_company: candidate.current_company,
           experience_years: candidate.experience_years,
           resume_path: candidate.resume_path,
+          linkedin_url: candidate.linkedin_url,
           recruiter_notes: candidate.recruiter_notes,
           match_score: candidate.match_score,
           submission_status: candidate.submission_status,
@@ -105,14 +103,21 @@ function CandidatePanelBody({
   async function attachResume() {
     const file = await openDialog({
       multiple: false,
-      filters: [
-        { name: "Resume", extensions: ["pdf", "doc", "docx", "txt"] },
-      ],
+      filters: [{ name: "Resume", extensions: ["pdf", "doc", "docx", "txt"] }],
     });
     if (!file || typeof file !== "string") return;
     try {
-      await apiFiles.attachResume(candidate.id, file);
+      await attachResumeMut.mutateAsync({ id: candidate.id, sourcePath: file });
       toast.success("Resume attached");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
+  async function removeResume() {
+    try {
+      await removeResumeMut.mutateAsync(candidate.id);
+      toast.success("Resume reference removed");
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -122,8 +127,30 @@ function CandidatePanelBody({
     if (!candidate.resume_path) return;
     try {
       await openPath(candidate.resume_path);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
+  function linkedInUrl() {
+    const raw = candidate.linkedin_url ?? "";
+    return raw.startsWith("http://") || raw.startsWith("https://") ? raw : `https://${raw}`;
+  }
+
+  async function openLinkedIn() {
+    try {
+      await openUrl(linkedInUrl());
     } catch {
-      toast.error("Could not open file. It may have been moved");
+      toast.error("Could not open link");
+    }
+  }
+
+  async function copyLinkedIn() {
+    try {
+      await navigator.clipboard.writeText(linkedInUrl());
+      toast.success("Link copied");
+    } catch {
+      toast.error("Could not copy link");
     }
   }
 
@@ -145,6 +172,10 @@ function CandidatePanelBody({
     .toUpperCase();
 
   const status = candidate.submission_status;
+  const displayLinkedIn = linkedInUrl()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
+  const resumeName = candidate.resume_path?.split(/[\\/]/).pop() ?? "";
 
   return (
     <div className="flex h-full flex-col">
@@ -152,22 +183,94 @@ function CandidatePanelBody({
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
           {initials}
         </span>
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-semibold text-fg">{candidate.name}</h3>
-          <p className="mt-0.5 truncate text-xs text-fg-muted">
-            {candidate.current_title ?? "No title"}
-            {candidate.current_company ? ` @ ${candidate.current_company}` : ""}
-          </p>
-          <div className="mt-2 flex flex-wrap items-center gap-2">
-            <StatusBadge status={candidate.submission_status} />
-          </div>
+        <div className="min-w-0 flex-1 pt-0.5">
+          <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
+            <CalendarDots className="h-3 w-3" />
+            Candidate added {formatDate(candidate.date_added)}
+          </span>
         </div>
-        <button
-          onClick={onClose}
-          className="rounded-md p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          {(status === "submitted" || status === "interview" || status === "rejected") && (
+            <div className="animate-[fade-up_0.25s_ease-out]">
+              {status === "submitted" && (
+                <input
+                  type="date"
+                  defaultValue={candidate.submitted_at ?? ""}
+                  onChange={(e) => saveField({ submitted_at: e.target.value || null })}
+                  className="h-7 w-[140px] rounded-md border border-border bg-transparent px-2 text-xs text-fg outline-none focus:ring-1 focus:ring-primary"
+                />
+              )}
+              {status === "interview" && (
+                <input
+                  type="datetime-local"
+                  defaultValue={candidate.interview_at ?? ""}
+                  onChange={(e) => saveField({ interview_at: e.target.value || null })}
+                  className="h-7 w-[210px] rounded-md border border-border bg-transparent px-2 text-xs text-fg outline-none focus:ring-1 focus:ring-primary"
+                />
+              )}
+              {status === "rejected" && (
+                <Input
+                  defaultValue={candidate.rejection_reason ?? ""}
+                  placeholder="Rejection reason…"
+                  className="h-7 w-[180px] text-xs"
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v === (candidate.rejection_reason ?? "")) return;
+                    saveField({ rejection_reason: v || null });
+                  }}
+                />
+              )}
+            </div>
+          )}
+          <SubmissionStatusSelect
+            value={status}
+            triggerClassName="h-7 w-[130px] text-xs"
+            onValueChange={(v) => {
+              const patch: Partial<CandidateInput> = { submission_status: v };
+              if (v !== "submitted") patch.submitted_at = null;
+              if (v !== "interview") patch.interview_at = null;
+              if (v !== "rejected") patch.rejection_reason = null;
+              saveField(patch);
+            }}
+          />
+          {!embedded && (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs"
+              onClick={() => navigate(`/jobs/${candidate.job_id}`)}
+            >
+              <Briefcase className="h-3.5 w-3.5" />
+              View Job
+            </Button>
+          )}
+          {confirmDelete ? (
+            <div className="flex items-center gap-1">
+              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setConfirmDelete(false)}>
+                Cancel
+              </Button>
+              <Button size="sm" variant="destructive" className="text-xs" onClick={handleDelete}>
+                Confirm
+              </Button>
+            </div>
+          ) : (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="text-xs text-red-500 hover:bg-red-500/10 hover:text-red-500"
+              onClick={() => setConfirmDelete(true)}
+            >
+              <Trash className="h-3.5 w-3.5" />
+              Delete
+            </Button>
+          )}
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
@@ -177,8 +280,14 @@ function CandidatePanelBody({
           </div>
         )}
 
-        {/* Row 1: Email, Phone, Location */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Row 1: Name, Title, Email, Phone */}
+        <div className="grid grid-cols-[1.15fr_1fr_1fr_1fr] gap-3">
+          <NameField value={candidate.name} onSave={(v) => saveField({ name: v })} />
+          <InlineField
+            label="Title"
+            value={candidate.current_title ?? ""}
+            onSave={(v) => saveField({ current_title: v || null })}
+          />
           <InlineField
             label="Email"
             value={candidate.email ?? ""}
@@ -189,174 +298,94 @@ function CandidatePanelBody({
             value={candidate.phone ?? ""}
             onSave={(v) => saveField({ phone: v || null })}
           />
+        </div>
+
+        {/* Row 2: Location | LinkedIn | Resume */}
+        <div className="grid grid-cols-3 gap-3">
           <InlineField
             label="Location"
             value={candidate.location ?? ""}
             onSave={(v) => saveField({ location: v || null })}
           />
-        </div>
 
-        {/* Row 2: Status + status-specific fields */}
-        <div className="space-y-2">
-          <div className="space-y-1.5">
-            <p className="text-xs text-fg-subtle">Status</p>
-            <Select
-              value={status}
-              onValueChange={(v) => {
-                const patch: Partial<CandidateInput> = { submission_status: v };
-                if (v !== "submitted") patch.submitted_at = null;
-                if (v !== "interview") patch.interview_at = null;
-                if (v !== "rejected") patch.rejection_reason = null;
-                saveField(patch);
-              }}
-            >
-              <SelectTrigger className="h-8 w-full text-[13px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SUBMISSION_STATUSES.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {titleCase(s)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {status === "submitted" && (
-            <div className="space-y-1.5">
-              <p className="text-xs text-fg-subtle">Submitted date</p>
-              <input
-                type="date"
-                defaultValue={candidate.submitted_at ?? ""}
-                onChange={(e) => saveField({ submitted_at: e.target.value || null })}
-                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          )}
-
-          {status === "interview" && (
-            <div className="space-y-1.5">
-              <p className="text-xs text-fg-subtle">Interview date & time</p>
-              <input
-                type="datetime-local"
-                defaultValue={candidate.interview_at ?? ""}
-                onChange={(e) => saveField({ interview_at: e.target.value || null })}
-                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
-              />
-            </div>
-          )}
-
-          {status === "rejected" && (
-            <div className="space-y-1.5">
-              <p className="text-xs text-fg-subtle">Rejection reason (optional)</p>
+          <div className="space-y-1.5 min-w-0">
+            <p className="text-xs text-fg-subtle">LinkedIn</p>
+            {candidate.linkedin_url ? (
+              <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
+                <button
+                  onClick={openLinkedIn}
+                  title={candidate.linkedin_url}
+                  className="group flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-primary hover:underline"
+                >
+                  <LinkedinLogo className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{displayLinkedIn}</span>
+                </button>
+                <button
+                  onClick={copyLinkedIn}
+                  title="Copy link"
+                  className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+                >
+                  <Copy className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ) : (
               <Input
-                defaultValue={candidate.rejection_reason ?? ""}
-                placeholder="Reason for rejection…"
+                placeholder="https://linkedin.com/in/…"
                 className="h-8 text-[13px]"
                 onBlur={(e) => {
                   const v = e.target.value.trim();
-                  if (v === (candidate.rejection_reason ?? "")) return;
-                  saveField({ rejection_reason: v || null });
+                  if (v === (candidate.linkedin_url ?? "")) return;
+                  saveField({ linkedin_url: v || null });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                 }}
               />
-            </div>
-          )}
-        </div>
-
-        {/* Row 3: Comments + Resume */}
-        <div className="grid grid-cols-[1fr_200px] gap-4">
-          <div className="space-y-1.5">
-            <p className="text-xs text-fg-subtle">Comments</p>
-            <Textarea
-              defaultValue={candidate.recruiter_notes ?? ""}
-              rows={3}
-              className="text-[13px]"
-              placeholder="Notes about this candidate…"
-              onBlur={(e) => {
-                const v = e.target.value.trim();
-                if (v === (candidate.recruiter_notes ?? "")) return;
-                saveField({ recruiter_notes: v || null });
-              }}
-            />
+            )}
           </div>
 
           <div className="space-y-1.5">
             <p className="text-xs text-fg-subtle">Resume</p>
             {candidate.resume_path ? (
-              <div className="flex items-center gap-2 rounded-lg border border-border bg-surface-hover px-3 py-2.5">
-                <FileText className="h-4 w-4 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1 truncate text-[13px] text-fg">
-                  {candidate.resume_path.split(/[\\/]/).pop()}
+              <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
+                <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
+                <span className="min-w-0 flex-1 truncate text-[12px] text-fg" title={resumeName}>
+                  {resumeName}
                 </span>
-                <Button size="xs" variant="ghost" onClick={openResume}>
-                  <Link className="h-3.5 w-3.5" />
-                  Open
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={async () => {
-                    try {
-                      await apiFiles.removeResume(candidate.id);
-                      toast.success("Resume reference removed");
-                    } catch (err) {
-                      toast.error(errorMessage(err));
-                    }
-                  }}
+                <button
+                  onClick={openResume}
+                  title="Open resume"
+                  className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+                >
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                </button>
+                <button
+                  onClick={removeResume}
+                  title="Remove resume reference"
+                  className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-red-500"
                 >
                   <Trash className="h-3.5 w-3.5" />
-                </Button>
+                </button>
               </div>
             ) : (
-              <Button size="sm" variant="outline" onClick={attachResume} className="w-full">
-                <Paperclip className="h-4 w-4" />
+              <Button size="sm" variant="outline" onClick={attachResume} className="h-8 w-full text-[12px]">
+                <Paperclip className="h-3.5 w-3.5" />
                 Attach resume
               </Button>
             )}
           </div>
         </div>
 
-        {/* Date added */}
-        <div className="flex items-center gap-2 text-[11px] text-fg-subtle">
-          <CalendarDots className="h-3 w-3" />
-          Added {formatDate(candidate.date_added)}
+        {/* Comments */}
+        <div className="space-y-1.5">
+          <p className="text-xs text-fg-subtle">Comments</p>
+          <RichTextEditor
+            value={candidate.recruiter_notes ?? ""}
+            onChange={(html) => saveField({ recruiter_notes: html || null })}
+            placeholder="Notes about this candidate…"
+            minHeight={300}
+          />
         </div>
-      </div>
-
-      <div className="flex items-center justify-between gap-2 border-t border-border p-3">
-        {!embedded && (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => navigate(`/jobs/${candidate.job_id}`)}
-            className="text-xs"
-          >
-            <Briefcase className="h-3.5 w-3.5" />
-            View job
-          </Button>
-        )}
-        <div className={embedded ? "w-full" : ""}></div>
-        {confirmDelete ? (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
-              Cancel
-            </Button>
-            <Button size="sm" variant="destructive" onClick={handleDelete}>
-              Confirm delete
-            </Button>
-          </div>
-        ) : (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="text-red-500 hover:bg-red-500/10 hover:text-red-500"
-            onClick={() => setConfirmDelete(true)}
-          >
-            <Trash className="h-3.5 w-3.5" />
-            Delete
-          </Button>
-        )}
       </div>
     </div>
   );
@@ -382,6 +411,32 @@ function InlineField({
         onBlur={(e) => {
           if (e.target.value === value) return;
           onSave(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </div>
+  );
+}
+
+function NameField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs text-fg-subtle">Name</p>
+      <Input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        className="h-8 text-[13px] font-medium"
+        onBlur={() => {
+          const t = draft.trim();
+          if (!t || t === value) {
+            setDraft(value);
+            return;
+          }
+          onSave(t);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();

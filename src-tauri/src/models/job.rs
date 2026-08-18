@@ -34,6 +34,8 @@ pub struct Job {
     pub updated_at: String,
     #[serde(default)]
     pub closed_at: Option<String>,
+    #[serde(default)]
+    pub sort_order: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -69,12 +71,4 @@ pub struct JobWithStats {
     pub job: Job,
     pub candidate_count: i64,
     pub client_name: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct JobCounts {
-    pub total: i64,
-    pub active: i64,
-    pub closed: i64,
-    pub on_hold: i64,
 }

@@ -25,7 +25,6 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
               field="refined_jd"
               placeholder="Paste or write the refined job description used for recruiting…"
               minRows={12}
-              fill
             />
           </div>
         </div>
@@ -59,7 +58,6 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
                 field="notes"
                 placeholder="Free-form recruiting notes… (rates, timelines, client preferences, follow-ups)"
                 minRows={4}
-                fill
               />
             </div>
           </div>

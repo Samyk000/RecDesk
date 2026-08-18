@@ -1,10 +1,21 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Check, CaretDown } from "@phosphor-icons/react";
+import { CaretDown } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
 const Select = SelectPrimitive.Root;
-const SelectValue = SelectPrimitive.Value;
+
+const SelectValue = React.forwardRef<
+  React.ElementRef<typeof SelectPrimitive.Value>,
+  React.ComponentPropsWithoutRef<typeof SelectPrimitive.Value>
+>(({ className, ...props }, ref) => (
+  <SelectPrimitive.Value
+    ref={ref}
+    className={cn("min-w-0 flex-1 truncate", className)}
+    {...props}
+  />
+));
+SelectValue.displayName = "SelectValue";
 
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
@@ -54,16 +65,11 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-md py-1.5 pl-8 pr-2 text-[13px] text-fg outline-none transition-colors data-[highlighted]:bg-surface-hover data-[state=checked]:text-fg",
+      "relative flex cursor-default select-none items-center whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] text-fg outline-none transition-colors data-[highlighted]:bg-surface-hover data-[state=checked]:bg-primary/10 data-[state=checked]:font-medium",
       className,
     )}
     {...props}
   >
-    <span className="absolute left-2 flex h-4 w-4 items-center justify-center">
-      <SelectPrimitive.ItemIndicator>
-        <Check className="h-4 w-4 text-primary" />
-      </SelectPrimitive.ItemIndicator>
-    </span>
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ));

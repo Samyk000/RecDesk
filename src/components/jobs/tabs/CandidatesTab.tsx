@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ArrowUp,
   CaretDown,
@@ -41,6 +41,10 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [panelId, setPanelId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
+
+  useEffect(() => {
+    setSelected(new Set());
+  }, [status, debounced]);
   const bulkUpdate = useBulkUpdateCandidates();
 
   const { data: candidates, isLoading } = useCandidates(

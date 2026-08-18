@@ -439,3 +439,75 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Rich text editor (TipTap / ProseMirror) */
+.tiptap-content {
+  outline: none;
+  min-height: 100%;
+  cursor: text;
+  font-size: 13px;
+  color: var(--fg);
+}
+.tiptap-content > *:first-child {
+  margin-top: 0;
+}
+.tiptap-content p {
+  margin: 0 0 0.5rem;
+}
+.tiptap-content h2 {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0.75rem 0 0.4rem;
+}
+.tiptap-content h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0.6rem 0 0.35rem;
+}
+.tiptap-content ul,
+.tiptap-content ol {
+  padding-left: 1.25rem;
+  margin: 0 0 0.5rem;
+}
+.tiptap-content ul {
+  list-style: disc;
+}
+.tiptap-content ol {
+  list-style: decimal;
+}
+.tiptap-content li {
+  margin: 0.15rem 0;
+}
+.tiptap-content a {
+  color: var(--primary);
+  text-decoration: underline;
+}
+.tiptap-content blockquote {
+  border-left: 2px solid var(--border-strong);
+  padding-left: 0.75rem;
+  color: var(--fg-muted);
+  margin: 0 0 0.5rem;
+}
+.tiptap-content code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  background: var(--surface-hover);
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+}
+.tiptap-content hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 0.75rem 0;
+}
+.tiptap-content.ProseMirror-selectednode,
+.tiptap-content .ProseMirror-selectednode {
+  outline: none;
+}
+.tiptap-content p.is-editor-empty:first-child::before {
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+  color: var(--fg-subtle);
+}

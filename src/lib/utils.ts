@@ -73,3 +73,12 @@ export function errorMessage(e: unknown): string {
   if (e instanceof Error) return e.message;
   return "Something went wrong";
 }
+
+export function htmlToPlainText(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll("br").forEach((b) => b.replaceWith("\n"));
+  doc
+    .querySelectorAll("p, li, h1, h2, h3, h4, h5, h6, blockquote, tr")
+    .forEach((el) => el.after("\n"));
+  return (doc.body.textContent ?? "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+}

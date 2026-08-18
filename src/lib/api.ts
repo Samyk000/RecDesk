@@ -9,7 +9,6 @@ import type {
   ClientWithStats,
   DashboardStats,
   ImportSummary,
-  JobCounts,
   JobInput,
   JobWithStats,
   SearchResults,
@@ -26,6 +25,7 @@ export const apiClients = {
   create: (input: ClientInput) => call<Client>("create_client", { input }),
   update: (id: string, input: ClientInput) => call<Client>("update_client", { id, input }),
   remove: (id: string) => call<void>("delete_client", { id }),
+  move: (id: string, direction: number) => call<void>("move_client", { id, direction }),
 };
 
 // ---- Jobs ----
@@ -33,11 +33,10 @@ export const apiJobs = {
   list: (clientId?: string, status?: string, search?: string) =>
     call<JobWithStats[]>("get_jobs", { clientId, status, search }),
   get: (id: string) => call<JobWithStats>("get_job", { id }),
-  recent: (limit?: number) => call<JobWithStats[]>("get_recent_jobs", { limit }),
-  counts: () => call<JobCounts>("get_job_counts"),
   create: (input: JobInput) => call<JobWithStats>("create_job", { input }),
   update: (id: string, input: JobInput) => call<JobWithStats>("update_job", { id, input }),
   remove: (id: string) => call<void>("delete_job", { id }),
+  move: (id: string, direction: number) => call<void>("move_job", { id, direction }),
 };
 
 // ---- Candidates ----
@@ -75,5 +74,4 @@ export const apiFiles = {
   attachResume: (candidateId: string, sourcePath: string) =>
     call<Candidate>("attach_resume", { candidateId, sourcePath }),
   removeResume: (candidateId: string) => call<Candidate>("remove_resume", { candidateId }),
-  resumeExists: (path: string) => call<boolean>("resume_exists", { path }),
 };

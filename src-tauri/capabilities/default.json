@@ -10,6 +10,10 @@
     "core:window:allow-close",
     "core:window:allow-start-dragging",
     "opener:default",
+    {
+      "identifier": "opener:allow-open-path",
+      "allow": [{ "path": "$APPDATA/**" }]
+    },
     "dialog:default",
     {
       "identifier": "fs:allow-read-text-file",

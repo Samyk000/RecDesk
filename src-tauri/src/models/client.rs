@@ -16,6 +16,8 @@ pub struct Client {
     pub notes: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(default)]
+    pub sort_order: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClients, apiCandidates, apiDashboard, apiJobs } from "../lib/api";
+import { apiClients, apiCandidates, apiDashboard, apiFiles, apiJobs } from "../lib/api";
 import type {
   CandidateInput,
   CandidatePatch,
@@ -54,11 +54,25 @@ export function useDeleteClient() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiClients.remove(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      qc.removeQueries({ queryKey: ["client", id] });
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
+export function useMoveClient() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, direction }: { id: string; direction: number }) =>
+      apiClients.move(id, direction),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
@@ -78,13 +92,6 @@ export function useJob(id: string | undefined) {
     queryKey: ["job", id],
     queryFn: () => apiJobs.get(id!),
     enabled: !!id,
-  });
-}
-
-export function useJobCounts() {
-  return useQuery({
-    queryKey: ["jobCounts"],
-    queryFn: () => apiJobs.counts(),
   });
 }
 
@@ -121,11 +128,25 @@ export function useDeleteJob() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => apiJobs.remove(id),
-    onSuccess: () => {
+    onSuccess: (_data, id) => {
+      qc.removeQueries({ queryKey: ["job", id] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["clients"] });
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
+export function useMoveJob() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, direction }: { id: string; direction: number }) =>
+      apiJobs.move(id, direction),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
@@ -188,6 +209,39 @@ export function useDeleteCandidate() {
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["job"] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
+export function useAttachResume() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, sourcePath }: { id: string; sourcePath: string }) =>
+      apiFiles.attachResume(id, sourcePath),
+    onSuccess: (cand) => {
+      qc.setQueryData(["candidate", cand.id], cand);
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
+export function useRemoveResume() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiFiles.removeResume(id),
+    onSuccess: (cand) => {
+      qc.setQueryData(["candidate", cand.id], cand);
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["globalSearch"] });

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Check,
   DotsSixVertical,
@@ -17,11 +17,12 @@ import { Button } from "../../ui/button";
 import { Input } from "../../ui/input";
 import { CopyButton } from "../../common/CopyButton";
 import { EmptyState } from "../../common/EmptyState";
-import { errorMessage } from "../../../lib/utils";
+import { errorMessage, htmlToPlainText } from "../../../lib/utils";
 import type { Job } from "../../../types";
 
 export function PitchScreeningTab({ job }: { job: Job }) {
-  const hasPitch = !!job.candidate_pitch?.trim();
+  const pitchText = htmlToPlainText(job.candidate_pitch ?? "");
+  const hasPitch = !!pitchText;
 
   return (
     <div className="grid grid-cols-2 items-stretch gap-6">
@@ -31,7 +32,7 @@ export function PitchScreeningTab({ job }: { job: Job }) {
             <ChatCircleText className="h-4 w-4 text-primary" />
             <h3 className="text-[13px] font-semibold text-fg">Candidate pitch</h3>
           </div>
-          {hasPitch && <CopyButton text={job.candidate_pitch!} label="Copy pitch" />}
+          {hasPitch && <CopyButton text={pitchText} label="Copy pitch" />}
         </div>
         <div className="flex flex-1 flex-col gap-3">
           <p className="text-xs text-fg-subtle">
@@ -43,7 +44,7 @@ export function PitchScreeningTab({ job }: { job: Job }) {
               field="candidate_pitch"
               placeholder="The concise explanation you send when presenting this opportunity to a candidate…"
               minRows={10}
-              fill
+              maxHeight={480}
             />
           </div>
           {!hasPitch && (
@@ -90,6 +91,22 @@ function ScreeningList({ job }: { job: Job }) {
       },
     );
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const questionsRef = useRef(questions);
+  questionsRef.current = questions;
+  const jobRef = useRef(job);
+  jobRef.current = job;
+
+  useEffect(() => {
+    return () => {
+      const current = questionsRef.current;
+      if (JSON.stringify(current) === JSON.stringify(jobRef.current.screening_questions)) return;
+      update.mutate({
+        id: jobRef.current.id,
+        input: toJobInput(jobRef.current, { screening_questions: current }),
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const add = () => setQuestions([...questions, ""]);
   const remove = (i: number) => setQuestions(questions.filter((_, idx) => idx !== i));

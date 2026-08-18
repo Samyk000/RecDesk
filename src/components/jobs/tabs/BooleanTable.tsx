@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, CircleNotch, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useUpdateJob } from "../../../hooks/useQueries";
@@ -37,6 +37,22 @@ export function BooleanTable({ job }: { job: Job }) {
       },
     );
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  const jobRef = useRef(job);
+  jobRef.current = job;
+
+  useEffect(() => {
+    return () => {
+      const current = itemsRef.current;
+      if (JSON.stringify(current) === JSON.stringify(jobRef.current.boolean_strings)) return;
+      update.mutate({
+        id: jobRef.current.id,
+        input: toJobInput(jobRef.current, { boolean_strings: current }),
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const add = () => setItems([...items, { name: "", query: "" }]);
   const remove = (i: number) => setItems(items.filter((_, idx) => idx !== i));

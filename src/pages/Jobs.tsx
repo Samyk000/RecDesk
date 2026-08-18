@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { Briefcase, Plus, MagnifyingGlass } from "@phosphor-icons/react";
-import { useJobs } from "../hooks/useQueries";
+import { ArrowDown, ArrowUp, Briefcase, Plus, MagnifyingGlass } from "@phosphor-icons/react";
+import { useJobs, useMoveJob } from "../hooks/useQueries";
+import { useFlipList } from "../hooks/useFlipList";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
@@ -20,6 +21,17 @@ export function Jobs() {
   const debounced = useDebounce(search, 200);
   const [formOpen, setFormOpen] = useState(false);
   const { data, isLoading } = useJobs(undefined, status || undefined, debounced || undefined);
+  const moveJob = useMoveJob();
+  const flipRef = useFlipList();
+  const canReorder = !status && !debounced;
+
+  useEffect(() => {
+    if (params.get("new")) {
+      setFormOpen(true);
+      params.delete("new");
+      setParams(params, { replace: true });
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="px-6 pt-4">
@@ -89,11 +101,12 @@ export function Jobs() {
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        <div ref={flipRef} className="overflow-hidden rounded-xl border border-border bg-surface">
           <div className="divide-y divide-border">
-            {data.map((job) => (
+            {data.map((job, i) => (
               <Link
                 key={job.id}
+                data-flip-id={job.id}
                 to={`/jobs/${job.id}`}
                 className="group flex cursor-pointer items-center gap-4 px-4 py-3 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
               >
@@ -123,6 +136,34 @@ export function Jobs() {
                   <div className="w-16">
                     <p className="text-xs text-fg-muted">{timeAgo(job.updated_at)}</p>
                     <p className="text-[11px] text-fg-subtle">updated</p>
+                  </div>
+                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                    <button
+                      type="button"
+                      title="Move up"
+                      disabled={!canReorder || i === 0 || moveJob.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveJob.mutate({ id: job.id, direction: -1 });
+                      }}
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      title="Move down"
+                      disabled={!canReorder || i === data.length - 1 || moveJob.isPending}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        moveJob.mutate({ id: job.id, direction: 1 });
+                      }}
+                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
               </Link>

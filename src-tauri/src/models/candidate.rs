@@ -20,6 +20,8 @@ pub struct Candidate {
     #[serde(default)]
     pub resume_path: Option<String>,
     #[serde(default)]
+    pub linkedin_url: Option<String>,
+    #[serde(default)]
     pub recruiter_notes: Option<String>,
     #[serde(default)]
     pub match_score: Option<i64>,
@@ -59,6 +61,8 @@ pub struct CandidateInput {
     pub experience_years: Option<i64>,
     #[serde(default)]
     pub resume_path: Option<String>,
+    #[serde(default)]
+    pub linkedin_url: Option<String>,
     #[serde(default)]
     pub recruiter_notes: Option<String>,
     #[serde(default)]

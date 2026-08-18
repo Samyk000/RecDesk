@@ -28,6 +28,15 @@ pub fn serialize_questions(v: &[String]) -> String {
     serde_json::to_string(v).unwrap_or_else(|_| "[]".to_string())
 }
 
+// Escapes LIKE wildcards so user input can't act as patterns.
+pub fn like_pattern(q: &str) -> String {
+    let escaped = q
+        .replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_");
+    format!("%{escaped}%")
+}
+
 pub fn row_to_client(row: &Row) -> rusqlite::Result<Client> {
     Ok(Client {
         id: row.get(0)?,
@@ -39,14 +48,15 @@ pub fn row_to_client(row: &Row) -> rusqlite::Result<Client> {
         notes: row.get(6)?,
         created_at: row.get(7)?,
         updated_at: row.get(8)?,
+        sort_order: row.get(9)?,
     })
 }
 
 pub fn row_to_client_with_stats(row: &Row) -> rusqlite::Result<ClientWithStats> {
     Ok(ClientWithStats {
         client: row_to_client(row)?,
-        jobs_count: row.get(9)?,
-        candidates_count: row.get(10)?,
+        jobs_count: row.get(10)?,
+        candidates_count: row.get(11)?,
     })
 }
 
@@ -70,15 +80,16 @@ pub fn row_to_job(row: &Row) -> rusqlite::Result<Job> {
         created_at: row.get(13)?,
         updated_at: row.get(14)?,
         closed_at: row.get(15)?,
+        sort_order: row.get(16)?,
     })
 }
 
-// Job + client_name + candidate_count (indices 16, 17 appended after job fields)
+// Job + client_name + candidate_count (indices 17, 18 appended after job fields)
 pub fn row_to_job_with_stats(row: &Row) -> rusqlite::Result<JobWithStats> {
     Ok(JobWithStats {
         job: row_to_job(row)?,
-        client_name: row.get(16)?,
-        candidate_count: row.get(17)?,
+        client_name: row.get(17)?,
+        candidate_count: row.get(18)?,
     })
 }
 
@@ -105,15 +116,16 @@ pub fn row_to_candidate(row: &Row) -> rusqlite::Result<Candidate> {
         rejection_reason: row.get(18)?,
         date_added: row.get(19)?,
         last_updated: row.get(20)?,
+        linkedin_url: row.get(21)?,
     })
 }
 
-// Candidate + job_title + job_id_ref + client_name (indices 21, 22, 23 appended)
+// Candidate + job_title + job_id_ref + client_name (indices 22, 23, 24 appended)
 pub fn row_to_candidate_with_job(row: &Row) -> rusqlite::Result<CandidateWithJob> {
     Ok(CandidateWithJob {
         candidate: row_to_candidate(row)?,
-        job_title: row.get(21)?,
-        job_id_ref: row.get(22)?,
-        client_name: row.get(23)?,
+        job_title: row.get(22)?,
+        job_id_ref: row.get(23)?,
+        client_name: row.get(24)?,
     })
 }

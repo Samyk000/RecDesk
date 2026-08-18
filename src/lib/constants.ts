@@ -13,8 +13,6 @@ export const WORK_MODELS = ["Remote", "Hybrid", "Onsite"] as const;
 
 export const CONTRACT_TYPES = ["Contract", "Permanent", "Contract-to-Hire"] as const;
 
-export const CANDIDATE_STATUSES = ["active", "inactive", "archived"] as const;
-
 type Palette = {
   dot: string;
   badge: string;
@@ -131,6 +129,29 @@ export const CANDIDATE_PALETTE: Record<string, Palette> = {
 
 export function submissionPalette(status: string): Palette {
   return SUBMISSION_PALETTE[status] ?? SUBMISSION_PALETTE.sourced;
+}
+
+import {
+  CalendarCheck,
+  ChatCircle,
+  MagnifyingGlass,
+  PaperPlaneTilt,
+  Prohibit,
+  XCircle,
+  type Icon,
+} from "@phosphor-icons/react";
+
+export const SUBMISSION_ICONS: Record<string, Icon> = {
+  sourced: MagnifyingGlass,
+  in_touch: ChatCircle,
+  submitted: PaperPlaneTilt,
+  interview: CalendarCheck,
+  rejected: XCircle,
+  not_interested: Prohibit,
+};
+
+export function submissionIcon(status: string): Icon {
+  return SUBMISSION_ICONS[status] ?? MagnifyingGlass;
 }
 
 export function jobPalette(status: string): Palette {

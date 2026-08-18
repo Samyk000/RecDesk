@@ -3,13 +3,27 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum AppError {
     #[error("database error: {0}")]
-    Db(#[from] rusqlite::Error),
+    Db(rusqlite::Error),
     #[error("json error: {0}")]
     Json(#[from] serde_json::Error),
     #[error("io error: {0}")]
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Msg(String),
+}
+
+impl From<rusqlite::Error> for AppError {
+    fn from(e: rusqlite::Error) -> Self {
+        if matches!(e, rusqlite::Error::QueryReturnedNoRows) {
+            return AppError::Msg("Record not found.".into());
+        }
+        if e.to_string().contains("FOREIGN KEY constraint failed") {
+            return AppError::Msg(
+                "Operation failed: the record references data that no longer exists.".into(),
+            );
+        }
+        AppError::Db(e)
+    }
 }
 
 impl serde::Serialize for AppError {

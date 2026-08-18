@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Check, CircleNotch } from "@phosphor-icons/react";
-import { Textarea } from "../ui/input";
+import { RichTextEditor } from "../common/RichTextEditor";
 import { useUpdateJob } from "../../hooks/useQueries";
 import { useDebounce } from "../../hooks/useDebounce";
 import { toJobInput } from "./tabUtils";
-import { cn, errorMessage } from "../../lib/utils";
+import { errorMessage } from "../../lib/utils";
 import { toast } from "sonner";
 import type { Job } from "../../types";
 
@@ -14,11 +14,11 @@ interface Props {
   placeholder: string;
   mono?: boolean;
   minRows?: number;
+  maxHeight?: number;
   hint?: string;
-  fill?: boolean;
 }
 
-export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, hint, fill }: Props) {
+export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, maxHeight, hint }: Props) {
   const update = useUpdateJob();
   const [draft, setDraft] = useState(job[field] ?? "");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -53,21 +53,36 @@ export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, hi
     );
   }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const jobRef = useRef(job);
+  jobRef.current = job;
+
+  useEffect(() => {
+    return () => {
+      const current = draftRef.current;
+      const server = jobRef.current[field] ?? "";
+      if (current === server || current === undefined) return;
+      update.mutate({
+        id: jobRef.current.id,
+        input: toJobInput(jobRef.current, { [field]: current.length ? current : null }),
+      });
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className={cn("space-y-2", fill && "flex h-full flex-col")}>
-      <div className={cn("relative", fill && "flex-1 min-h-0")}>
-        <Textarea
+    <div className="space-y-2">
+      <div className="relative">
+        <RichTextEditor
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onUpdate={(html) => setDraft(html)}
           placeholder={placeholder}
-          minRows={minRows}
-          className={cn(
-            "resize-y leading-relaxed",
-            fill && "h-full min-h-0 overflow-y-auto",
-            mono && "font-mono text-[13px]",
-          )}
+          minHeight={Math.max(minRows * 22, 140)}
+          maxHeight={maxHeight}
+          collapsibleToolbar
+          mono={mono}
         />
-        <div className="pointer-events-none absolute right-3 top-2.5 flex items-center gap-1.5">
+        <div className="pointer-events-none absolute bottom-2 right-3 flex items-center gap-1.5">
           {state === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
               <CircleNotch className="h-3 w-3 animate-spin" /> Saving…

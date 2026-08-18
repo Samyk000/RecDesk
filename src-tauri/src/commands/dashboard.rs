@@ -10,7 +10,7 @@ const CANDIDATE_SELECT: &str = r#"
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated
+         c.date_added, c.last_updated, c.linkedin_url
   FROM candidates c
 "#;
 
@@ -60,7 +60,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         let mut stmt = conn.prepare(
             r#"SELECT j.id, j.client_id, j.job_id, j.title, j.location, j.work_model, j.contract_type,
                   j.status, j.refined_jd, j.boolean_strings, j.candidate_pitch,
-                  j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at,
+                  j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at, j.sort_order,
                   c.name,
                   (SELECT COUNT(*) FROM candidates ca WHERE ca.job_id = j.id)
                FROM jobs j JOIN clients c ON c.id = j.client_id
