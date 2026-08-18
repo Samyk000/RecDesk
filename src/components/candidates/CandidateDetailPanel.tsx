@@ -6,6 +6,7 @@ import {
   CalendarDots,
   Copy,
   FileText,
+  IdentificationCard,
   LinkedinLogo,
   ListChecks,
   CircleNotch,
@@ -28,6 +29,7 @@ import { Button } from "../ui/button";
 import { RichTextEditor } from "../common/RichTextEditor";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
 import { ScreeningQADialog } from "./ScreeningQADialog";
+import { SubmissionDetailsDialog } from "./SubmissionDetailsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
@@ -67,7 +69,14 @@ function CandidatePanelBody({
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showScreeningQA, setShowScreeningQA] = useState(false);
+  const [showSubmissionDetails, setShowSubmissionDetails] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  // Show "Details" icon once moved to in_touch or if details have been recorded
+  const hasSubmissionDetails = Boolean(
+    candidate.submission_details && candidate.submission_details !== "{}"
+  );
+  const showDetailsIcon = candidate.submission_status !== "sourced" || hasSubmissionDetails;
 
   async function saveField(patch: Partial<CandidateInput>) {
     setSaving(true);
@@ -187,6 +196,22 @@ function CandidatePanelBody({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {showDetailsIcon && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-primary hover:bg-primary/10"
+                  onClick={() => setShowSubmissionDetails(true)}
+                  aria-label="Candidate Details"
+                >
+                  <IdentificationCard className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Candidate Details</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -423,6 +448,12 @@ function CandidatePanelBody({
         candidateId={candidate.id}
         open={showScreeningQA}
         onOpenChange={setShowScreeningQA}
+      />
+
+      <SubmissionDetailsDialog
+        candidateId={candidate.id}
+        open={showSubmissionDetails}
+        onOpenChange={setShowSubmissionDetails}
       />
     </div>
   );

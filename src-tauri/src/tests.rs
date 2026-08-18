@@ -168,7 +168,7 @@ mod tests {
                           experience_years, resume_path, recruiter_notes, match_score,
                           submission_status, interview_status, client_feedback, candidate_status,
                           submitted_at, interview_at, rejection_reason,
-                          date_added, last_updated, linkedin_url, screening_answers
+                          date_added, last_updated, linkedin_url, screening_answers, submission_details
                    FROM candidates WHERE id = ?1"#,
                 params![&cand_id],
                 row_to_candidate,

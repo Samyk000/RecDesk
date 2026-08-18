@@ -120,15 +120,16 @@ pub fn row_to_candidate(row: &Row) -> rusqlite::Result<Candidate> {
         last_updated: row.get(20)?,
         linkedin_url: row.get(21)?,
         screening_answers: row.get(22).unwrap_or(None),
+        submission_details: row.get(23).unwrap_or(None),
     })
 }
 
-// Candidate + job_title + job_id_ref + client_name (indices 23, 24, 25 appended)
+// Candidate + job_title + job_id_ref + client_name (indices 24, 25, 26 appended)
 pub fn row_to_candidate_with_job(row: &Row) -> rusqlite::Result<CandidateWithJob> {
     Ok(CandidateWithJob {
         candidate: row_to_candidate(row)?,
-        job_title: row.get(23)?,
-        job_id_ref: row.get(24)?,
-        client_name: row.get(25)?,
+        job_title: row.get(24)?,
+        job_id_ref: row.get(25)?,
+        client_name: row.get(26)?,
     })
 }

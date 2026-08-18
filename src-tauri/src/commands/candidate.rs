@@ -12,7 +12,7 @@ pub const CANDIDATE_SELECT: &str = r#"
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers
+         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details
   FROM candidates c
 "#;
 
@@ -21,7 +21,7 @@ pub const CANDIDATE_SELECT_JOIN: &str = r#"
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers,
+         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details,
          j.title, j.job_id, cl.name
   FROM candidates c
   JOIN jobs j ON j.id = c.job_id
@@ -77,12 +77,12 @@ pub fn get_candidates(
 #[tauri::command]
 pub fn get_candidate(state: State<'_, AppState>, id: String) -> AppResult<Candidate> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let sql = format!("{CANDIDATE_SELECT} WHERE c.id = ?1");
-    conn.query_row(&sql, params![id], row_to_candidate)
-        .map_err(|e| match e {
-            rusqlite::Error::QueryReturnedNoRows => AppError::Msg("Candidate not found".into()),
-            other => other.into(),
-        })
+    let cand = conn.query_row(
+        &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
+        params![&id],
+        row_to_candidate,
+    )?;
+    Ok(cand)
 }
 
 #[tauri::command]
@@ -98,8 +98,8 @@ pub fn create_candidate(
                                  current_company, experience_years, resume_path, linkedin_url,
                                  recruiter_notes, match_score, submission_status, interview_status,
                                  client_feedback, candidate_status, submitted_at, interview_at,
-                                 rejection_reason, screening_answers, date_added, last_updated)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?22)",
+                                 rejection_reason, screening_answers, submission_details, date_added, last_updated)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?23)",
         params![
             id,
             input.job_id,
@@ -122,6 +122,7 @@ pub fn create_candidate(
             input.interview_at,
             input.rejection_reason,
             input.screening_answers.unwrap_or_else(|| "{}".to_string()),
+            input.submission_details.unwrap_or_else(|| "{}".to_string()),
             ts
         ],
     )?;
@@ -147,8 +148,8 @@ pub fn update_candidate(
                                submission_status = ?12, interview_status = ?13,
                                client_feedback = ?14, candidate_status = ?15,
                                submitted_at = ?16, interview_at = ?17, rejection_reason = ?18,
-                               linkedin_url = ?19, screening_answers = ?20, last_updated = ?21
-         WHERE id = ?22",
+                               linkedin_url = ?19, screening_answers = ?20, submission_details = ?21, last_updated = ?22
+         WHERE id = ?23",
         params![
             input.job_id,
             input.name,
@@ -170,6 +171,7 @@ pub fn update_candidate(
             input.rejection_reason,
             input.linkedin_url,
             input.screening_answers.unwrap_or_else(|| "{}".to_string()),
+            input.submission_details.unwrap_or_else(|| "{}".to_string()),
             now(),
             id
         ],

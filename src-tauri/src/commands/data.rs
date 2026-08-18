@@ -102,9 +102,9 @@ pub fn import_json(
             "INSERT OR IGNORE INTO candidates (id, job_id, name, email, phone, location, current_title,
                 current_company, experience_years, resume_path, linkedin_url, recruiter_notes, match_score,
                 submission_status, interview_status, client_feedback, candidate_status,
-                submitted_at, interview_at, rejection_reason, screening_answers,
+                submitted_at, interview_at, rejection_reason, screening_answers, submission_details,
                 date_added, last_updated)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24)",
             params![
                 candidate.id, candidate.job_id, candidate.name, candidate.email, candidate.phone,
                 candidate.location, candidate.current_title, candidate.current_company,
@@ -113,6 +113,7 @@ pub fn import_json(
                 candidate.interview_status, candidate.client_feedback, candidate.candidate_status,
                 candidate.submitted_at, candidate.interview_at, candidate.rejection_reason,
                 candidate.screening_answers.as_deref().unwrap_or("{}"),
+                candidate.submission_details.as_deref().unwrap_or("{}"),
                 candidate.date_added, candidate.last_updated
             ],
         )?;
