@@ -34,10 +34,16 @@ export function Jobs() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="px-6 pt-4">
+    <div className="flex h-full flex-col px-6 pt-4">
       <PageHeader
-        title="Jobs"
-        subtitle={`${data?.length ?? 0} positions`}
+        title={
+          <span className="flex items-center gap-2">
+            Jobs
+            <span className="rounded-md bg-surface-active px-2 py-0.5 text-[13px] font-medium text-fg-muted">
+              {data?.length ?? 0}
+            </span>
+          </span>
+        }
         actions={
           <>
             <Button variant="primary" onClick={() => setFormOpen(true)}>
@@ -84,25 +90,27 @@ export function Jobs() {
         </div>
       </div>
 
-      {isLoading ? (
-        <PageLoader />
-      ) : !data || data.length === 0 ? (
-        <EmptyState
-          icon={<Briefcase className="h-5 w-5" />}
-          title="No jobs found"
-          description={search ? "Try a different search." : "Create your first job to start recruiting."}
-          action={
-            !search ? (
-              <Button variant="primary" onClick={() => setFormOpen(true)}>
-                <Plus className="h-4 w-4" />
-                New Job
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div ref={flipRef} className="overflow-hidden rounded-xl border border-border bg-surface">
-          <div className="divide-y divide-border">
+      <div className="flex min-h-0 flex-1 flex-col">
+        {isLoading ? (
+          <PageLoader />
+        ) : !data || data.length === 0 ? (
+          <EmptyState
+            icon={<Briefcase className="h-5 w-5" />}
+            title="No jobs found"
+            description={search ? "Try a different search." : "Create your first job to start recruiting."}
+            action={
+              !search ? (
+                <Button variant="primary" onClick={() => setFormOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  New Job
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
+            <div ref={flipRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+              <div className="divide-y divide-border">
             {data.map((job, i) => (
               <Link
                 key={job.id}
@@ -168,9 +176,11 @@ export function Jobs() {
                 </div>
               </Link>
             ))}
+            </div>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <JobFormDialog open={formOpen} onOpenChange={setFormOpen} />
     </div>

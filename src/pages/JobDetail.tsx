@@ -63,7 +63,7 @@ export function JobDetail() {
   }
 
   return (
-    <div className="px-6 pt-4">
+    <div className="flex h-full flex-col px-6 pt-4">
       <button
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/jobs"))}
         className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
@@ -133,7 +133,7 @@ export function JobDetail() {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex min-h-0 flex-1 flex-col">
         <TabsList className="mb-5 w-full justify-start">
           {tabDefs.map((t) => (
             <TabsTrigger
@@ -152,13 +152,13 @@ export function JobDetail() {
           ))}
         </TabsList>
 
-        <TabsContent value="overview">
+        <TabsContent value="overview" className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
           <OverviewTab job={job} />
         </TabsContent>
-        <TabsContent value="pitch-screening">
+        <TabsContent value="pitch-screening" className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
           <PitchScreeningTab job={job} />
         </TabsContent>
-        <TabsContent value="candidates">
+        <TabsContent value="candidates" className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
           <CandidatesTab jobId={job.id} />
         </TabsContent>
       </Tabs>

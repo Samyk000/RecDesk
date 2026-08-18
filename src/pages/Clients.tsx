@@ -39,10 +39,16 @@ export function Clients() {
   }
 
   return (
-    <div className="px-6 pt-4">
+    <div className="flex h-full flex-col px-6 pt-4">
       <PageHeader
-        title="Clients"
-        subtitle={`${data?.length ?? 0} clients`}
+        title={
+          <span className="flex items-center gap-2">
+            Clients
+            <span className="rounded-md bg-surface-active px-2 py-0.5 text-[13px] font-medium text-fg-muted">
+              {data?.length ?? 0}
+            </span>
+          </span>
+        }
         actions={
           <Button
             variant="primary"
@@ -67,39 +73,41 @@ export function Clients() {
         />
       </div>
 
-      {isLoading ? (
-        <PageLoader />
-      ) : !data || data.length === 0 ? (
-        <EmptyState
-          icon={<Building className="h-5 w-5" />}
-          title="No clients found"
-          description={search ? "Try a different search." : "Add your first client to start recruiting."}
-          action={
-            !search ? (
-              <Button
-                variant="primary"
-                onClick={() => {
-                  setEditing(null);
-                  setFormOpen(true);
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                New Client
-              </Button>
-            ) : undefined
-          }
-        />
-      ) : (
-        <div ref={flipRef} className="overflow-hidden rounded-xl border border-border bg-surface">
-          <table className="w-full border-collapse">
-            <thead>
-              <tr className="border-b border-border bg-surface-hover/40 text-xs font-semibold uppercase tracking-wide text-fg-muted">
-                <th className="px-4 py-2.5 text-left font-semibold">Name</th>
-                <th className="px-4 py-2.5 text-left font-semibold">Created</th>
-                <th className="px-4 py-2.5 text-left font-semibold">Jobs</th>
-                <th className="px-4 py-2.5" />
-              </tr>
-            </thead>
+      <div className="flex min-h-0 flex-1 flex-col">
+        {isLoading ? (
+          <PageLoader />
+        ) : !data || data.length === 0 ? (
+          <EmptyState
+            icon={<Building className="h-5 w-5" />}
+            title="No clients found"
+            description={search ? "Try a different search." : "Add your first client to start recruiting."}
+            action={
+              !search ? (
+                <Button
+                  variant="primary"
+                  onClick={() => {
+                    setEditing(null);
+                    setFormOpen(true);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  New Client
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div ref={flipRef} className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b border-border bg-surface text-xs font-semibold uppercase tracking-wide text-fg-muted">
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-left font-semibold">Name</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-left font-semibold">Created</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-left font-semibold">Jobs</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5" />
+                  </tr>
+                </thead>
             <tbody className="divide-y divide-border">
               {data.map((client, i) => {
                 return (
@@ -167,9 +175,11 @@ export function Clients() {
                 );
               })}
             </tbody>
-          </table>
-        </div>
-      )}
+            </table>
+            </div>
+          </div>
+        )}
+      </div>
 
       <ClientForm
         open={formOpen}

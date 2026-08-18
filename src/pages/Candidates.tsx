@@ -147,10 +147,16 @@ export function Candidates() {
   }
 
   return (
-    <div className="flex flex-1 flex-col overflow-hidden px-6 pt-4">
+    <div className="flex h-full flex-col px-6 pt-4">
       <PageHeader
-        title="Candidates"
-        subtitle={`${data?.length ?? 0} candidates`}
+        title={
+          <span className="flex items-center gap-2">
+            Candidates
+            <span className="rounded-md bg-surface-active px-2 py-0.5 text-[13px] font-medium text-fg-muted">
+              {data?.length ?? 0}
+            </span>
+          </span>
+        }
         actions={
           <Button variant="primary" onClick={() => setFormOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -223,25 +229,27 @@ export function Candidates() {
         </div>
       )}
 
-      {isLoading ? (
-        <Spinner className="py-16" />
-      ) : !data?.length ? (
-        <EmptyState
-          icon={<IdentificationCard className="h-5 w-5" />}
-          title="No candidates"
-          description={
-            debounced || status !== "all"
-              ? "Try adjusting your search or filters."
-              : "Candidates appear here when added to jobs."
-          }
-        />
-      ) : (
-        <div className="overflow-hidden rounded-xl border border-border bg-surface">
-          <table className="w-full text-sm">
+      <div className="flex min-h-0 flex-1 flex-col">
+        {isLoading ? (
+          <Spinner className="py-16" />
+        ) : !data?.length ? (
+          <EmptyState
+            icon={<IdentificationCard className="h-5 w-5" />}
+            title="No candidates"
+            description={
+              debounced || status !== "all"
+                ? "Try adjusting your search or filters."
+                : "Candidates appear here when added to jobs."
+            }
+          />
+        ) : (
+          <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+              <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-border bg-surface-hover/40 text-left">
+              <tr className="border-b border-border bg-surface text-left">
                 {selectMode && (
-                  <th className="w-10 px-4 py-2.5">
+                  <th className="sticky top-0 z-10 w-10 bg-surface px-4 py-2.5">
                     <input
                       type="checkbox"
                       checked={selection.allSelected}
@@ -250,8 +258,8 @@ export function Candidates() {
                     />
                   </th>
                 )}
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
-                <th className="px-4 py-2.5">
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("job_title")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -259,7 +267,7 @@ export function Candidates() {
                     Job <SortIcon active={sortKey === "job_title"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-2.5">
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("client_name")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -267,8 +275,8 @@ export function Candidates() {
                     Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
-                <th className="px-4 py-2.5">
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("location")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -276,7 +284,7 @@ export function Candidates() {
                     Location <SortIcon active={sortKey === "location"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-2.5">
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("date_added")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -284,7 +292,7 @@ export function Candidates() {
                     Added <SortIcon active={sortKey === "date_added"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="px-4 py-2.5">
+                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("last_updated")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -292,7 +300,7 @@ export function Candidates() {
                     Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="w-20 px-4 py-2.5" />
+                <th className="sticky top-0 z-10 w-20 bg-surface px-4 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -368,6 +376,7 @@ export function Candidates() {
               ))}
             </tbody>
           </table>
+          </div>
           <div className="border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
             {sorted.length} candidate{sorted.length !== 1 ? "s" : ""}
           </div>
@@ -405,6 +414,7 @@ export function Candidates() {
         loading={bulkDelete.isPending}
         onConfirm={confirmBulkDelete}
       />
+    </div>
     </div>
   );
 }

@@ -27,7 +27,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
   const [newJobOpen, setNewJobOpen] = useState(false);
 
   return (
-    <div className="px-6 pt-4">
+    <div className="flex h-full flex-col px-6 pt-4">
       <button
         onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/clients"))}
         className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
@@ -59,7 +59,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
         }
       />
 
-      <section>
+      <section className="flex min-h-0 flex-1 flex-col">
         <h2 className="font-display mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
           <Briefcase className="h-4 w-4 text-fg-subtle" />
           Jobs
@@ -81,15 +81,16 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
             }
           />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-border bg-surface">
-            <div className="grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_110px_80px_80px] items-center gap-4 border-b border-border bg-surface-hover/40 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">
+          <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="sticky top-0 z-10 grid grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)_110px_80px_80px] items-center gap-4 border-b border-border bg-surface px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-fg-muted">
               <span>Job</span>
               <span>Location</span>
               <span>Status</span>
               <span className="text-right">Candidates</span>
               <span className="text-right">Updated</span>
             </div>
-            <div className="divide-y divide-border">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+              <div className="divide-y divide-border">
               {jobs.map((job) => (
                 <Link
                   key={job.id}
@@ -112,6 +113,7 @@ function ClientDetailBody({ client }: { client: ClientWithStats }) {
                   <span className="text-right text-xs text-fg-muted">{timeAgo(job.updated_at)}</span>
                 </Link>
               ))}
+              </div>
             </div>
           </div>
         )}
