@@ -12,7 +12,7 @@ const CLIENT_SELECT: &str =
     "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order FROM clients";
 const JOB_SELECT: &str = r#"SELECT id, client_id, job_id, title, location, work_model, contract_type,
      status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
-     created_at, updated_at, closed_at, sort_order FROM jobs"#;
+     created_at, updated_at, closed_at, sort_order, bill_rate, pay_rate FROM jobs"#;
 const CANDIDATE_SELECT: &str = r#"SELECT id, job_id, name, email, phone, location, current_title,
      current_company, experience_years, resume_path, recruiter_notes, match_score,
      submission_status, interview_status, client_feedback, candidate_status,
@@ -92,12 +92,12 @@ pub fn import_json(
     for job in &envelope.jobs {
         tx.execute(
             "INSERT OR IGNORE INTO jobs (id, client_id, job_id, title, location, work_model, contract_type,
-                status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
+                bill_rate, pay_rate, status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
                 created_at, updated_at, closed_at, sort_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 job.id, job.client_id, job.job_id, job.title, job.location, job.work_model,
-                job.contract_type, job.status, job.refined_jd,
+                job.contract_type, job.bill_rate, job.pay_rate, job.status, job.refined_jd,
                 serialize_bools(&job.boolean_strings), job.candidate_pitch,
                 serialize_questions(&job.screening_questions), job.notes,
                 job.created_at, job.updated_at, job.closed_at, job.sort_order
@@ -178,12 +178,12 @@ pub fn seed_demo_data(state: State<'_, AppState>) -> AppResult<ImportSummary> {
         let id = if job.id.is_empty() { new_id() } else { job.id.clone() };
         tx.execute(
             "INSERT OR IGNORE INTO jobs (id, client_id, job_id, title, location, work_model, contract_type,
-                status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
+                bill_rate, pay_rate, status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
                 created_at, updated_at, closed_at, sort_order)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19)",
             params![
                 id, job.client_id, job.job_id, job.title, job.location, job.work_model,
-                job.contract_type, job.status, job.refined_jd,
+                job.contract_type, job.bill_rate, job.pay_rate, job.status, job.refined_jd,
                 serialize_bools(&job.boolean_strings), job.candidate_pitch,
                 serialize_questions(&job.screening_questions), job.notes,
                 job.created_at, job.updated_at, job.closed_at, job.sort_order

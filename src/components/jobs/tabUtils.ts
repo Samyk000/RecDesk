@@ -8,6 +8,8 @@ export function toJobInput(job: Job, patch?: Partial<JobInput>): JobInput {
     location: job.location,
     work_model: job.work_model,
     contract_type: job.contract_type,
+    bill_rate: job.bill_rate,
+    pay_rate: job.pay_rate,
     status: job.status,
     refined_jd: job.refined_jd,
     boolean_strings: job.boolean_strings,

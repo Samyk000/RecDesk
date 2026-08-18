@@ -37,6 +37,8 @@ export interface Job {
   location?: string | null;
   work_model?: string | null;
   contract_type?: string | null;
+  bill_rate?: string | null;
+  pay_rate?: string | null;
   status: string;
   refined_jd?: string | null;
   boolean_strings: BooleanString[];
@@ -55,6 +57,8 @@ export interface JobInput {
   location?: string | null;
   work_model?: string | null;
   contract_type?: string | null;
+  bill_rate?: string | null;
+  pay_rate?: string | null;
   status?: string | null;
   refined_jd?: string | null;
   boolean_strings: BooleanString[];

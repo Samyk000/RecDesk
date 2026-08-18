@@ -36,6 +36,7 @@ let pattern = like_pattern(q);
         let sql = r#"SELECT j.id, j.client_id, j.job_id, j.title, j.location, j.work_model, j.contract_type,
                             j.status, j.refined_jd, j.boolean_strings, j.candidate_pitch,
                             j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at, j.sort_order,
+                            j.bill_rate, j.pay_rate,
                             c.name,
                             (SELECT COUNT(*) FROM candidates ca WHERE ca.job_id = j.id)
                      FROM jobs j JOIN clients c ON c.id = j.client_id

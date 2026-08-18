@@ -71,6 +71,8 @@ pub fn row_to_job(row: &Row) -> rusqlite::Result<Job> {
         location: row.get(4)?,
         work_model: row.get(5)?,
         contract_type: row.get(6)?,
+        bill_rate: row.get(17)?,
+        pay_rate: row.get(18)?,
         status: row.get(7)?,
         refined_jd: row.get(8)?,
         boolean_strings: parse_bools(bools_raw),
@@ -84,12 +86,12 @@ pub fn row_to_job(row: &Row) -> rusqlite::Result<Job> {
     })
 }
 
-// Job + client_name + candidate_count (indices 17, 18 appended after job fields)
+// Job + client_name + candidate_count (indices 19, 20 appended after job fields)
 pub fn row_to_job_with_stats(row: &Row) -> rusqlite::Result<JobWithStats> {
     Ok(JobWithStats {
         job: row_to_job(row)?,
-        client_name: row.get(17)?,
-        candidate_count: row.get(18)?,
+        client_name: row.get(19)?,
+        candidate_count: row.get(20)?,
     })
 }
 

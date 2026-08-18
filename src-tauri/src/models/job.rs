@@ -19,6 +19,10 @@ pub struct Job {
     #[serde(default)]
     pub contract_type: Option<String>,
     #[serde(default)]
+    pub bill_rate: Option<String>,
+    #[serde(default)]
+    pub pay_rate: Option<String>,
+    #[serde(default)]
     pub status: String,
     #[serde(default)]
     pub refined_jd: Option<String>,
@@ -49,6 +53,10 @@ pub struct JobInput {
     pub work_model: Option<String>,
     #[serde(default)]
     pub contract_type: Option<String>,
+    #[serde(default)]
+    pub bill_rate: Option<String>,
+    #[serde(default)]
+    pub pay_rate: Option<String>,
     #[serde(default)]
     pub status: Option<String>,
     #[serde(default)]

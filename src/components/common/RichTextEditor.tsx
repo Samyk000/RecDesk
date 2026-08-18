@@ -136,18 +136,6 @@ export function RichTextEditor({
           >
             <Eraser className="h-3.5 w-3.5" />
           </ToolbarButton>
-          {collapsibleToolbar && (
-            <>
-              <span className="mx-1 h-4 w-px bg-border" />
-              <ToolbarButton
-                title="Collapse toolbar"
-                active={false}
-                onClick={() => setToolbarOpen(false)}
-              >
-                <CaretUp className="h-3.5 w-3.5" />
-              </ToolbarButton>
-            </>
-          )}
         </div>
       )}
       <EditorContent
@@ -156,17 +144,17 @@ export function RichTextEditor({
         className={cn(
           "tiptap-scroll scrollbar-thin overflow-y-auto px-3 py-2",
           showToolbar && "pt-10",
-          collapsibleToolbar && !toolbarOpen && "pr-8",
+          collapsibleToolbar && "pr-8",
         )}
       />
-      {!showToolbar && (
+      {collapsibleToolbar && (
         <button
           type="button"
-          title="Formatting tools"
-          onClick={() => setToolbarOpen(true)}
+          title={toolbarOpen ? "Collapse toolbar" : "Formatting tools"}
+          onClick={() => setToolbarOpen((o) => !o)}
           className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
         >
-          <TextT className="h-3.5 w-3.5" />
+          {toolbarOpen ? <CaretUp className="h-3.5 w-3.5" /> : <TextT className="h-3.5 w-3.5" />}
         </button>
       )}
     </div>

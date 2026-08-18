@@ -51,6 +51,8 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
       set("job-form-title", job?.title);
       set("job-form-jobid", job?.job_id);
       set("job-form-location", job?.location);
+      set("job-form-billrate", job?.bill_rate);
+      set("job-form-payrate", job?.pay_rate);
       set("job-form-notes", job?.notes);
     }
   }, [open, job, defaultClientId]);
@@ -65,6 +67,8 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
       location: (fd.get("location") as string) || null,
       work_model: (fd.get("work_model") as string) || null,
       contract_type: (fd.get("contract_type") as string) || null,
+      bill_rate: (fd.get("bill_rate") as string) || null,
+      pay_rate: (fd.get("pay_rate") as string) || null,
       status: (fd.get("status") as string) || "active",
       notes: (fd.get("notes") as string) || null,
       refined_jd: isEdit ? (job?.refined_jd ?? null) : null,
@@ -193,6 +197,17 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="job-form-billrate">Bill rate</Label>
+              <Input id="job-form-billrate" name="bill_rate" placeholder="e.g. $120/hr" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="job-form-payrate">Pay rate</Label>
+              <Input id="job-form-payrate" name="pay_rate" placeholder="e.g. $90/hr" />
             </div>
           </div>
 

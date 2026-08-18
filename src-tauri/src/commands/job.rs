@@ -12,6 +12,7 @@ const JOB_SELECT: &str = r#"
   SELECT j.id, j.client_id, j.job_id, j.title, j.location, j.work_model, j.contract_type,
          j.status, j.refined_jd, j.boolean_strings, j.candidate_pitch,
          j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at, j.sort_order,
+         j.bill_rate, j.pay_rate,
          c.name,
          (SELECT COUNT(*) FROM candidates ca WHERE ca.job_id = j.id)
   FROM jobs j JOIN clients c ON c.id = j.client_id
@@ -91,9 +92,10 @@ pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobW
     };
     conn.execute(
         "INSERT INTO jobs (id, client_id, job_id, title, location, work_model, contract_type,
+                          bill_rate, pay_rate,
                           status, refined_jd, boolean_strings, candidate_pitch,
                           screening_questions, notes, created_at, updated_at, closed_at, sort_order)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?14, ?15, ?16)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16, ?17, ?18)",
         params![
             id,
             input.client_id,
@@ -102,6 +104,8 @@ pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobW
             input.location,
             input.work_model,
             input.contract_type,
+            input.bill_rate,
+            input.pay_rate,
             status,
             input.refined_jd,
             serialize_bools(&input.boolean_strings),
@@ -127,10 +131,11 @@ pub fn update_job(state: State<'_, AppState>, id: String, input: JobInput) -> Ap
     };
     let affected = conn.execute(
         "UPDATE jobs SET client_id = ?1, job_id = ?2, title = ?3, location = ?4, work_model = ?5,
-                         contract_type = ?6, status = ?7, refined_jd = ?8, boolean_strings = ?9,
-                         candidate_pitch = ?10, screening_questions = ?11, notes = ?12,
-                         updated_at = ?13, closed_at = ?14
-         WHERE id = ?15",
+                         contract_type = ?6, bill_rate = ?7, pay_rate = ?8, status = ?9,
+                         refined_jd = ?10, boolean_strings = ?11,
+                         candidate_pitch = ?12, screening_questions = ?13, notes = ?14,
+                         updated_at = ?15, closed_at = ?16
+         WHERE id = ?17",
         params![
             input.client_id,
             input.job_id,
@@ -138,6 +143,8 @@ pub fn update_job(state: State<'_, AppState>, id: String, input: JobInput) -> Ap
             input.location,
             input.work_model,
             input.contract_type,
+            input.bill_rate,
+            input.pay_rate,
             status,
             input.refined_jd,
             serialize_bools(&input.boolean_strings),

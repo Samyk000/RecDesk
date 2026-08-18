@@ -24,6 +24,8 @@ CREATE TABLE IF NOT EXISTS jobs (
   location TEXT,
   work_model TEXT,
   contract_type TEXT,
+  bill_rate TEXT,
+  pay_rate TEXT,
   status TEXT NOT NULL DEFAULT 'active',
   refined_jd TEXT,
   boolean_strings TEXT NOT NULL DEFAULT '[]',
@@ -112,7 +114,11 @@ fn migrate_jobs(conn: &Connection) -> AppResult<()> {
         .query_map([], |row| row.get(1))?
         .collect::<Result<_, _>>()?;
 
-    let additions = [("sort_order", "INTEGER NOT NULL DEFAULT 0")];
+    let additions = [
+        ("sort_order", "INTEGER NOT NULL DEFAULT 0"),
+        ("bill_rate", "TEXT"),
+        ("pay_rate", "TEXT"),
+    ];
     for (col, ty) in additions {
         if !existing.iter().any(|c| c == col) {
             conn.execute(&format!("ALTER TABLE jobs ADD COLUMN {col} {ty}"), [])?;

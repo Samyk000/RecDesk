@@ -1,4 +1,4 @@
-import { BookOpen, CalendarDots, IdentificationCard, NotePencil, ArrowClockwise } from "@phosphor-icons/react";
+import { ArrowClockwise, BookOpen, CurrencyDollar, NotePencil } from "@phosphor-icons/react";
 import { JobFieldEditor } from "../JobFieldEditor";
 import { BooleanTable } from "./BooleanTable";
 import type { JobWithStats } from "../../../types";
@@ -6,9 +6,9 @@ import { formatDate } from "../../../lib/utils";
 
 export function OverviewTab({ job }: { job: JobWithStats }) {
   const details = [
-    { icon: IdentificationCard, label: "Candidates", value: String(job.candidate_count) },
-    { icon: CalendarDots, label: "Created", value: formatDate(job.created_at) },
     { icon: ArrowClockwise, label: "Updated", value: formatDate(job.updated_at) },
+    { icon: CurrencyDollar, label: "Bill rate", value: job.bill_rate ?? "-" },
+    { icon: CurrencyDollar, label: "Pay rate", value: job.pay_rate ?? "-" },
   ];
 
   return (
@@ -35,16 +35,14 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
         <div className="flex flex-col gap-6">
           <div>
             <h3 className="mb-3 text-[13px] font-semibold text-fg">Key details</h3>
-            <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3">
               {details.map((d) => (
-                <div key={d.label} className="flex items-center gap-2.5">
-                  <span className="mt-0.5 text-fg-subtle">
-                    <d.icon className="h-3.5 w-3.5" />
-                  </span>
-                  <div className="min-w-0">
-                    <p className="text-xs text-fg-subtle">{d.label}</p>
-                    <p className="truncate text-sm font-medium tabular-nums text-fg">{d.value}</p>
-                  </div>
+                <div key={d.label} className="min-w-0">
+                  <p className="flex items-center gap-1 text-[11px] text-fg-subtle">
+                    <d.icon className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{d.label}</span>
+                  </p>
+                  <p className="mt-1 truncate text-[13px] font-medium tabular-nums text-fg">{d.value}</p>
                 </div>
               ))}
             </div>

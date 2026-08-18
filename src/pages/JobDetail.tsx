@@ -28,7 +28,7 @@ import { OverviewTab } from "../components/jobs/tabs/OverviewTab";
 import { PitchScreeningTab } from "../components/jobs/tabs/PitchScreeningTab";
 import { CandidatesTab } from "../components/jobs/tabs/CandidatesTab";
 import { JOB_STATUSES, jobPalette } from "../lib/constants";
-import { titleCase } from "../lib/utils";
+import { titleCase, formatDateAbbr } from "../lib/utils";
 import { toast } from "sonner";
 import type { Job } from "../types";
 import { useUpdateJob } from "../hooks/useQueries";
@@ -64,33 +64,30 @@ export function JobDetail() {
 
   return (
     <div className="flex h-full flex-col px-6 pt-4">
-      <button
-        onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/jobs"))}
-        className="mb-4 inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        {job.client_name}
-      </button>
+      <div className="mb-4 flex items-center gap-2">
+        <button
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/jobs"))}
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          {job.client_name}
+        </button>
+        <span className="text-[13px] text-fg-muted">
+          Created: <span className="tabular-nums">{formatDateAbbr(job.created_at)}</span>
+        </span>
+      </div>
 
       <div className="mb-5 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <h1 className="font-display truncate text-[22px] font-semibold tracking-tight text-fg">
+          <h1 className="font-display truncate text-lg font-semibold tracking-tight text-fg">
             {job.title}
             <span className="font-normal text-fg-muted">
               <span className="mx-2">:</span>
-              <span className="font-mono text-sm">{job.job_id}</span>
-              <span className="mx-1">·</span>
-              {job.client_name}
+              <span className="font-mono text-[13px]">{job.job_id}</span>
               {job.location && (
                 <>
                   <span className="mx-1">·</span>
                   {job.location}
-                </>
-              )}
-              {job.work_model && (
-                <>
-                  <span className="mx-1.5">·</span>
-                  {job.work_model}
                 </>
               )}
               {job.contract_type && (
@@ -99,7 +96,6 @@ export function JobDetail() {
                   {job.contract_type}
                 </>
               )}
-              <span>.</span>
             </span>
           </h1>
         </div>

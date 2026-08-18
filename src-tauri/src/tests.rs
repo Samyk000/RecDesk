@@ -119,7 +119,7 @@ mod tests {
             .query_row(
                 r#"SELECT id, client_id, job_id, title, location, work_model, contract_type, status,
                           refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
-                          created_at, updated_at, closed_at, sort_order
+                          created_at, updated_at, closed_at, sort_order, bill_rate, pay_rate
                    FROM jobs WHERE id = ?1"#,
                 params![&jid],
                 row_to_job,
