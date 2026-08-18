@@ -1,14 +1,10 @@
-import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   IdentificationCard,
   Plus,
-  PencilSimple,
   MagnifyingGlass,
   Trash,
-  Funnel,
-  CaretDown,
-  CaretUp,
   X,
   ListChecks,
 } from "@phosphor-icons/react";
@@ -21,6 +17,7 @@ import {
 } from "../hooks/useQueries";
 import { useDebounce } from "../hooks/useDebounce";
 import { useSelection } from "../hooks/useSelection";
+import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/common/EmptyState";
@@ -29,7 +26,10 @@ import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { StatusChangeDialog } from "../components/candidates/StatusChangeDialog";
+import { StatusFilter } from "../components/candidates/StatusFilter";
 import { SubmissionStatusSelect } from "../components/candidates/SubmissionStatusSelect";
+import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
+import { DetailDrawer } from "../components/common/DetailDrawer";
 import {
   Select,
   SelectContent,
@@ -37,7 +37,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { SUBMISSION_STATUSES, BULK_STATUSES, submissionIcon, submissionPalette } from "../lib/constants";
+import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, formatDateShort, timeAgo, titleCase } from "../lib/utils";
 import type { CandidateWithJob } from "../types";
 
@@ -45,14 +45,21 @@ const DETAIL_STATUSES = new Set(["submitted", "interview", "rejected"]);
 
 type SortKey = "job_title" | "client_name" | "location" | "date_added" | "last_updated";
 
+const COMPARE: (a: CandidateWithJob, b: CandidateWithJob, key: SortKey) => number = (a, b, key) => {
+  if (key === "job_title") return a.job_title.localeCompare(b.job_title);
+  if (key === "client_name") return a.client_name.localeCompare(b.client_name);
+  if (key === "location") return (a.location ?? "").localeCompare(b.location ?? "");
+  if (key === "date_added") return a.date_added.localeCompare(b.date_added);
+  return a.last_updated.localeCompare(b.last_updated);
+};
+
 export function Candidates() {
-  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
   const [status, setStatus] = useState("all");
   const [selectMode, setSelectMode] = useState(false);
-  const [sortKey, setSortKey] = useState<SortKey>("last_updated");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
   const [formOpen, setFormOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [statusDialog, setStatusDialog] = useState<{
@@ -69,34 +76,12 @@ export function Candidates() {
     status === "all" ? undefined : status,
   );
 
-  const sorted = useMemo(() => {
-    if (!data) return [];
-    const arr = [...data];
-    arr.sort((a, b) => {
-      let cmp = 0;
-      if (sortKey === "job_title") cmp = a.job_title.localeCompare(b.job_title);
-      else if (sortKey === "client_name") cmp = a.client_name.localeCompare(b.client_name);
-      else if (sortKey === "location") cmp = (a.location ?? "").localeCompare(b.location ?? "");
-      else if (sortKey === "date_added") cmp = a.date_added.localeCompare(b.date_added);
-      else cmp = a.last_updated.localeCompare(b.last_updated);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [data, sortKey, sortDir]);
+  const sorted = useSortedRows(data, sortKey, sortDir, COMPARE);
 
   const selection = useSelection(
     sorted.map((c) => c.id),
     `${status}|${debounced}|${selectMode}`,
   );
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
-  }
 
   async function confirmBulkDelete() {
     try {
@@ -153,10 +138,13 @@ export function Candidates() {
     setSearch("");
   }
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <CaretDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />;
-    return sortDir === "asc" ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />;
-  };
+  function openPanel(id: string) {
+    setParams({ candidate: id }, { replace: true });
+  }
+
+  function closePanel() {
+    setParams({}, { replace: true });
+  }
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden px-6 pt-4">
@@ -181,41 +169,12 @@ export function Candidates() {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="h-8 w-40 text-[13px]">
-              <Funnel
-                className={cn("h-3.5 w-3.5 shrink-0", filtered ? "text-primary" : "text-fg-subtle")}
-              />
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
-              <SelectItem value="all">All statuses</SelectItem>
-              {SUBMISSION_STATUSES.map((s) => {
-                const StatusIcon = submissionIcon(s);
-                return (
-                  <SelectItem key={s} value={s}>
-                    <span className="flex items-center gap-1.5">
-                      <StatusIcon className="h-3.5 w-3.5" style={{ color: submissionPalette(s).dot }} />
-                      {titleCase(s)}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          {filtered && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              title="Clear filters"
-              onClick={clearFilters}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+        <StatusFilter
+          value={status}
+          onValueChange={setStatus}
+          filtered={filtered}
+          onClear={clearFilters}
+        />
         <div className="ml-auto">
           <Button
             size="icon"
@@ -297,7 +256,7 @@ export function Candidates() {
                     onClick={() => toggleSort("job_title")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
                   >
-                    Job <SortIcon col="job_title" />
+                    Job <SortIcon active={sortKey === "job_title"} dir={sortDir} />
                   </button>
                 </th>
                 <th className="px-4 py-2.5">
@@ -305,7 +264,7 @@ export function Candidates() {
                     onClick={() => toggleSort("client_name")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
                   >
-                    Client <SortIcon col="client_name" />
+                    Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
                   </button>
                 </th>
                 <th className="px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
@@ -314,7 +273,7 @@ export function Candidates() {
                     onClick={() => toggleSort("location")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
                   >
-                    Location <SortIcon col="location" />
+                    Location <SortIcon active={sortKey === "location"} dir={sortDir} />
                   </button>
                 </th>
                 <th className="px-4 py-2.5">
@@ -322,7 +281,7 @@ export function Candidates() {
                     onClick={() => toggleSort("date_added")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
                   >
-                    Added <SortIcon col="date_added" />
+                    Added <SortIcon active={sortKey === "date_added"} dir={sortDir} />
                   </button>
                 </th>
                 <th className="px-4 py-2.5">
@@ -330,7 +289,7 @@ export function Candidates() {
                     onClick={() => toggleSort("last_updated")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
                   >
-                    Updated <SortIcon col="last_updated" />
+                    Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
                   </button>
                 </th>
                 <th className="w-20 px-4 py-2.5" />
@@ -344,7 +303,7 @@ export function Candidates() {
                     "group cursor-pointer transition-colors hover:bg-surface-hover",
                     selection.selected.has(c.id) && "bg-primary/5 hover:bg-primary/5",
                   )}
-                  onClick={() => navigate(`/candidates/${c.id}`)}
+                  onClick={() => (selectMode ? selection.toggle(c.id) : openPanel(c.id))}
                 >
                   {selectMode && (
                     <td className="w-10 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
@@ -378,24 +337,20 @@ export function Candidates() {
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.job_title}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.client_name}</td>
                   <td className="px-4 py-2.5">
-                    <InlineStatus candidate={c} onUpdate={(v) => handleStatusChange(c, v)} />
+                    <SubmissionStatusSelect
+                      value={c.submission_status}
+                      triggerClassName="h-7 w-[118px] text-[11px]"
+                      onValueChange={(v) => {
+                        if (v === c.submission_status) return;
+                        handleStatusChange(c, v);
+                      }}
+                    />
                   </td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{formatDateShort(c.date_added)}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
                   <td className="px-4 py-2.5">
                     <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          navigate(`/candidates/${c.id}`);
-                        }}
-                      >
-                        <PencilSimple className="h-3.5 w-3.5" />
-                      </Button>
                       <Button
                         size="icon"
                         variant="ghost"
@@ -420,6 +375,11 @@ export function Candidates() {
       )}
 
       <CandidateForm open={formOpen} onOpenChange={setFormOpen} />
+      {params.get("candidate") && (
+        <DetailDrawer onClose={closePanel}>
+          <CandidateDetailPanel candidateId={params.get("candidate")!} onClose={closePanel} />
+        </DetailDrawer>
+      )}
       {statusDialog && (
         <StatusChangeDialog
           candidate={statusDialog.candidate}
@@ -446,24 +406,5 @@ export function Candidates() {
         onConfirm={confirmBulkDelete}
       />
     </div>
-  );
-}
-
-function InlineStatus({
-  candidate,
-  onUpdate,
-}: {
-  candidate: CandidateWithJob;
-  onUpdate: (status: string) => void;
-}) {
-  return (
-    <SubmissionStatusSelect
-      value={candidate.submission_status}
-      triggerClassName="h-7 w-[118px] text-[11px]"
-      onValueChange={(v) => {
-        if (v === candidate.submission_status) return;
-        onUpdate(v);
-      }}
-    />
   );
 }

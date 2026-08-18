@@ -1,10 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import {
   ArrowUp,
-  CaretDown,
-  CaretUp,
   IdentificationCard,
-  Funnel,
   Plus,
   MagnifyingGlass,
   Trash,
@@ -18,6 +15,7 @@ import {
 } from "../../../hooks/useQueries";
 import { useDebounce } from "../../../hooks/useDebounce";
 import { useSelection } from "../../../hooks/useSelection";
+import { useTableSort, useSortedRows, SortIcon } from "../../../hooks/useTableSort";
 import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import { EmptyState } from "../../common/EmptyState";
@@ -32,18 +30,24 @@ import {
 } from "../../ui/select";
 import { CandidateForm } from "../../candidates/CandidateForm";
 import { CandidateDetailPanel } from "../../candidates/CandidateDetailPanel";
-import { SUBMISSION_STATUSES, BULK_STATUSES, submissionIcon, submissionPalette } from "../../../lib/constants";
+import { StatusFilter } from "../../candidates/StatusFilter";
+import { DetailDrawer } from "../../common/DetailDrawer";
+import { BULK_STATUSES, submissionPalette } from "../../../lib/constants";
 import { cn, formatDateShort, timeAgo, titleCase } from "../../../lib/utils";
 import type { Candidate } from "../../../types";
 
 type SortKey = "date_added" | "last_updated";
 
+const COMPARE: (a: Candidate, b: Candidate, key: SortKey) => number = (a, b, key) =>
+  key === "date_added"
+    ? a.date_added.localeCompare(b.date_added)
+    : a.last_updated.localeCompare(b.last_updated);
+
 export function CandidatesTab({ jobId }: { jobId: string }) {
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
   const [status, setStatus] = useState("all");
-  const [sortKey, setSortKey] = useState<SortKey>("last_updated");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
   const [panelId, setPanelId] = useState<string | null>(null);
   const [formOpen, setFormOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -56,18 +60,7 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
     debounced || undefined,
   );
 
-  const sorted = useMemo(() => {
-    if (!candidates) return [];
-    const arr = [...candidates];
-    arr.sort((a, b) => {
-      const cmp =
-        sortKey === "date_added"
-          ? a.date_added.localeCompare(b.date_added)
-          : a.last_updated.localeCompare(b.last_updated);
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return arr;
-  }, [candidates, sortKey, sortDir]);
+  const sorted = useSortedRows(candidates, sortKey, sortDir, COMPARE);
 
   const selection = useSelection(
     sorted.map((c) => c.id),
@@ -79,15 +72,6 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
   function clearFilters() {
     setStatus("all");
     setSearch("");
-  }
-
-  function toggleSort(key: SortKey) {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
-    }
   }
 
   async function bulkStatus(newStatus: string) {
@@ -113,11 +97,6 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
     }
   }
 
-  const SortIcon = ({ col }: { col: SortKey }) => {
-    if (sortKey !== col) return <CaretDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />;
-    return sortDir === "asc" ? <CaretUp className="h-3 w-3" /> : <CaretDown className="h-3 w-3" />;
-  };
-
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
@@ -130,41 +109,12 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
             className="pl-9"
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger className="h-8 w-40 text-[13px]">
-              <Funnel
-                className={cn("h-3.5 w-3.5 shrink-0", filtered ? "text-primary" : "text-fg-subtle")}
-              />
-              <SelectValue placeholder="All statuses" />
-            </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
-              <SelectItem value="all">All statuses</SelectItem>
-              {SUBMISSION_STATUSES.map((s) => {
-                const StatusIcon = submissionIcon(s);
-                return (
-                  <SelectItem key={s} value={s}>
-                    <span className="flex items-center gap-1.5">
-                      <StatusIcon className="h-3.5 w-3.5" style={{ color: submissionPalette(s).dot }} />
-                      {titleCase(s)}
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          {filtered && (
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-8 w-8"
-              title="Clear filters"
-              onClick={clearFilters}
-            >
-              <X className="h-3.5 w-3.5" />
-            </Button>
-          )}
-        </div>
+        <StatusFilter
+          value={status}
+          onValueChange={setStatus}
+          filtered={filtered}
+          onClear={clearFilters}
+        />
         <div className="ml-auto">
           <Button variant="primary" size="sm" onClick={() => setFormOpen(true)}>
             <Plus className="h-4 w-4" />
@@ -246,12 +196,12 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
                 <th className="px-3 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
                 <th className="px-3 py-2.5">
                   <button onClick={() => toggleSort("date_added")} className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg">
-                    Added <SortIcon col="date_added" />
+                    Added <SortIcon active={sortKey === "date_added"} dir={sortDir} />
                   </button>
                 </th>
                 <th className="px-3 py-2.5">
                   <button onClick={() => toggleSort("last_updated")} className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg">
-                    Updated <SortIcon col="last_updated" />
+                    Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
                   </button>
                 </th>
               </tr>
@@ -277,12 +227,9 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
       <CandidateForm open={formOpen} onOpenChange={setFormOpen} jobId={jobId} />
 
       {panelId && (
-        <div className="fixed inset-0 z-40 flex justify-end">
-          <div className="absolute inset-0 bg-black/25 animate-fade-in" onClick={() => setPanelId(null)} />
-          <div className="relative z-10 flex h-full w-full max-w-md flex-col overflow-hidden border-l border-border bg-surface shadow-popover animate-slide-in-right">
-            <CandidateDetailPanel candidateId={panelId} onClose={() => setPanelId(null)} embedded />
-          </div>
-        </div>
+        <DetailDrawer onClose={() => setPanelId(null)}>
+          <CandidateDetailPanel candidateId={panelId} onClose={() => setPanelId(null)} embedded />
+        </DetailDrawer>
       )}
 
       <ConfirmDialog

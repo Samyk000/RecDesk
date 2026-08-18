@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowSquareOut,
   Briefcase,
   CalendarDots,
   Copy,
@@ -25,7 +26,8 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { RichTextEditor } from "../common/RichTextEditor";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
-import { errorMessage, formatDate } from "../../lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { errorMessage, formatDateAbbr } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput } from "../../types";
 
@@ -172,77 +174,35 @@ function CandidatePanelBody({
     .toUpperCase();
 
   const status = candidate.submission_status;
-  const displayLinkedIn = linkedInUrl()
-    .replace(/^https?:\/\//, "")
-    .replace(/\/$/, "");
   const resumeName = candidate.resume_path?.split(/[\\/]/).pop() ?? "";
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-start gap-3 border-b border-border p-4">
+      <div className="flex items-center gap-3 border-b border-border p-4">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
           {initials}
         </span>
-        <div className="min-w-0 flex-1 pt-0.5">
+        <div className="min-w-0 flex-1">
           <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
             <CalendarDots className="h-3 w-3" />
-            Candidate added {formatDate(candidate.date_added)}
+            ADDED ON {formatDateAbbr(candidate.date_added)}
           </span>
         </div>
-        <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
-          {(status === "submitted" || status === "interview" || status === "rejected") && (
-            <div className="animate-[fade-up_0.25s_ease-out]">
-              {status === "submitted" && (
-                <input
-                  type="date"
-                  defaultValue={candidate.submitted_at ?? ""}
-                  onChange={(e) => saveField({ submitted_at: e.target.value || null })}
-                  className="h-7 w-[140px] rounded-md border border-border bg-transparent px-2 text-xs text-fg outline-none focus:ring-1 focus:ring-primary"
-                />
-              )}
-              {status === "interview" && (
-                <input
-                  type="datetime-local"
-                  defaultValue={candidate.interview_at ?? ""}
-                  onChange={(e) => saveField({ interview_at: e.target.value || null })}
-                  className="h-7 w-[210px] rounded-md border border-border bg-transparent px-2 text-xs text-fg outline-none focus:ring-1 focus:ring-primary"
-                />
-              )}
-              {status === "rejected" && (
-                <Input
-                  defaultValue={candidate.rejection_reason ?? ""}
-                  placeholder="Rejection reason…"
-                  className="h-7 w-[180px] text-xs"
-                  onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v === (candidate.rejection_reason ?? "")) return;
-                    saveField({ rejection_reason: v || null });
-                  }}
-                />
-              )}
-            </div>
-          )}
-          <SubmissionStatusSelect
-            value={status}
-            triggerClassName="h-7 w-[130px] text-xs"
-            onValueChange={(v) => {
-              const patch: Partial<CandidateInput> = { submission_status: v };
-              if (v !== "submitted") patch.submitted_at = null;
-              if (v !== "interview") patch.interview_at = null;
-              if (v !== "rejected") patch.rejection_reason = null;
-              saveField(patch);
-            }}
-          />
+        <div className="flex shrink-0 items-center gap-1">
           {!embedded && (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-xs"
-              onClick={() => navigate(`/jobs/${candidate.job_id}`)}
-            >
-              <Briefcase className="h-3.5 w-3.5" />
-              View Job
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8"
+                  onClick={() => navigate(`/jobs/${candidate.job_id}`)}
+                >
+                  <Briefcase className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>View job</TooltipContent>
+            </Tooltip>
           )}
           {confirmDelete ? (
             <div className="flex items-center gap-1">
@@ -254,15 +214,19 @@ function CandidatePanelBody({
               </Button>
             </div>
           ) : (
-            <Button
-              size="sm"
-              variant="ghost"
-              className="text-xs text-red-500 hover:bg-red-500/10 hover:text-red-500"
-              onClick={() => setConfirmDelete(true)}
-            >
-              <Trash className="h-3.5 w-3.5" />
-              Delete
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-500"
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  <Trash className="h-3.5 w-3.5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Delete</TooltipContent>
+            </Tooltip>
           )}
           <button
             onClick={onClose}
@@ -280,14 +244,18 @@ function CandidatePanelBody({
           </div>
         )}
 
-        {/* Row 1: Name, Title, Email, Phone */}
-        <div className="grid grid-cols-[1.15fr_1fr_1fr_1fr] gap-3">
+        {/* Row 1: Name, Title */}
+        <div className="grid grid-cols-2 gap-3">
           <NameField value={candidate.name} onSave={(v) => saveField({ name: v })} />
           <InlineField
             label="Title"
             value={candidate.current_title ?? ""}
             onSave={(v) => saveField({ current_title: v || null })}
           />
+        </div>
+
+        {/* Row 2: Email, Phone */}
+        <div className="grid grid-cols-2 gap-3">
           <InlineField
             label="Email"
             value={candidate.email ?? ""}
@@ -300,38 +268,22 @@ function CandidatePanelBody({
           />
         </div>
 
-        {/* Row 2: Location | LinkedIn | Resume */}
-        <div className="grid grid-cols-3 gap-3">
+        {/* Row 3: Location, LinkedIn */}
+        <div className="grid grid-cols-2 gap-3">
           <InlineField
             label="Location"
             value={candidate.location ?? ""}
             onSave={(v) => saveField({ location: v || null })}
           />
 
-          <div className="space-y-1.5 min-w-0">
+          <div className="min-w-0 space-y-1.5">
             <p className="text-xs text-fg-subtle">LinkedIn</p>
-            {candidate.linkedin_url ? (
-              <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
-                <button
-                  onClick={openLinkedIn}
-                  title={candidate.linkedin_url}
-                  className="group flex min-w-0 flex-1 items-center gap-1.5 text-[11px] text-primary hover:underline"
-                >
-                  <LinkedinLogo className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{displayLinkedIn}</span>
-                </button>
-                <button
-                  onClick={copyLinkedIn}
-                  title="Copy link"
-                  className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            ) : (
-              <Input
+            <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
+              <LinkedinLogo className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <input
+                defaultValue={candidate.linkedin_url ?? ""}
                 placeholder="https://linkedin.com/in/…"
-                className="h-8 text-[13px]"
+                className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (v === (candidate.linkedin_url ?? "")) return;
@@ -341,9 +293,30 @@ function CandidatePanelBody({
                   if (e.key === "Enter") (e.target as HTMLInputElement).blur();
                 }}
               />
-            )}
+              {candidate.linkedin_url && (
+                <>
+                  <button
+                    onClick={openLinkedIn}
+                    title="Open link"
+                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+                  >
+                    <ArrowSquareOut className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={copyLinkedIn}
+                    title="Copy link"
+                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+                  >
+                    <Copy className="h-3.5 w-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
           </div>
+        </div>
 
+        {/* Row 4: Resume, Status */}
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <p className="text-xs text-fg-subtle">Resume</p>
             {candidate.resume_path ? (
@@ -374,10 +347,57 @@ function CandidatePanelBody({
               </Button>
             )}
           </div>
+
+          <div className="min-w-0 space-y-1.5">
+            <p className="text-xs text-fg-subtle">Status</p>
+            <SubmissionStatusSelect
+              value={status}
+              triggerClassName="h-8 w-full text-xs"
+              onValueChange={(v) => {
+                const patch: Partial<CandidateInput> = { submission_status: v };
+                if (v !== "submitted") patch.submitted_at = null;
+                if (v !== "interview") patch.interview_at = null;
+                if (v !== "rejected") patch.rejection_reason = null;
+                saveField(patch);
+              }}
+            />
+            {(status === "submitted" || status === "interview" || status === "rejected") && (
+              <div className="animate-[fade-up_0.25s_ease-out]">
+                {status === "submitted" && (
+                  <input
+                    type="date"
+                    defaultValue={candidate.submitted_at ?? ""}
+                    onChange={(e) => saveField({ submitted_at: e.target.value || null })}
+                    className="h-8 w-full rounded-md border border-border bg-transparent px-2 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+                  />
+                )}
+                {status === "interview" && (
+                  <input
+                    type="datetime-local"
+                    defaultValue={candidate.interview_at ?? ""}
+                    onChange={(e) => saveField({ interview_at: e.target.value || null })}
+                    className="h-8 w-full rounded-md border border-border bg-transparent px-2 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+                  />
+                )}
+                {status === "rejected" && (
+                  <Input
+                    defaultValue={candidate.rejection_reason ?? ""}
+                    placeholder="Rejection reason…"
+                    className="h-8 w-full text-[13px]"
+                    onBlur={(e) => {
+                      const v = e.target.value.trim();
+                      if (v === (candidate.rejection_reason ?? "")) return;
+                      saveField({ rejection_reason: v || null });
+                    }}
+                  />
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Comments */}
-        <div className="space-y-1.5">
+        <div className="mt-2 space-y-1.5 border-t border-border pt-6">
           <p className="text-xs text-fg-subtle">Comments</p>
           <RichTextEditor
             value={candidate.recruiter_notes ?? ""}

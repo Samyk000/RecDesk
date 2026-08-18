@@ -25,6 +25,7 @@ interface Props {
   placeholder?: string;
   minHeight?: number;
   maxHeight?: number;
+  fill?: boolean;
   collapsibleToolbar?: boolean;
   mono?: boolean;
 }
@@ -36,6 +37,7 @@ export function RichTextEditor({
   placeholder,
   minHeight = 180,
   maxHeight,
+  fill,
   collapsibleToolbar,
   mono,
 }: Props) {
@@ -72,7 +74,7 @@ export function RichTextEditor({
   const showToolbar = !collapsibleToolbar || toolbarOpen;
 
   return (
-    <div className="relative rounded-lg border border-border bg-transparent focus-within:ring-1 focus-within:ring-primary">
+    <div className={cn("relative rounded-lg border border-border bg-transparent focus-within:ring-1 focus-within:ring-primary", fill && "h-full")}>
       {showToolbar && (
         <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-0.5 rounded-t-lg border-b border-border bg-surface px-2 py-1">
           <ToolbarButton
@@ -150,7 +152,7 @@ export function RichTextEditor({
       )}
       <EditorContent
         editor={editor}
-        style={maxHeight ? { minHeight, maxHeight } : { height: minHeight }}
+        style={fill ? { minHeight, height: "100%" } : maxHeight ? { minHeight, maxHeight } : { height: minHeight }}
         className={cn(
           "tiptap-scroll scrollbar-thin overflow-y-auto px-3 py-2",
           showToolbar && "pt-10",

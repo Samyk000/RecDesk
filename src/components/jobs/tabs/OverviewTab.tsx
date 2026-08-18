@@ -14,18 +14,21 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
   return (
     <div className="space-y-8">
       <div className="grid grid-cols-3 items-stretch gap-6">
-        <div className="col-span-2 flex min-h-[300px] flex-col">
+        <div className="col-span-2 flex flex-col">
           <div className="mb-3 flex items-center gap-2">
             <BookOpen className="h-4 w-4 text-primary" />
             <h3 className="text-[13px] font-semibold text-fg">Job description</h3>
           </div>
-          <div className="flex-1">
-            <JobFieldEditor
-              job={job}
-              field="refined_jd"
-              placeholder="Paste or write the refined job description used for recruiting…"
-              minRows={12}
-            />
+          <div className="relative min-h-[264px] flex-1">
+            <div className="absolute inset-0">
+              <JobFieldEditor
+                job={job}
+                field="refined_jd"
+                placeholder="Paste or write the refined job description used for recruiting…"
+                minRows={12}
+                fill
+              />
+            </div>
           </div>
         </div>
 
@@ -52,12 +55,13 @@ export function OverviewTab({ job }: { job: JobWithStats }) {
               <NotePencil className="h-4 w-4 text-fg-subtle" />
               <h3 className="text-[13px] font-semibold text-fg">Quick notes</h3>
             </div>
-            <div className="flex-1">
+            <div className="relative flex-1">
               <JobFieldEditor
                 job={job}
                 field="notes"
                 placeholder="Free-form recruiting notes… (rates, timelines, client preferences, follow-ups)"
                 minRows={4}
+                fill
               />
             </div>
           </div>

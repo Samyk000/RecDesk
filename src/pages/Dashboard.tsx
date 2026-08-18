@@ -144,7 +144,7 @@ export function Dashboard() {
               {data.recent_candidates.slice(0, 6).map((cand) => (
                 <Link
                   key={cand.id}
-                  to={`/candidates/${cand.id}`}
+                  to={`/candidates?candidate=${cand.id}`}
                   className="flex items-center gap-3 px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
                 >
                   <span

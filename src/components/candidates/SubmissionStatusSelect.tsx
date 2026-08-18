@@ -34,7 +34,7 @@ export function SubmissionStatusSelect({ value, onValueChange, triggerClassName 
           ) : undefined}
         </SelectValue>
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent className="w-[var(--radix-select-trigger-width)]">
         {SUBMISSION_STATUSES.map((s) => {
           const StatusIcon = submissionIcon(s);
           return (

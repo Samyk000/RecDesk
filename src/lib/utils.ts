@@ -23,6 +23,17 @@ export function formatDateShort(iso: string | null | undefined): string {
   return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export function formatDateAbbr(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "-";
+  const day = d.getDate().toString().padStart(2, "0");
+  const year = String(d.getFullYear()).slice(-2);
+  return `${day}-${MONTHS[d.getMonth()]}-${year}`;
+}
+
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "-";
   const d = new Date(iso);

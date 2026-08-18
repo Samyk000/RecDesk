@@ -15,10 +15,11 @@ interface Props {
   mono?: boolean;
   minRows?: number;
   maxHeight?: number;
+  fill?: boolean;
   hint?: string;
 }
 
-export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, maxHeight, hint }: Props) {
+export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, maxHeight, fill, hint }: Props) {
   const update = useUpdateJob();
   const [draft, setDraft] = useState(job[field] ?? "");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -71,14 +72,15 @@ export function JobFieldEditor({ job, field, placeholder, mono, minRows = 12, ma
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="space-y-2">
-      <div className="relative">
+    <div className={fill ? "h-full space-y-2" : "space-y-2"}>
+      <div className={fill ? "relative h-full" : "relative"}>
         <RichTextEditor
           value={draft}
           onUpdate={(html) => setDraft(html)}
           placeholder={placeholder}
           minHeight={Math.max(minRows * 22, 140)}
           maxHeight={maxHeight}
+          fill={fill}
           collapsibleToolbar
           mono={mono}
         />

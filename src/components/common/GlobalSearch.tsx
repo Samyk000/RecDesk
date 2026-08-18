@@ -77,7 +77,7 @@ export function GlobalSearch({ open, onClose }: { open: boolean; onClose: () => 
     onClose();
     if (row.kind === "client") navigate(`/clients/${row.id}`);
     else if (row.kind === "job") navigate(`/jobs/${row.id}`);
-    else navigate(`/candidates/${row.id}`);
+    else navigate(`/candidates?candidate=${row.id}`);
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
