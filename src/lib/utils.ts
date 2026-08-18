@@ -98,6 +98,15 @@ export function errorMessage(e: unknown): string {
   return "Something went wrong";
 }
 
+export function formatZoneTime(zone: string, now = new Date()): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone: zone,
+    hour: "numeric",
+    minute: "2-digit",
+    timeZoneName: "short",
+  }).format(now);
+}
+
 export function htmlToPlainText(html: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   doc.querySelectorAll("br").forEach((b) => b.replaceWith("\n"));

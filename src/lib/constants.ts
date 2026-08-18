@@ -15,6 +15,13 @@ export const WORK_MODELS = ["Remote", "Hybrid", "Onsite"] as const;
 
 export const CONTRACT_TYPES = ["Contract", "Permanent", "Contract-to-Hire"] as const;
 
+export const US_TIME_ZONES = [
+  { label: "EST", zone: "America/New_York" },
+  { label: "CST", zone: "America/Chicago" },
+  { label: "MST", zone: "America/Denver" },
+  { label: "PST", zone: "America/Los_Angeles" },
+] as const;
+
 type Palette = {
   dot: string;
   badge: string;

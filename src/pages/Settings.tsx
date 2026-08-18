@@ -5,6 +5,7 @@ import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialo
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useTheme } from "../store/theme";
 import { useProfile } from "../store/profile";
+import { US_TIME_ZONES } from "../lib/constants";
 import { apiData } from "../lib/api";
 import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
@@ -30,7 +31,7 @@ const colorThemes: { value: ThemeName; label: string; primary: string; bg: strin
 
 export function Settings() {
   const { mode, theme, setMode, setTheme } = useTheme();
-  const { name, setName } = useProfile();
+  const { name, setName, timeZones, setTimeZones } = useProfile();
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -158,6 +159,39 @@ export function Settings() {
                 className="h-8 text-[13px]"
               />
               <p className="mt-1.5 text-[11px] text-fg-subtle">Shown in the greeting on your dashboard.</p>
+            </div>
+
+            <div className="mt-4 flex items-center gap-2">
+              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Clock</span>
+              <span className="h-px flex-1 bg-border" />
+            </div>
+            <p className="mt-1.5 mb-3 text-[11px] text-fg-subtle">
+              Show US time zones on the dashboard header.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              {US_TIME_ZONES.map((tz) => {
+                const active = timeZones.includes(tz.zone);
+                return (
+                  <button
+                    key={tz.zone}
+                    onClick={() =>
+                      setTimeZones(
+                        active
+                          ? timeZones.filter((z) => z !== tz.zone)
+                          : [...timeZones, tz.zone],
+                      )
+                    }
+                    className={cn(
+                      "flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-all duration-150 active:scale-[0.97]",
+                      active
+                        ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
+                        : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
+                    )}
+                  >
+                    {tz.label}
+                  </button>
+                );
+              })}
             </div>
           </section>
 

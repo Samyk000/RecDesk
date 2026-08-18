@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,7 +15,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
 import { jobPalette, submissionPalette } from "../lib/constants";
-import { cn, greetingLine, timeAgo, titleCase } from "../lib/utils";
+import { cn, formatZoneTime, greetingLine, timeAgo, titleCase } from "../lib/utils";
 import { useProfile } from "../store/profile";
 
 export function Dashboard() {
@@ -62,6 +63,7 @@ export function Dashboard() {
       <PageHeader
         title={greetingLine(name)}
         subtitle={isEmpty ? "Start by creating your first job." : undefined}
+        actions={<ZoneClock />}
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -240,6 +242,39 @@ export function Dashboard() {
         </Section>
       </div>
     </div>
+  );
+}
+
+function ZoneClock() {
+  const timeZones = useProfile((s) => s.timeZones);
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (timeZones.length === 0) return;
+    let id: number;
+    const schedule = () => {
+      const now = new Date();
+      const delay = 60_000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 250;
+      id = window.setTimeout(() => {
+        setTick((t) => t + 1);
+        schedule();
+      }, delay);
+    };
+    schedule();
+    return () => clearTimeout(id);
+  }, [timeZones.length]);
+
+  if (timeZones.length === 0) return null;
+  return (
+    <span className="flex items-center gap-1.5 text-[13px] font-medium tabular-nums text-fg-muted">
+      <Clock className="h-4 w-4 shrink-0 text-fg-subtle" />
+      {timeZones.map((zone, i) => (
+        <span key={zone} className="flex items-center">
+          {i > 0 && <span className="mx-1.5 text-fg-subtle">·</span>}
+          {formatZoneTime(zone)}
+        </span>
+      ))}
+    </span>
   );
 }
 
