@@ -31,7 +31,7 @@ type Palette = {
   bar: string;
 };
 
-export const SUBMISSION_PALETTE: Record<string, Palette> = {
+const SUBMISSION_PALETTE: Record<string, Palette> = {
   sourced: {
     dot: "#64748b",
     badge: "bg-slate-500/15 text-slate-700 dark:text-slate-300",
@@ -82,7 +82,7 @@ export const SUBMISSION_PALETTE: Record<string, Palette> = {
   },
 };
 
-export const JOB_PALETTE: Record<string, Palette> = {
+const JOB_PALETTE: Record<string, Palette> = {
   active: {
     dot: "#2563eb",
     badge: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
@@ -109,7 +109,7 @@ export const JOB_PALETTE: Record<string, Palette> = {
   },
 };
 
-export const CANDIDATE_PALETTE: Record<string, Palette> = {
+const CANDIDATE_PALETTE: Record<string, Palette> = {
   active: {
     dot: "#22c55e",
     badge: "bg-green-500/15 text-green-700 dark:text-green-300",
@@ -150,7 +150,7 @@ import {
   type Icon,
 } from "@phosphor-icons/react";
 
-export const SUBMISSION_ICONS: Record<string, Icon> = {
+const SUBMISSION_ICONS: Record<string, Icon> = {
   sourced: MagnifyingGlass,
   in_touch: ChatCircle,
   submitted: PaperPlaneTilt,

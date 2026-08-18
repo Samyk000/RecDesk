@@ -1,23 +1,16 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Check,
-  DotsSixVertical,
   ListChecks,
   CircleNotch,
   ChatCircleText,
-  Plus,
-  Trash,
 } from "@phosphor-icons/react";
-import { toast } from "sonner";
-import { useUpdateJob } from "../../../hooks/useQueries";
-import { useDebounce } from "../../../hooks/useDebounce";
+import { useJobAutosave } from "../../../hooks/useJobAutosave";
 import { toJobInput } from "../tabUtils";
 import { JobFieldEditor } from "../JobFieldEditor";
-import { Button } from "../../ui/button";
-import { Input } from "../../ui/input";
 import { CopyButton } from "../../common/CopyButton";
 import { EmptyState } from "../../common/EmptyState";
-import { errorMessage, htmlToPlainText } from "../../../lib/utils";
+import { htmlToPlainText } from "../../../lib/utils";
 import type { Job } from "../../../types";
 
 export function PitchScreeningTab({ job }: { job: Job }) {
@@ -58,145 +51,101 @@ export function PitchScreeningTab({ job }: { job: Job }) {
       </div>
 
       <div className="flex min-h-[320px] flex-col">
-        <ScreeningList job={job} />
+        <ScreeningQuestionsEditor job={job} />
       </div>
     </div>
   );
 }
 
-function ScreeningList({ job }: { job: Job }) {
-  const update = useUpdateJob();
-  const [questions, setQuestions] = useState<string[]>(job.screening_questions);
-  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
-  const debounced = useDebounce(questions, 600);
+function parseQuestionsText(text: string): string[] {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => line.replace(/^(\d+[\.\-\)]\s*|[\-\*•]\s*)/, "").trim())
+    .filter(Boolean);
+}
 
+function formatQuestionsText(questions: string[]): string {
+  return questions.map((q, i) => `${i + 1}. ${q}`).join("\n");
+}
+
+function ScreeningQuestionsEditor({ job }: { job: Job }) {
+  const [rawText, setRawText] = useState(() => formatQuestionsText(job.screening_questions ?? []));
+
+  const { setValue: saveQuestions, state } = useJobAutosave(
+    job,
+    "screening_questions",
+    (value: string[]) => toJobInput(job, { screening_questions: value }),
+    (a, b) => JSON.stringify(a) === JSON.stringify(b),
+    600,
+  );
+
+  // Sync if job id or questions from server change externally
   useEffect(() => {
-    setQuestions(job.screening_questions);
-  }, [job.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    setRawText(formatQuestionsText(job.screening_questions ?? []));
+  }, [job.id]);
 
-  useEffect(() => {
-    if (JSON.stringify(debounced) === JSON.stringify(job.screening_questions)) return;
-    setState("saving");
-    update.mutate(
-      { id: job.id, input: toJobInput(job, { screening_questions: debounced }) },
-      {
-        onSuccess: () => {
-          setState("saved");
-          setTimeout(() => setState("idle"), 1500);
-        },
-        onError: (err) => {
-          toast.error(errorMessage(err));
-          setState("idle");
-        },
-      },
-    );
-  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const questionsRef = useRef(questions);
-  questionsRef.current = questions;
-  const jobRef = useRef(job);
-  jobRef.current = job;
-
-  useEffect(() => {
-    return () => {
-      const current = questionsRef.current;
-      if (JSON.stringify(current) === JSON.stringify(jobRef.current.screening_questions)) return;
-      update.mutate({
-        id: jobRef.current.id,
-        input: toJobInput(jobRef.current, { screening_questions: current }),
-      });
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const add = () => setQuestions([...questions, ""]);
-  const remove = (i: number) => setQuestions(questions.filter((_, idx) => idx !== i));
-  const patch = (i: number, v: string) =>
-    setQuestions(questions.map((q, idx) => (idx === i ? v : q)));
-  const move = (i: number, dir: -1 | 1) => {
-    const j = i + dir;
-    if (j < 0 || j >= questions.length) return;
-    const next = [...questions];
-    [next[i], next[j]] = [next[j], next[i]];
-    setQuestions(next);
+  const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const text = e.target.value;
+    setRawText(text);
+    const parsed = parseQuestionsText(text);
+    saveQuestions(parsed);
   };
 
-  const copyAll = questions.filter((q) => q.trim()).map((q, i) => `${i + 1}. ${q.trim()}`).join("\n");
+  const parsedQuestions = useMemo(() => parseQuestionsText(rawText), [rawText]);
+  const copyAllText = parsedQuestions.map((q: string, i: number) => `${i + 1}. ${q}`).join("\n");
 
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-1 flex-col">
       <div className="mb-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <ListChecks className="h-4 w-4 text-primary" />
           <h3 className="text-[13px] font-semibold text-fg">Screening questions</h3>
+          {parsedQuestions.length > 0 && (
+            <span className="rounded-full bg-surface-active px-2 py-0.5 text-[11px] font-medium text-fg-muted">
+              {parsedQuestions.length} {parsedQuestions.length === 1 ? "question" : "questions"}
+            </span>
+          )}
         </div>
+
         <div className="flex items-center gap-2">
           {state === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
-              <CircleNotch className="h-3 w-3 animate-spin" /> Saving…
+              <CircleNotch className="h-3 w-3 animate-spin text-primary" /> Saving…
             </span>
           )}
           {state === "saved" && (
-            <span className="flex items-center gap-1 text-[11px] text-emerald-500">
+            <span className="flex items-center gap-1 text-[11px] text-emerald-500 font-medium">
               <Check className="h-3 w-3" /> Saved
             </span>
           )}
-          {copyAll && <CopyButton text={copyAll} label="Copy all" />}
-          <Button size="sm" onClick={add}>
-            <Plus className="h-4 w-4" />
-            Add question
-          </Button>
+          {copyAllText && <CopyButton text={copyAllText} label="Copy all" />}
         </div>
       </div>
 
-      {questions.length === 0 ? (
-        <div className="flex flex-1 flex-col">
+      <div className="flex flex-1 flex-col gap-3">
+        <p className="text-xs text-fg-subtle">
+          Paste or type all questions at once (one per line). Numbers will be formatted automatically.
+        </p>
+
+        <div className="relative flex-1">
+          <textarea
+            value={rawText}
+            onChange={handleTextChange}
+            placeholder={`1. Can you walk me through a recent project you led?\n2. How many years of experience do you have in this stack?\n3. Are you open to a hybrid schedule?\n4. What is your notice period and expected rate?`}
+            className="h-full min-h-[220px] w-full resize-none rounded-xl border border-border bg-surface p-3.5 text-[13px] leading-relaxed text-fg placeholder:text-fg-subtle outline-none transition-all focus:border-primary focus:ring-1 focus:ring-primary scrollbar-thin"
+          />
+        </div>
+
+        {parsedQuestions.length === 0 && (
           <EmptyState
             icon={<ListChecks className="h-5 w-5" />}
             title="No screening questions yet"
-            description="Add the questions you ask every candidate for this role."
-            action={
-              <Button variant="primary" size="sm" onClick={add}>
-                <Plus className="h-4 w-4" />
-                Add your first question
-              </Button>
-            }
+            description="Paste 5–10 questions you ask candidates for this role. It auto-saves as you type."
           />
-        </div>
-      ) : (
-        <div className="space-y-2 overflow-y-auto">
-          {questions.map((q, i) => (
-            <div
-              key={i}
-              className="group flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-2 transition-all duration-150 focus-within:border-primary/50 hover:shadow-raise"
-            >
-              <DotsSixVertical className="h-4 w-4 shrink-0 cursor-grab text-fg-subtle opacity-60" />
-              <span className="w-6 shrink-0 text-center font-mono text-xs text-fg-subtle">{i + 1}</span>
-              <Input
-                value={q}
-                onChange={(e) => patch(i, e.target.value)}
-                placeholder="Ask a screening question…"
-                className="h-8 border-none bg-transparent px-1 text-[13px] shadow-none focus:ring-0"
-              />
-              <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => move(i, -1)} title="Move up">
-                  ↑
-                </Button>
-                <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => move(i, 1)} title="Move down">
-                  ↓
-                </Button>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-7 w-7 text-fg-subtle hover:text-red-500"
-                  onClick={() => remove(i)}
-                >
-                  <Trash className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Briefcase, Plus, MagnifyingGlass } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Briefcase, Plus } from "@phosphor-icons/react";
 import { useJobs, useMoveJob } from "../hooks/useQueries";
 import { useFlipList } from "../hooks/useFlipList";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
+import { SearchInput } from "../components/common/SearchInput";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { PageHeader } from "../components/common/PageHeader";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
 import { JOB_STATUSES, jobPalette } from "../lib/constants";
@@ -55,15 +55,12 @@ export function Jobs() {
       />
 
       <div className="mb-4 flex items-center gap-3">
-        <div className="relative w-full max-w-sm">
-          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search jobs…"
-            className="pl-9"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search jobs…"
+          className="w-full max-w-sm"
+        />
         <div className="flex items-center gap-1">
           <FilterChip
             active={status === ""}

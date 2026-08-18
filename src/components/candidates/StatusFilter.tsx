@@ -1,6 +1,6 @@
 import { Funnel, X } from "@phosphor-icons/react";
-import { SUBMISSION_STATUSES, submissionIcon, submissionPalette } from "../../lib/constants";
-import { cn, titleCase } from "../../lib/utils";
+import { SUBMISSION_STATUSES } from "../../lib/constants";
+import { cn } from "../../lib/utils";
 import { Button } from "../ui/button";
 import {
   Select,
@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { StatusSelectItem } from "./StatusSelectItem";
 
 interface Props {
   value: string;
@@ -29,17 +30,9 @@ export function StatusFilter({ value, onValueChange, filtered, onClear }: Props)
         </SelectTrigger>
         <SelectContent className="w-[var(--radix-select-trigger-width)]">
           <SelectItem value="all">All statuses</SelectItem>
-          {SUBMISSION_STATUSES.map((s) => {
-            const StatusIcon = submissionIcon(s);
-            return (
-              <SelectItem key={s} value={s}>
-                <span className="flex items-center gap-1.5">
-                  <StatusIcon className="h-3.5 w-3.5" style={{ color: submissionPalette(s).dot }} />
-                  {titleCase(s)}
-                </span>
-              </SelectItem>
-            );
-          })}
+          {SUBMISSION_STATUSES.map((s) => (
+            <StatusSelectItem key={s} value={s} />
+          ))}
         </SelectContent>
       </Select>
       {filtered && (

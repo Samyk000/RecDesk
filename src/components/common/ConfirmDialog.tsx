@@ -1,4 +1,3 @@
-import type { ReactNode } from "react";
 import {
   Dialog,
   DialogContent,
@@ -19,7 +18,6 @@ interface Props {
   destructive?: boolean;
   loading?: boolean;
   onConfirm: () => void;
-  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -32,7 +30,6 @@ export function ConfirmDialog({
   destructive,
   loading,
   onConfirm,
-  children,
 }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -41,7 +38,6 @@ export function ConfirmDialog({
           <DialogTitle>{title}</DialogTitle>
           {description && <DialogDescription>{description}</DialogDescription>}
         </DialogHeader>
-        {children && <div className="px-6 py-4">{children}</div>}
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={loading}>
             {cancelLabel}

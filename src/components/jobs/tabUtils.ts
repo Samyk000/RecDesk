@@ -20,8 +20,3 @@ export function toJobInput(job: Job, patch?: Partial<JobInput>): JobInput {
     ...patch,
   };
 }
-
-export function trimNullable(value: string): string | null {
-  const v = value.trim();
-  return v.length === 0 ? null : v;
-}

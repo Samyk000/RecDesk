@@ -3,7 +3,6 @@ import { useSearchParams } from "react-router-dom";
 import {
   IdentificationCard,
   Plus,
-  MagnifyingGlass,
   Trash,
   X,
   ListChecks,
@@ -18,9 +17,9 @@ import {
 import { useDebounce } from "../hooks/useDebounce";
 import { useSelection } from "../hooks/useSelection";
 import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
-import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/common/EmptyState";
+import { SearchInput } from "../components/common/SearchInput";
 import { Spinner } from "../components/common/Spinner";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
@@ -38,7 +37,7 @@ import {
   SelectValue,
 } from "../components/ui/select";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
-import { cn, errorMessage, formatDateShort, timeAgo, titleCase } from "../lib/utils";
+import { cn, errorMessage, formatDateShort, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { CandidateWithJob } from "../types";
 
 const DETAIL_STATUSES = new Set(["submitted", "interview", "rejected"]);
@@ -166,15 +165,12 @@ export function Candidates() {
       />
 
       <div className="mb-4 flex items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search candidates…"
-            className="pl-9"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search candidates…"
+          className="w-full max-w-xs"
+        />
         <StatusFilter
           value={status}
           onValueChange={setStatus}
@@ -332,7 +328,7 @@ export function Candidates() {
                           color: submissionPalette(c.submission_status).dot,
                         }}
                       >
-                        {c.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+                        {nameInitials(c.name)}
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{c.name}</p>

@@ -1,18 +1,11 @@
 use tauri::State;
 
+use crate::commands::candidate::CANDIDATE_SELECT;
+use crate::commands::job::JOB_SELECT;
 use crate::error::{AppError, AppResult};
 use crate::models::{Candidate, DashboardStats, JobWithStats, StatusCount};
 use crate::rows::row_to_candidate;
 use crate::AppState;
-
-const CANDIDATE_SELECT: &str = r#"
-  SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
-         c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
-         c.match_score, c.submission_status, c.interview_status, c.client_feedback,
-         c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url
-  FROM candidates c
-"#;
 
 fn status_counts(conn: &rusqlite::Connection, table: &str, status_col: &str) -> AppResult<Vec<StatusCount>> {
     let sql = format!(
@@ -57,18 +50,9 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     let jobs_by_status = status_counts(&conn, "jobs", "status")?;
 
     let recent_jobs: Vec<JobWithStats> = {
-        let mut stmt = conn.prepare(
-            r#"SELECT j.id, j.client_id, j.job_id, j.title, j.location, j.work_model, j.contract_type,
-                  j.status, j.refined_jd, j.boolean_strings, j.candidate_pitch,
-                  j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at, j.sort_order,
-                  j.bill_rate, j.pay_rate,
-                  c.name,
-                  (SELECT COUNT(*) FROM candidates ca WHERE ca.job_id = j.id)
-               FROM jobs j JOIN clients c ON c.id = j.client_id
-               ORDER BY j.updated_at DESC LIMIT 8"#,
-        )?;
+        let mut stmt = conn.prepare(&format!("{JOB_SELECT} ORDER BY j.updated_at DESC LIMIT 8"))?;
         let rows = stmt
-            .query_map([], |row| Ok(crate::rows::row_to_job_with_stats(row)?))?
+            .query_map([], crate::rows::row_to_job_with_stats)?
             .collect::<Result<Vec<_>, rusqlite::Error>>()?;
         rows
     };
@@ -78,7 +62,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
             &format!("{CANDIDATE_SELECT} ORDER BY c.last_updated DESC LIMIT 8"),
         )?;
         let rows = stmt
-            .query_map([], |row| row_to_candidate(row))?
+            .query_map([], row_to_candidate)?
             .collect::<Result<Vec<_>, rusqlite::Error>>()?;
         rows
     };

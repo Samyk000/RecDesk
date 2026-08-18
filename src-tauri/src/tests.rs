@@ -1,7 +1,9 @@
 #[cfg(test)]
+#[allow(clippy::module_inception)]
 mod tests {
     use rusqlite::params;
 
+    use crate::commands::candidate::{bulk_update_candidates_sql, CandidatePatch};
     use crate::database::{init_db, schema};
     use crate::rows::{new_id, now, row_to_candidate, row_to_client, row_to_job};
 
@@ -166,7 +168,7 @@ mod tests {
                           experience_years, resume_path, recruiter_notes, match_score,
                           submission_status, interview_status, client_feedback, candidate_status,
                           submitted_at, interview_at, rejection_reason,
-                          date_added, last_updated, linkedin_url
+                          date_added, last_updated, linkedin_url, screening_answers
                    FROM candidates WHERE id = ?1"#,
                 params![&cand_id],
                 row_to_candidate,
@@ -186,6 +188,76 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM candidates", [], |r| r.get(0))
             .unwrap();
         assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn bulk_status_change_preserves_timestamps() {
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let cand_id = new_id();
+        let ts = now();
+        conn.execute(
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at)
+             VALUES (?1, 'Acme', NULL, NULL, NULL, NULL, NULL, ?2, ?2)",
+            params![cid, ts],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-1', 'Java Dev', 'active', '[]', '[]', ?3, ?3)",
+            params![jid, cid, ts],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, email, submission_status, candidate_status,
+                submitted_at, interview_at, rejection_reason, date_added, last_updated)
+             VALUES (?1, ?2, 'Jane Doe', 'jane@x.com', 'submitted', 'active', ?3, ?4, 'no feedback', ?3, ?3)",
+            params![cand_id, jid, ts, "2026-08-01T10:00:00Z"],
+        )
+        .unwrap();
+
+        // Moving to 'in_touch' (a non-timestamped status) must NOT wipe timestamps
+        let patch = CandidatePatch {
+            submission_status: Some("in_touch".to_string()),
+            ..Default::default()
+        };
+        bulk_update_candidates_sql(&conn, std::slice::from_ref(&cand_id), &patch).unwrap();
+
+        let row = conn
+            .query_row(
+                "SELECT submission_status, submitted_at, interview_at, rejection_reason FROM candidates WHERE id = ?1",
+                params![&cand_id],
+                |r| {
+                    Ok((
+                        r.get::<_, String>(0)?,
+                        r.get::<_, Option<String>>(1)?,
+                        r.get::<_, Option<String>>(2)?,
+                        r.get::<_, Option<String>>(3)?,
+                    ))
+                },
+            )
+            .unwrap();
+        assert_eq!(row.0, "in_touch");
+        assert_eq!(row.1.as_deref(), Some(ts.as_str()));
+        assert_eq!(row.2.as_deref(), Some("2026-08-01T10:00:00Z"));
+        assert_eq!(row.3.as_deref(), Some("no feedback"));
+
+        // Moving to 'submitted' sets submitted_at when provided
+        let patch = CandidatePatch {
+            submission_status: Some("submitted".to_string()),
+            submitted_at: Some("2026-08-10T09:00:00Z".to_string()),
+            ..Default::default()
+        };
+        bulk_update_candidates_sql(&conn, std::slice::from_ref(&cand_id), &patch).unwrap();
+        let submitted_at: String = conn
+            .query_row(
+                "SELECT submitted_at FROM candidates WHERE id = ?1",
+                params![&cand_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(submitted_at, "2026-08-10T09:00:00Z");
     }
 
     #[test]

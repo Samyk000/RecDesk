@@ -7,6 +7,7 @@ import {
   Copy,
   FileText,
   LinkedinLogo,
+  ListChecks,
   CircleNotch,
   Paperclip,
   Trash,
@@ -26,8 +27,9 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { RichTextEditor } from "../common/RichTextEditor";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
+import { ScreeningQADialog } from "./ScreeningQADialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { errorMessage, formatDateAbbr } from "../../lib/utils";
+import { errorMessage, formatDateAbbr, nameInitials } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput } from "../../types";
 
@@ -64,6 +66,7 @@ function CandidatePanelBody({
   const removeResumeMut = useRemoveResume();
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showScreeningQA, setShowScreeningQA] = useState(false);
   const [saving, setSaving] = useState(false);
 
   async function saveField(patch: Partial<CandidateInput>) {
@@ -166,12 +169,7 @@ function CandidatePanelBody({
     }
   }
 
-  const initials = candidate.name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
+  const initials = nameInitials(candidate.name);
 
   const status = candidate.submission_status;
   const resumeName = candidate.resume_path?.split(/[\\/]/).pop() ?? "";
@@ -189,6 +187,19 @@ function CandidatePanelBody({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-primary hover:bg-primary/10"
+                onClick={() => setShowScreeningQA(true)}
+              >
+                <ListChecks className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Screening Q&A</TooltipContent>
+          </Tooltip>
           {!embedded && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -407,6 +418,12 @@ function CandidatePanelBody({
           />
         </div>
       </div>
+
+      <ScreeningQADialog
+        candidateId={candidate.id}
+        open={showScreeningQA}
+        onOpenChange={setShowScreeningQA}
+      />
     </div>
   );
 }

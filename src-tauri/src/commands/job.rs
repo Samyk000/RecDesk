@@ -8,7 +8,7 @@ use crate::rows::{
 };
 use crate::AppState;
 
-const JOB_SELECT: &str = r#"
+pub const JOB_SELECT: &str = r#"
   SELECT j.id, j.client_id, j.job_id, j.title, j.location, j.work_model, j.contract_type,
          j.status, j.refined_jd, j.boolean_strings, j.candidate_pitch,
          j.screening_questions, j.notes, j.created_at, j.updated_at, j.closed_at, j.sort_order,
@@ -51,7 +51,7 @@ pub fn get_jobs(
             "(j.title LIKE ? ESCAPE '\\' OR j.job_id LIKE ? ESCAPE '\\' OR c.name LIKE ? ESCAPE '\\' OR COALESCE(j.location,'') LIKE ? ESCAPE '\\')"
                 .to_string(),
         );
-        let p = like_pattern(&s.trim());
+        let p = like_pattern(s.trim());
         for _ in 0..4 {
             params.push(Box::new(p.clone()));
         }

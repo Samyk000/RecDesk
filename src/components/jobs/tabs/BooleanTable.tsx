@@ -1,58 +1,21 @@
-import { useEffect, useRef, useState } from "react";
 import { Check, CircleNotch, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
-import { toast } from "sonner";
-import { useUpdateJob } from "../../../hooks/useQueries";
-import { useDebounce } from "../../../hooks/useDebounce";
+import { useJobAutosave } from "../../../hooks/useJobAutosave";
 import { toJobInput } from "../tabUtils";
 import { Button } from "../../ui/button";
 import { Input, Textarea } from "../../ui/input";
 import { CopyButton } from "../../common/CopyButton";
-import { errorMessage } from "../../../lib/utils";
 import type { BooleanString, Job } from "../../../types";
 
+const jsonEquals = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+
 export function BooleanTable({ job }: { job: Job }) {
-  const update = useUpdateJob();
-  const [items, setItems] = useState<BooleanString[]>(job.boolean_strings);
-  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
-  const debounced = useDebounce(items, 600);
-
-  useEffect(() => {
-    setItems(job.boolean_strings);
-  }, [job.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (JSON.stringify(debounced) === JSON.stringify(job.boolean_strings)) return;
-    setState("saving");
-    update.mutate(
-      { id: job.id, input: toJobInput(job, { boolean_strings: debounced }) },
-      {
-        onSuccess: () => {
-          setState("saved");
-          setTimeout(() => setState("idle"), 1500);
-        },
-        onError: (err) => {
-          toast.error(errorMessage(err));
-          setState("idle");
-        },
-      },
-    );
-  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const itemsRef = useRef(items);
-  itemsRef.current = items;
-  const jobRef = useRef(job);
-  jobRef.current = job;
-
-  useEffect(() => {
-    return () => {
-      const current = itemsRef.current;
-      if (JSON.stringify(current) === JSON.stringify(jobRef.current.boolean_strings)) return;
-      update.mutate({
-        id: jobRef.current.id,
-        input: toJobInput(jobRef.current, { boolean_strings: current }),
-      });
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  const { value: items, setValue: setItems, state } = useJobAutosave(
+    job,
+    "boolean_strings",
+    (value: BooleanString[]) => toJobInput(job, { boolean_strings: value }),
+    jsonEquals,
+    600,
+  );
 
   const add = () => setItems([...items, { name: "", query: "" }]);
   const remove = (i: number) => setItems(items.filter((_, idx) => idx !== i));

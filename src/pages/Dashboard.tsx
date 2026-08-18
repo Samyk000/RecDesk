@@ -15,7 +15,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
 import { jobPalette, submissionPalette } from "../lib/constants";
-import { cn, formatZoneTime, greetingLine, timeAgo, titleCase } from "../lib/utils";
+import { cn, formatZoneTime, greetingLine, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import { useProfile } from "../store/profile";
 
 export function Dashboard() {
@@ -156,12 +156,7 @@ export function Dashboard() {
                       color: submissionPalette(cand.submission_status).dot,
                     }}
                   >
-                    {cand.name
-                      .split(" ")
-                      .slice(0, 2)
-                      .map((w) => w[0])
-                      .join("")
-                      .toUpperCase()}
+                    {nameInitials(cand.name)}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[13px] font-medium text-fg">{cand.name}</span>

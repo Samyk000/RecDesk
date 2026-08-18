@@ -6,7 +6,7 @@ use crate::models::{Client, ClientInput, ClientWithStats};
 use crate::rows::{like_pattern, new_id, now, row_to_client, row_to_client_with_stats};
 use crate::AppState;
 
-const CLIENT_SELECT: &str = r#"
+pub const CLIENT_SELECT: &str = r#"
   SELECT c.id, c.name, c.company, c.email, c.hiring_manager, c.address, c.notes,
          c.created_at, c.updated_at, c.sort_order,
          (SELECT COUNT(*) FROM jobs j WHERE j.client_id = c.id),
@@ -29,12 +29,12 @@ pub fn get_clients(
     let mut stmt = conn.prepare(&sql)?;
     let rows = match search {
         Some(s) => stmt
-            .query_map(params![like_pattern(&s.trim())], |row| {
+            .query_map(params![like_pattern(s.trim())], |row| {
                 row_to_client_with_stats(row)
             })?
             .collect::<Result<Vec<_>, rusqlite::Error>>()?,
         None => stmt
-            .query_map([], |row| row_to_client_with_stats(row))?
+            .query_map([], row_to_client_with_stats)?
             .collect::<Result<Vec<_>, rusqlite::Error>>()?,
     };
     Ok(rows)
@@ -44,7 +44,7 @@ pub fn get_clients(
 pub fn get_client(state: State<'_, AppState>, id: String) -> AppResult<ClientWithStats> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let sql = format!("{CLIENT_SELECT} WHERE c.id = ?1");
-    conn.query_row(&sql, params![id], |row| row_to_client_with_stats(row))
+    conn.query_row(&sql, params![id], row_to_client_with_stats)
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => AppError::Msg("Client not found".into()),
             other => other.into(),

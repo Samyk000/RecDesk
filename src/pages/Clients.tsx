@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowUp, Building, PencilSimple, Plus, MagnifyingGlass, Trash } from "@phosphor-icons/react";
+import { ArrowDown, ArrowUp, Building, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useClients, useDeleteClient, useMoveClient } from "../hooks/useQueries";
 import { useDebounce } from "../hooks/useDebounce";
 import { useFlipList } from "../hooks/useFlipList";
 import { PageLoader } from "../components/common/Spinner";
 import { EmptyState } from "../components/common/EmptyState";
+import { SearchInput } from "../components/common/SearchInput";
 import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { ClientForm } from "../components/clients/ClientForm";
@@ -63,15 +63,12 @@ export function Clients() {
         }
       />
 
-      <div className="mb-4 relative w-full max-w-sm">
-        <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search clients…"
-          className="pl-9"
-        />
-      </div>
+      <SearchInput
+        value={search}
+        onChange={setSearch}
+        placeholder="Search clients…"
+        className="mb-4 w-full max-w-sm"
+      />
 
       <div className="flex min-h-0 flex-1 flex-col">
         {isLoading ? (

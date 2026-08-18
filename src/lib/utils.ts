@@ -62,7 +62,7 @@ export function timeAgo(iso: string | null | undefined): string {
   return formatDate(iso);
 }
 
-export function timeGreeting(now = new Date()): { label: string; emoji: string } {
+function timeGreeting(now = new Date()): { label: string; emoji: string } {
   const h = now.getHours();
   if (h >= 5 && h < 12) return { label: "Good Morning", emoji: "☀️" };
   if (h >= 12 && h < 17) return { label: "Good Afternoon", emoji: "🌤️" };
@@ -81,6 +81,15 @@ export function titleCase(s: string): string {
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+}
+
+export function nameInitials(name: string): string {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
 }
 
 export async function copyToClipboard(text: string): Promise<boolean> {

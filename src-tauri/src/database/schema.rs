@@ -59,6 +59,7 @@ CREATE TABLE IF NOT EXISTS candidates (
   submitted_at TEXT,
   interview_at TEXT,
   rejection_reason TEXT,
+  screening_answers TEXT NOT NULL DEFAULT '{}',
   date_added TEXT NOT NULL,
   last_updated TEXT NOT NULL
 );
@@ -140,6 +141,7 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
         ("interview_at", "TEXT"),
         ("rejection_reason", "TEXT"),
         ("linkedin_url", "TEXT"),
+        ("screening_answers", "TEXT NOT NULL DEFAULT '{}'"),
     ];
     for (col, ty) in additions {
         if !existing.iter().any(|c| c == col) {

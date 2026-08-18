@@ -94,6 +94,7 @@ export interface Candidate {
   submitted_at?: string | null;
   interview_at?: string | null;
   rejection_reason?: string | null;
+  screening_answers?: string | null;
   date_added: string;
   last_updated: string;
 }
@@ -118,6 +119,7 @@ export interface CandidateInput {
   submitted_at?: string | null;
   interview_at?: string | null;
   rejection_reason?: string | null;
+  screening_answers?: string | null;
 }
 
 export interface CandidateWithJob extends Candidate {
@@ -142,6 +144,7 @@ export interface CandidatePatch {
   submitted_at?: string | null;
   interview_at?: string | null;
   rejection_reason?: string | null;
+  screening_answers?: string | null;
 }
 
 export interface StatusCount {

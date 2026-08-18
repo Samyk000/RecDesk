@@ -3,7 +3,6 @@ import {
   ArrowUp,
   IdentificationCard,
   Plus,
-  MagnifyingGlass,
   Trash,
   X,
 } from "@phosphor-icons/react";
@@ -16,9 +15,9 @@ import {
 import { useDebounce } from "../../../hooks/useDebounce";
 import { useSelection } from "../../../hooks/useSelection";
 import { useTableSort, useSortedRows, SortIcon } from "../../../hooks/useTableSort";
-import { Input } from "../../ui/input";
 import { Button } from "../../ui/button";
 import { EmptyState } from "../../common/EmptyState";
+import { SearchInput } from "../../common/SearchInput";
 import { StatusBadge } from "../../common/StatusBadge";
 import { ConfirmDialog } from "../../common/ConfirmDialog";
 import {
@@ -33,7 +32,7 @@ import { CandidateDetailPanel } from "../../candidates/CandidateDetailPanel";
 import { StatusFilter } from "../../candidates/StatusFilter";
 import { DetailDrawer } from "../../common/DetailDrawer";
 import { BULK_STATUSES, submissionPalette } from "../../../lib/constants";
-import { cn, formatDateShort, timeAgo, titleCase } from "../../../lib/utils";
+import { cn, formatDateShort, nameInitials, timeAgo, titleCase } from "../../../lib/utils";
 import type { Candidate } from "../../../types";
 
 type SortKey = "date_added" | "last_updated";
@@ -100,15 +99,12 @@ export function CandidatesTab({ jobId }: { jobId: string }) {
   return (
     <div>
       <div className="mb-4 flex items-center gap-3">
-        <div className="relative w-full max-w-xs">
-          <MagnifyingGlass className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search candidates…"
-            className="pl-9"
-          />
-        </div>
+        <SearchInput
+          value={search}
+          onChange={setSearch}
+          placeholder="Search candidates…"
+          className="w-full max-w-xs"
+        />
         <StatusFilter
           value={status}
           onValueChange={setStatus}
@@ -282,7 +278,7 @@ function CandidateRow({
               color: submissionPalette(candidate.submission_status).dot,
             }}
           >
-            {candidate.name.split(" ").slice(0, 2).map((w) => w[0]).join("").toUpperCase()}
+            {nameInitials(candidate.name)}
           </span>
           <div className="min-w-0">
             <p className="truncate text-[13px] font-medium text-fg">{candidate.name}</p>

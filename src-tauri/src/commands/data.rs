@@ -1,6 +1,9 @@
 use rusqlite::params;
 use tauri::State;
 
+use crate::commands::candidate::CANDIDATE_SELECT;
+use crate::commands::client::CLIENT_SELECT;
+use crate::commands::job::JOB_SELECT;
 use crate::error::{AppError, AppResult};
 use crate::models::{Candidate, Client, ExportEnvelope, ImportSummary, Job};
 use crate::rows::{
@@ -8,21 +11,10 @@ use crate::rows::{
 };
 use crate::AppState;
 
-const CLIENT_SELECT: &str =
-    "SELECT id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order FROM clients";
-const JOB_SELECT: &str = r#"SELECT id, client_id, job_id, title, location, work_model, contract_type,
-     status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
-     created_at, updated_at, closed_at, sort_order, bill_rate, pay_rate FROM jobs"#;
-const CANDIDATE_SELECT: &str = r#"SELECT id, job_id, name, email, phone, location, current_title,
-     current_company, experience_years, resume_path, recruiter_notes, match_score,
-     submission_status, interview_status, client_feedback, candidate_status,
-     submitted_at, interview_at, rejection_reason,
-     date_added, last_updated, linkedin_url FROM candidates"#;
-
 fn collect_clients(conn: &rusqlite::Connection) -> AppResult<Vec<Client>> {
     let mut stmt = conn.prepare(CLIENT_SELECT)?;
     let rows = stmt
-        .query_map([], |row| row_to_client(row))?
+        .query_map([], row_to_client)?
         .collect::<Result<Vec<_>, rusqlite::Error>>()?;
     Ok(rows)
 }
@@ -30,7 +22,7 @@ fn collect_clients(conn: &rusqlite::Connection) -> AppResult<Vec<Client>> {
 fn collect_jobs(conn: &rusqlite::Connection) -> AppResult<Vec<Job>> {
     let mut stmt = conn.prepare(JOB_SELECT)?;
     let rows = stmt
-        .query_map([], |row| row_to_job(row))?
+        .query_map([], row_to_job)?
         .collect::<Result<Vec<_>, rusqlite::Error>>()?;
     Ok(rows)
 }
@@ -38,7 +30,7 @@ fn collect_jobs(conn: &rusqlite::Connection) -> AppResult<Vec<Job>> {
 fn collect_candidates(conn: &rusqlite::Connection) -> AppResult<Vec<Candidate>> {
     let mut stmt = conn.prepare(CANDIDATE_SELECT)?;
     let rows = stmt
-        .query_map([], |row| row_to_candidate(row))?
+        .query_map([], row_to_candidate)?
         .collect::<Result<Vec<_>, rusqlite::Error>>()?;
     Ok(rows)
 }
@@ -110,9 +102,9 @@ pub fn import_json(
             "INSERT OR IGNORE INTO candidates (id, job_id, name, email, phone, location, current_title,
                 current_company, experience_years, resume_path, linkedin_url, recruiter_notes, match_score,
                 submission_status, interview_status, client_feedback, candidate_status,
-                submitted_at, interview_at, rejection_reason,
+                submitted_at, interview_at, rejection_reason, screening_answers,
                 date_added, last_updated)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22)",
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23)",
             params![
                 candidate.id, candidate.job_id, candidate.name, candidate.email, candidate.phone,
                 candidate.location, candidate.current_title, candidate.current_company,
@@ -120,6 +112,7 @@ pub fn import_json(
                 candidate.recruiter_notes, candidate.match_score, candidate.submission_status,
                 candidate.interview_status, candidate.client_feedback, candidate.candidate_status,
                 candidate.submitted_at, candidate.interview_at, candidate.rejection_reason,
+                candidate.screening_answers.as_deref().unwrap_or("{}"),
                 candidate.date_added, candidate.last_updated
             ],
         )?;

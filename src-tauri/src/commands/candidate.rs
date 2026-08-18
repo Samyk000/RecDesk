@@ -7,21 +7,21 @@ use crate::models::{Candidate, CandidateInput, CandidateWithJob};
 use crate::rows::{like_pattern, new_id, now, row_to_candidate, row_to_candidate_with_job};
 use crate::AppState;
 
-const CANDIDATE_SELECT: &str = r#"
+pub const CANDIDATE_SELECT: &str = r#"
   SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url
+         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers
   FROM candidates c
 "#;
 
-const CANDIDATE_SELECT_JOIN: &str = r#"
+pub const CANDIDATE_SELECT_JOIN: &str = r#"
   SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url,
+         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers,
          j.title, j.job_id, cl.name
   FROM candidates c
   JOIN jobs j ON j.id = c.job_id
@@ -52,7 +52,7 @@ pub fn get_candidates(
             "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.location,'') LIKE ? ESCAPE '\\')"
                 .to_string(),
         );
-        let p = like_pattern(&s.trim());
+        let p = like_pattern(s.trim());
         for _ in 0..5 {
             params.push(Box::new(p.clone()));
         }
@@ -98,8 +98,8 @@ pub fn create_candidate(
                                  current_company, experience_years, resume_path, linkedin_url,
                                  recruiter_notes, match_score, submission_status, interview_status,
                                  client_feedback, candidate_status, submitted_at, interview_at,
-                                 rejection_reason, date_added, last_updated)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?21)",
+                                 rejection_reason, screening_answers, date_added, last_updated)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?22)",
         params![
             id,
             input.job_id,
@@ -121,15 +121,12 @@ pub fn create_candidate(
             input.submitted_at,
             input.interview_at,
             input.rejection_reason,
+            input.screening_answers.unwrap_or_else(|| "{}".to_string()),
             ts
         ],
     )?;
     let cand = conn.query_row(
-        "SELECT id, job_id, name, email, phone, location, current_title, current_company,
-                experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
-rejection_reason, date_added, last_updated, linkedin_url
- FROM candidates WHERE id = ?1",
+        &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&id],
         row_to_candidate,
     )?;
@@ -150,8 +147,8 @@ pub fn update_candidate(
                                submission_status = ?12, interview_status = ?13,
                                client_feedback = ?14, candidate_status = ?15,
                                submitted_at = ?16, interview_at = ?17, rejection_reason = ?18,
-                               linkedin_url = ?19, last_updated = ?20
-         WHERE id = ?21",
+                               linkedin_url = ?19, screening_answers = ?20, last_updated = ?21
+         WHERE id = ?22",
         params![
             input.job_id,
             input.name,
@@ -172,6 +169,7 @@ pub fn update_candidate(
             input.interview_at,
             input.rejection_reason,
             input.linkedin_url,
+            input.screening_answers.unwrap_or_else(|| "{}".to_string()),
             now(),
             id
         ],
@@ -180,11 +178,7 @@ pub fn update_candidate(
         return Err("Candidate not found".into());
     }
     let cand = conn.query_row(
-        "SELECT id, job_id, name, email, phone, location, current_title, current_company,
-                experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
-rejection_reason, date_added, last_updated, linkedin_url
- FROM candidates WHERE id = ?1",
+        &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&id],
         row_to_candidate,
     )?;
@@ -193,20 +187,6 @@ rejection_reason, date_added, last_updated, linkedin_url
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct CandidatePatch {
-    #[serde(default)]
-    pub email: Option<String>,
-    #[serde(default)]
-    pub phone: Option<String>,
-    #[serde(default)]
-    pub location: Option<String>,
-    #[serde(default)]
-    pub current_title: Option<String>,
-    #[serde(default)]
-    pub current_company: Option<String>,
-    #[serde(default)]
-    pub experience_years: Option<i64>,
-    #[serde(default)]
-    pub recruiter_notes: Option<String>,
     #[serde(default)]
     pub match_score: Option<i64>,
     #[serde(default)]
@@ -232,6 +212,14 @@ pub fn bulk_update_candidates(
     patch: CandidatePatch,
 ) -> AppResult<usize> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    bulk_update_candidates_sql(&conn, &ids, &patch)
+}
+
+pub fn bulk_update_candidates_sql(
+    conn: &rusqlite::Connection,
+    ids: &[String],
+    patch: &CandidatePatch,
+) -> AppResult<usize> {
     if ids.is_empty() {
         return Ok(0);
     }
@@ -242,25 +230,25 @@ pub fn bulk_update_candidates(
                                 client_feedback = COALESCE(?3, client_feedback),
                                 match_score = COALESCE(?4, match_score),
                                 candidate_status = COALESCE(?5, candidate_status),
-                                submitted_at = CASE WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at) ELSE NULL END,
-                                interview_at = CASE WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at) ELSE NULL END,
-                                rejection_reason = CASE WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason) ELSE NULL END,
+                                submitted_at = CASE WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at) ELSE submitted_at END,
+                                interview_at = CASE WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at) ELSE interview_at END,
+                                rejection_reason = CASE WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason) ELSE rejection_reason END,
                                 last_updated = ?9
          WHERE id IN ({})",
         placeholders.join(",")
     );
     let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
-        Box::new(patch.submission_status),
-        Box::new(patch.interview_status),
-        Box::new(patch.client_feedback),
+        Box::new(patch.submission_status.clone()),
+        Box::new(patch.interview_status.clone()),
+        Box::new(patch.client_feedback.clone()),
         Box::new(patch.match_score),
-        Box::new(patch.candidate_status),
-        Box::new(patch.submitted_at),
-        Box::new(patch.interview_at),
-        Box::new(patch.rejection_reason),
+        Box::new(patch.candidate_status.clone()),
+        Box::new(patch.submitted_at.clone()),
+        Box::new(patch.interview_at.clone()),
+        Box::new(patch.rejection_reason.clone()),
         Box::new(now()),
     ];
-    for id in &ids {
+    for id in ids {
         p.push(Box::new(id.clone()));
     }
     let affected = conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
@@ -318,7 +306,7 @@ pub fn get_candidates_with_job(
             "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(j.title,'') LIKE ? ESCAPE '\\')"
                 .to_string(),
         );
-        let p = like_pattern(&s.trim());
+        let p = like_pattern(s.trim());
         for _ in 0..4 {
             params.push(Box::new(p.clone()));
         }

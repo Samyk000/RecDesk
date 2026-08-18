@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X } from "@phosphor-icons/react";
+import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X, ListChecks } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme } from "../../store/theme";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
+import { QuickScreenDialog } from "../candidates/QuickScreenDialog";
 
 interface Props {
   onSearch: () => void;
@@ -12,45 +13,68 @@ interface Props {
 export function Header({ onSearch }: Props) {
   const { resolved, setMode } = useTheme();
   const isDark = resolved === "dark";
+  const [quickScreenOpen, setQuickScreenOpen] = useState(false);
 
   return (
-    <header
-      data-tauri-drag-region
-      className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur"
-    >
-      <button
-        onClick={onSearch}
-        data-tauri-drag-region={false}
-        className="group flex h-8 w-full max-w-sm cursor-pointer items-center gap-2.5 rounded-md border border-border bg-surface px-3 text-left text-[13px] text-fg-subtle transition-all duration-150 hover:border-border-strong hover:text-fg hover:shadow-raise"
+    <>
+      <header
+        data-tauri-drag-region
+        className="flex h-12 shrink-0 items-center gap-3 border-b border-border bg-surface/80 px-4 backdrop-blur"
       >
-        <MagnifyingGlass className="h-4 w-4 transition-colors group-hover:text-fg" />
-        <span className="flex-1">Search everything…</span>
-        <kbd className="rounded border border-border bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] text-fg-muted transition-colors group-hover:bg-surface-active group-hover:text-fg-subtle">
-          ⌘K
-        </kbd>
-      </button>
+        <button
+          onClick={onSearch}
+          data-tauri-drag-region={false}
+          className="group flex h-8 w-full max-w-sm cursor-pointer items-center gap-2.5 rounded-md border border-border bg-surface px-3 text-left text-[13px] text-fg-subtle transition-all duration-150 hover:border-border-strong hover:text-fg hover:shadow-raise"
+        >
+          <MagnifyingGlass className="h-4 w-4 transition-colors group-hover:text-fg" />
+          <span className="flex-1">Search everything…</span>
+          <kbd className="rounded border border-border bg-surface-hover px-1.5 py-0.5 font-mono text-[10px] text-fg-muted transition-colors group-hover:bg-surface-active group-hover:text-fg-subtle">
+            ⌘K
+          </kbd>
+        </button>
 
-      <div className="ml-auto flex items-center gap-1.5">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              size="icon"
-              variant="ghost"
-              onClick={() => setMode(isDark ? "light" : "dark")}
-              aria-label="Toggle theme"
-              className="transition-colors"
-            >
-              {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Toggle theme</TooltipContent>
-        </Tooltip>
+        <div className="ml-auto flex items-center gap-1.5">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setQuickScreenOpen(true)}
+                className="h-8 gap-1.5 text-xs"
+              >
+                <ListChecks className="h-3.5 w-3.5 text-primary" />
+                <span>Quick Screen</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Start a live candidate screening call</TooltipContent>
+          </Tooltip>
 
-        <div className="mx-1 h-4 w-px bg-border" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setMode(isDark ? "light" : "dark")}
+                aria-label="Toggle theme"
+                className="transition-colors"
+              >
+                {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Toggle theme</TooltipContent>
+          </Tooltip>
 
-        <WindowControls />
-      </div>
-    </header>
+          <div className="mx-1 h-4 w-px bg-border" />
+
+          <WindowControls />
+        </div>
+      </header>
+
+      <QuickScreenDialog
+        open={quickScreenOpen}
+        onOpenChange={setQuickScreenOpen}
+      />
+    </>
   );
 }
 

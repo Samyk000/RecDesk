@@ -4,8 +4,6 @@ import { X } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
 const Dialog = DialogPrimitive.Root;
-const DialogTrigger = DialogPrimitive.Trigger;
-const DialogClose = DialogPrimitive.Close;
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -95,8 +93,6 @@ function DialogDescription({
 
 export {
   Dialog,
-  DialogTrigger,
-  DialogClose,
   DialogContent,
   DialogHeader,
   DialogFooter,

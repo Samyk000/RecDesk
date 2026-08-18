@@ -3,6 +3,7 @@ use std::path::PathBuf;
 use rusqlite::params;
 use tauri::{AppHandle, Manager, State};
 
+use crate::commands::candidate::CANDIDATE_SELECT;
 use crate::error::{AppError, AppResult};
 use crate::models::Candidate;
 use crate::rows::row_to_candidate;
@@ -60,11 +61,7 @@ pub fn attach_resume(
         params![dest.to_string_lossy().to_string(), crate::rows::now(), candidate_id],
     )?;
     let cand = conn.query_row(
-        "SELECT id, job_id, name, email, phone, location, current_title, current_company,
-                experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
-rejection_reason, date_added, last_updated, linkedin_url
-        FROM candidates WHERE id = ?1",
+        &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&candidate_id],
         row_to_candidate,
     )?;
@@ -87,11 +84,7 @@ pub fn remove_resume(state: State<'_, AppState>, candidate_id: String) -> AppRes
         let _ = std::fs::remove_file(p);
     }
     let cand = conn.query_row(
-        "SELECT id, job_id, name, email, phone, location, current_title, current_company,
-                experience_years, resume_path, recruiter_notes, match_score, submission_status,
-                interview_status, client_feedback, candidate_status, submitted_at, interview_at,
-rejection_reason, date_added, last_updated, linkedin_url
-        FROM candidates WHERE id = ?1",
+        &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&candidate_id],
         row_to_candidate,
     )?;

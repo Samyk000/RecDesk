@@ -18,20 +18,3 @@ export function StatusBadge({ status, kind = "submission", dot = true, className
     </span>
   );
 }
-
-export function StatusChip({ status, kind = "submission", className }: Props) {
-  const palette =
-    kind === "job" ? jobPalette(status) : kind === "candidate" ? candidatePalette(status) : submissionPalette(status);
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-md border border-border bg-surface-hover px-2 py-0.5 text-xs font-medium",
-        palette.chipText,
-        className,
-      )}
-    >
-      <span className="h-1.5 w-1.5 rounded-full" style={{ background: palette.dot }} />
-      {titleCase(status)}
-    </span>
-  );
-}
