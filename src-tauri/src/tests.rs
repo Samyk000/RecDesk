@@ -359,4 +359,105 @@ mod tests {
         }
         std::fs::remove_dir_all(&dir).unwrap();
     }
+
+    #[test]
+    fn candidate_update_preserves_screening_answers_and_submission_details() {
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let cand_id = new_id();
+        let ts = now();
+        conn.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (?1, 'Acme', ?2, ?2)",
+            params![cid, ts],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-1', 'Engineer', 'active', '[]', '[]', ?3, ?3)",
+            params![jid, cid, ts],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, email, phone, location, submission_status, candidate_status,
+                                     screening_answers, submission_details, date_added, last_updated)
+             VALUES (?1, ?2, 'Alice Smith', 'alice@test.com', '123-456-7890', 'NYC', 'sourced', 'active',
+                     '{\"0\":\"5 years\"}', '[{\"key\":\"rate\",\"label\":\"Rate\",\"value\":\"$80/hr\"}]', ?3, ?3)",
+            params![cand_id, jid, ts],
+        )
+        .unwrap();
+
+        // Perform partial update with phone change and None for screening_answers / submission_details
+        conn.execute(
+            "UPDATE candidates SET job_id = COALESCE(NULLIF(?1, ''), job_id),
+                                   name = COALESCE(NULLIF(?2, ''), name),
+                                   email = ?3,
+                                   phone = ?4,
+                                   location = ?5,
+                                   current_title = ?6,
+                                   current_company = ?7,
+                                   experience_years = ?8,
+                                   resume_path = ?9,
+                                   recruiter_notes = ?10,
+                                   match_score = ?11,
+                                   submission_status = COALESCE(?12, submission_status),
+                                   interview_status = ?13,
+                                   client_feedback = ?14,
+                                   candidate_status = COALESCE(?15, candidate_status),
+                                   submitted_at = ?16,
+                                   interview_at = ?17,
+                                   rejection_reason = ?18,
+                                   linkedin_url = ?19,
+                                   screening_answers = COALESCE(?20, screening_answers),
+                                   submission_details = COALESCE(?21, submission_details),
+                                   last_updated = ?22
+             WHERE id = ?23",
+            params![
+                jid,
+                "Alice Smith",
+                Some("alice@test.com"),
+                Some("999-888-7777"),
+                Some("NYC"),
+                None::<String>,
+                None::<String>,
+                None::<i64>,
+                None::<String>,
+                None::<String>,
+                None::<i64>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                None::<String>,
+                now(),
+                cand_id
+            ],
+        )
+        .unwrap();
+
+        let cand = conn
+            .query_row(
+                r#"SELECT id, job_id, name, email, phone, location, current_title, current_company,
+                          experience_years, resume_path, recruiter_notes, match_score,
+                          submission_status, interview_status, client_feedback, candidate_status,
+                          submitted_at, interview_at, rejection_reason,
+                          date_added, last_updated, linkedin_url, screening_answers, submission_details
+                   FROM candidates WHERE id = ?1"#,
+                params![&cand_id],
+                row_to_candidate,
+            )
+            .unwrap();
+
+        assert_eq!(cand.phone.as_deref(), Some("999-888-7777"));
+        assert_eq!(cand.screening_answers.as_deref(), Some("{\"0\":\"5 years\"}"));
+        assert_eq!(
+            cand.submission_details.as_deref(),
+            Some("[{\"key\":\"rate\",\"label\":\"Rate\",\"value\":\"$80/hr\"}]")
+        );
+    }
 }

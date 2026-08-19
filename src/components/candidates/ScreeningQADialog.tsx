@@ -117,6 +117,7 @@ function ScreeningQABody({
           interview_at: candidate.interview_at,
           rejection_reason: candidate.rejection_reason,
           screening_answers: nextStr,
+          submission_details: candidate.submission_details,
         },
       },
       {

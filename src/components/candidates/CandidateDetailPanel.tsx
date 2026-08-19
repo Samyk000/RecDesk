@@ -103,6 +103,8 @@ function CandidatePanelBody({
           submitted_at: candidate.submitted_at,
           interview_at: candidate.interview_at,
           rejection_reason: candidate.rejection_reason,
+          screening_answers: candidate.screening_answers,
+          submission_details: candidate.submission_details,
           ...patch,
         },
       });
