@@ -35,8 +35,16 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
 
   async function handleSave() {
     const patch: CandidatePatch = { submission_status: status };
-    if (status === "submitted") patch.submitted_at = submittedAt || null;
-    if (status === "interview") patch.interview_at = interviewAt || null;
+    if (status === "submitted") {
+      patch.submitted_at = submittedAt || null;
+      patch.interview_at = null;
+    } else if (status === "interview") {
+      patch.interview_at = interviewAt || null;
+      patch.submitted_at = null;
+    } else {
+      patch.submitted_at = null;
+      patch.interview_at = null;
+    }
     if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
     try {
       await bulkUpdate.mutateAsync({ ids: [candidate.id], patch });

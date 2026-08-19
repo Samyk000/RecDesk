@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { Building, Briefcase, IdentificationCard, SquaresFour, Gear } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { SidebarInterviews } from "./SidebarInterviews";
+import { SidebarSubmissions } from "./SidebarSubmissions";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: SquaresFour, end: true },
@@ -53,11 +54,20 @@ export function Sidebar() {
         ))}
       </nav>
 
-      {/* Minimal Divider Line below Clients */}
+      {/* Minimal Divider Line below Navigation */}
       <div className="mx-3 my-2.5 border-t border-border/60" />
 
-      {/* Upcoming Interviews Section */}
-      <SidebarInterviews />
+      {/* Middle Section: Candidate Submissions & Upcoming Interviews */}
+      <div className="flex-1 overflow-y-auto space-y-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        {/* Candidate Submissions Section (Closed by default) */}
+        <SidebarSubmissions />
+
+        {/* Minimal Divider Line between Submissions & Interviews */}
+        <div className="mx-3 border-t border-border/40" />
+
+        {/* Upcoming Interviews Section */}
+        <SidebarInterviews />
+      </div>
 
       {/* Permanently Anchored Bottom Settings */}
       <div className="mt-auto shrink-0 border-t border-border/40 p-2">

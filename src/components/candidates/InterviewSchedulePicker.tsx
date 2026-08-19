@@ -191,14 +191,14 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
         )}
       </button>
 
-      {/* Sleek, minimal popover that matches width and has minimal compact height */}
+      {/* Popover anchored right-0 left-auto to strictly avoid overflowing screen right edge */}
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 w-full min-w-[230px] rounded-xl border border-border bg-surface p-2.5 shadow-xl animate-scale-in">
+        <div className="absolute right-0 left-auto top-full z-50 mt-1.5 w-full min-w-[225px] max-w-[250px] rounded-xl border border-border bg-surface p-2.5 shadow-xl animate-scale-in">
           {/* Header */}
           <div className="mb-2 flex items-center justify-between border-b border-border/50 pb-1.5">
             <span className="text-[10.5px] font-semibold uppercase tracking-wider text-fg-subtle flex items-center gap-1">
               <CalendarDots className="h-3 w-3 text-primary" />
-              Date & Time
+              Date &amp; Time
             </span>
             {value && (
               <button

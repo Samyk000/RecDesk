@@ -1,11 +1,41 @@
-import { useState, useRef, useEffect } from "react";
-import { CalendarDots } from "@phosphor-icons/react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { CalendarDots, Check } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
+
+export type SubmissionType = "internal" | "external";
 
 interface Props {
   value?: string | null;
   onChange: (val: string | null) => void;
   className?: string;
+}
+
+interface ParsedSubmission {
+  date: string; // YYYY-MM-DD
+  type: SubmissionType;
+}
+
+function parseSubmissionString(val?: string | null): ParsedSubmission {
+  if (!val) {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return {
+      date: `${yyyy}-${mm}-${dd}`,
+      type: "external",
+    };
+  }
+
+  const parts = val.trim().split(/\s+/);
+  const datePart = parts[0] || "";
+  const typePart = (parts[1]?.toLowerCase() as SubmissionType) || "external";
+  const finalType: SubmissionType = typePart === "internal" ? "internal" : "external";
+
+  return {
+    date: datePart,
+    type: finalType,
+  };
 }
 
 function formatDateDisplay(isoDate?: string | null): string {
@@ -16,34 +46,22 @@ function formatDateDisplay(isoDate?: string | null): string {
   return d.toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
-    year: "numeric",
   });
-}
-
-function getTodayString(): string {
-  const d = new Date();
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
-}
-
-function getYesterdayString(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  const yyyy = d.getFullYear();
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${yyyy}-${mm}-${dd}`;
 }
 
 export function SubmittedDatePicker({ value, onChange, className }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
-  const todayStr = getTodayString();
-  const yesterdayStr = getYesterdayString();
+  const initial = useMemo(() => parseSubmissionString(value), [value]);
+  const [selectedDate, setSelectedDate] = useState(initial.date);
+  const [selectedType, setSelectedType] = useState<SubmissionType>(initial.type);
+
+  useEffect(() => {
+    const p = parseSubmissionString(value);
+    setSelectedDate(p.date);
+    setSelectedType(p.type);
+  }, [value]);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -57,92 +75,138 @@ export function SubmittedDatePicker({ value, onChange, className }: Props) {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [open]);
 
-  const handleSelectPreset = (dateStr: string) => {
-    onChange(dateStr);
+  const emitChange = (date: string, type: SubmissionType) => {
+    if (!date) {
+      onChange(null);
+      return;
+    }
+    const full = `${date} ${type}`;
+    onChange(full);
+  };
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    emitChange(date, selectedType);
+  };
+
+  const handleTypeChange = (type: SubmissionType) => {
+    setSelectedType(type);
+    emitChange(selectedDate, type);
+  };
+
+  const handleClear = () => {
+    onChange(null);
     setOpen(false);
   };
 
+  const parsed = parseSubmissionString(value);
+  const hasValue = Boolean(value);
+
   return (
     <div ref={containerRef} className={cn("relative w-full", className)}>
+      {/* Trigger button */}
       <button
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-2 rounded-lg border border-border bg-surface-hover/80 px-2.5 text-[12.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
+          "flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-surface-hover/80 px-2.5 text-[12.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
           open && "ring-1 ring-primary/50 border-primary/50",
         )}
       >
-        <span className="flex items-center gap-2 truncate">
+        <span className="flex items-center gap-1.5 min-w-0 truncate">
           <CalendarDots className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span className={cn("truncate font-medium", !value && "text-fg-muted font-normal")}>
-            {value ? formatDateDisplay(value) : "Select date"}
+          <span className={cn("truncate font-medium text-[12px]", !hasValue && "text-fg-muted font-normal")}>
+            {hasValue ? formatDateDisplay(parsed.date) : "Select date…"}
           </span>
         </span>
-        {value === todayStr && (
-          <span className="rounded bg-primary/10 px-1.5 py-0.2 text-[10px] font-semibold text-primary">
-            Today
+
+        {hasValue && (
+          <span
+            className={cn(
+              "shrink-0 rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider",
+              parsed.type === "internal"
+                ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
+                : "bg-amber-500/15 text-amber-600 dark:text-amber-400",
+            )}
+          >
+            {parsed.type}
           </span>
         )}
       </button>
 
+      {/* Popover anchored right-0 left-auto to never overflow the right screen edge */}
       {open && (
-        <div className="absolute left-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-border bg-surface p-3 shadow-xl animate-scale-in">
-          <div className="mb-2.5 flex items-center justify-between border-b border-border/60 pb-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-fg-subtle">
-              Submission Date
+        <div className="absolute right-0 left-auto top-full z-50 mt-1.5 w-56 rounded-xl border border-border bg-surface p-2.5 shadow-xl animate-scale-in">
+          {/* Header */}
+          <div className="mb-2 flex items-center justify-between border-b border-border/50 pb-1.5">
+            <span className="text-[10.5px] font-semibold uppercase tracking-wider text-fg-subtle flex items-center gap-1">
+              <CalendarDots className="h-3 w-3 text-primary" />
+              Submission Details
             </span>
-            {value && (
+            {hasValue && (
               <button
                 type="button"
-                onClick={() => {
-                  onChange(null);
-                  setOpen(false);
-                }}
-                className="text-[11px] text-fg-subtle transition-colors hover:text-red-500 cursor-pointer"
+                onClick={handleClear}
+                className="text-[10.5px] text-fg-subtle transition-colors hover:text-red-500 cursor-pointer"
               >
                 Clear
               </button>
             )}
           </div>
 
-          {/* Quick presets */}
-          <div className="mb-3 flex items-center gap-1.5">
-            <button
-              type="button"
-              onClick={() => handleSelectPreset(todayStr)}
-              className={cn(
-                "flex-1 rounded-md border border-border/70 py-1 text-center text-xs font-medium transition-colors hover:bg-surface-hover cursor-pointer",
-                value === todayStr && "border-primary/50 bg-primary/10 text-primary font-semibold",
-              )}
-            >
-              Today
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSelectPreset(yesterdayStr)}
-              className={cn(
-                "flex-1 rounded-md border border-border/70 py-1 text-center text-xs font-medium transition-colors hover:bg-surface-hover cursor-pointer",
-                value === yesterdayStr && "border-primary/50 bg-primary/10 text-primary font-semibold",
-              )}
-            >
-              Yesterday
-            </button>
-          </div>
-
-          {/* Native picker input styled neatly */}
-          <div className="space-y-1">
-            <label className="text-[10.5px] text-fg-subtle">Custom Date</label>
+          {/* Date Picker row */}
+          <div className="mb-2">
             <input
-              ref={dateInputRef}
               type="date"
-              value={value || ""}
-              onChange={(e) => {
-                onChange(e.target.value || null);
-                if (e.target.value) setOpen(false);
-              }}
-              className="h-8 w-full rounded-md border border-border bg-surface-hover/60 px-2 text-xs text-fg outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary/40 cursor-pointer"
+              value={selectedDate}
+              onChange={(e) => handleDateChange(e.target.value)}
+              className="h-7.5 w-full rounded-md border border-border bg-surface-hover/60 px-2 text-xs text-fg outline-none transition-colors focus:border-primary focus:ring-1 focus:ring-primary/40 cursor-pointer"
             />
           </div>
+
+          {/* Internal vs External Toggle Row */}
+          <div className="mb-2">
+            <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-fg-subtle">
+              Submission Type
+            </p>
+            <div className="grid grid-cols-2 gap-1 rounded-lg border border-border/70 bg-surface-hover/40 p-0.5">
+              <button
+                type="button"
+                onClick={() => handleTypeChange("internal")}
+                className={cn(
+                  "flex items-center justify-center gap-1 rounded py-1 text-[11px] font-bold transition-all cursor-pointer",
+                  selectedType === "internal"
+                    ? "bg-blue-500 text-white shadow-2xs"
+                    : "text-fg-subtle hover:text-fg hover:bg-surface-hover",
+                )}
+              >
+                {selectedType === "internal" && <Check className="h-3 w-3" />}
+                Internal
+              </button>
+              <button
+                type="button"
+                onClick={() => handleTypeChange("external")}
+                className={cn(
+                  "flex items-center justify-center gap-1 rounded py-1 text-[11px] font-bold transition-all cursor-pointer",
+                  selectedType === "external"
+                    ? "bg-amber-500 text-white shadow-2xs"
+                    : "text-fg-subtle hover:text-fg hover:bg-surface-hover",
+                )}
+              >
+                {selectedType === "external" && <Check className="h-3 w-3" />}
+                External
+              </button>
+            </div>
+          </div>
+
+          {/* Done button */}
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="w-full rounded-md bg-primary py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer shadow-xs"
+          >
+            Done
+          </button>
         </div>
       )}
     </div>
