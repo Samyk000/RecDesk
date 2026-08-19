@@ -5,6 +5,7 @@ import { useTheme } from "../../store/theme";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { QuickScreenDialog } from "../candidates/QuickScreenDialog";
+import { AnimatedAvatar } from "../common/AnimatedAvatar";
 
 interface Props {
   onSearch: () => void;
@@ -34,6 +35,8 @@ export function Header({ onSearch }: Props) {
         </button>
 
         <div className="ml-auto flex items-center gap-1.5">
+          <AnimatedAvatar />
+
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
