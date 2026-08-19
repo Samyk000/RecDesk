@@ -15,6 +15,8 @@ import { useBulkUpdateCandidates } from "../../hooks/useQueries";
 import { SUBMISSION_STATUSES, submissionPalette } from "../../lib/constants";
 import { errorMessage, titleCase } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
+import { SubmittedDatePicker } from "./SubmittedDatePicker";
+import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import type { CandidatePatch, CandidateWithJob } from "../../types";
 
 interface Props {
@@ -26,8 +28,8 @@ interface Props {
 export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props) {
   const bulkUpdate = useBulkUpdateCandidates();
   const [status, setStatus] = useState(initialStatus);
-  const [submittedAt, setSubmittedAt] = useState(candidate.submitted_at ?? "");
-  const [interviewAt, setInterviewAt] = useState(candidate.interview_at ?? "");
+  const [submittedAt, setSubmittedAt] = useState<string | null>(candidate.submitted_at ?? null);
+  const [interviewAt, setInterviewAt] = useState<string | null>(candidate.interview_at ?? null);
   const [rejectionReason, setRejectionReason] = useState(candidate.rejection_reason ?? "");
   const saving = bulkUpdate.isPending;
 
@@ -75,12 +77,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
                 <CalendarDots className="h-3 w-3" />
                 Submitted date
               </p>
-              <input
-                type="date"
-                value={submittedAt}
-                onChange={(e) => setSubmittedAt(e.target.value)}
-                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
-              />
+              <SubmittedDatePicker value={submittedAt} onChange={setSubmittedAt} />
             </div>
           )}
 
@@ -90,12 +87,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
                 <CalendarDots className="h-3 w-3" />
                 Interview date & time
               </p>
-              <input
-                type="datetime-local"
-                value={interviewAt}
-                onChange={(e) => setInterviewAt(e.target.value)}
-                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
-              />
+              <InterviewSchedulePicker value={interviewAt} onChange={setInterviewAt} />
             </div>
           )}
 

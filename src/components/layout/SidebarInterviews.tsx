@@ -15,7 +15,11 @@ function formatInterviewSchedule(iso: string | null | undefined): {
     return { label: "Date TBD", isToday: false, isTomorrow: false, isPast: false };
   }
 
-  const d = new Date(iso);
+  const parts = iso.trim().split(/\s+/);
+  const dateTimePart = parts[0];
+  const tz = parts[1] || "";
+
+  const d = new Date(dateTimePart);
   if (isNaN(d.getTime())) {
     return { label: iso, isToday: false, isTomorrow: false, isPast: false };
   }
@@ -25,8 +29,9 @@ function formatInterviewSchedule(iso: string | null | undefined): {
   const target = new Date(d.getFullYear(), d.getMonth(), d.getDate());
   const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
-  const timeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-  const hasTime = iso.includes("T") || iso.includes(":") || d.getHours() !== 0 || d.getMinutes() !== 0;
+  const rawTimeStr = d.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+  const timeStr = tz ? `${rawTimeStr} ${tz}` : rawTimeStr;
+  const hasTime = dateTimePart.includes("T") || dateTimePart.includes(":") || d.getHours() !== 0 || d.getMinutes() !== 0;
 
   if (diffDays === 0) {
     return {
@@ -91,7 +96,9 @@ export function SidebarInterviews() {
       if (!a.interview_at && !b.interview_at) return 0;
       if (!a.interview_at) return 1;
       if (!b.interview_at) return -1;
-      return new Date(a.interview_at).getTime() - new Date(b.interview_at).getTime();
+      const dateA = new Date(a.interview_at.trim().split(/\s+/)[0]).getTime();
+      const dateB = new Date(b.interview_at.trim().split(/\s+/)[0]).getTime();
+      return dateA - dateB;
     });
   }, [candidates]);
 

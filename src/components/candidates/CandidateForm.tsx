@@ -22,6 +22,8 @@ import { useCreateCandidate, useJobs } from "../../hooks/useQueries";
 import { SUBMISSION_STATUSES } from "../../lib/constants";
 import { errorMessage } from "../../lib/utils";
 import { StatusSelectItem } from "./StatusSelectItem";
+import { SubmittedDatePicker } from "./SubmittedDatePicker";
+import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import type { CandidateInput, JobWithStats } from "../../types";
 
 interface Props {
@@ -207,24 +209,14 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
           {status === "submitted" && (
             <div className="space-y-1.5">
               <Label>Submitted date</Label>
-              <input
-                type="date"
-                value={submittedAt}
-                onChange={(e) => setSubmittedAt(e.target.value)}
-                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
-              />
+              <SubmittedDatePicker value={submittedAt} onChange={(val) => setSubmittedAt(val || "")} />
             </div>
           )}
 
           {status === "interview" && (
             <div className="space-y-1.5">
               <Label>Interview date & time</Label>
-              <input
-                type="datetime-local"
-                value={interviewAt}
-                onChange={(e) => setInterviewAt(e.target.value)}
-                className="h-8 w-full rounded-md border border-border bg-transparent px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
-              />
+              <InterviewSchedulePicker value={interviewAt} onChange={(val) => setInterviewAt(val || "")} />
             </div>
           )}
 

@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  EyeSlash,
   IdentificationCard,
   Plus,
   Trash,
@@ -29,6 +30,7 @@ import { StatusFilter } from "../components/candidates/StatusFilter";
 import { SubmissionStatusSelect } from "../components/candidates/SubmissionStatusSelect";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
 import { DetailDrawer } from "../components/common/DetailDrawer";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import {
   Select,
   SelectContent,
@@ -70,6 +72,14 @@ export function Candidates() {
   const bulkDelete = useBulkDeleteCandidates();
   const deleteCandidate = useDeleteCandidate();
 
+  const [hideRejected, setHideRejected] = useState(() => {
+    return localStorage.getItem("recdesk_hide_rejected") === "true";
+  });
+
+  useEffect(() => {
+    localStorage.setItem("recdesk_hide_rejected", hideRejected.toString());
+  }, [hideRejected]);
+
   const { data, isLoading } = useCandidatesWithJob(
     debounced || undefined,
     status === "all" ? undefined : status,
@@ -77,9 +87,17 @@ export function Candidates() {
 
   const sorted = useSortedRows(data, sortKey, sortDir, COMPARE);
 
+  const displayedCandidates = useMemo(() => {
+    if (!sorted) return [];
+    if (!hideRejected) return sorted;
+    return sorted.filter(
+      (c) => c.submission_status !== "rejected" && c.submission_status !== "not_interested",
+    );
+  }, [sorted, hideRejected]);
+
   const selection = useSelection(
-    sorted.map((c) => c.id),
-    `${status}|${debounced}|${selectMode}`,
+    displayedCandidates.map((c) => c.id),
+    `${status}|${debounced}|${selectMode}|${hideRejected}`,
   );
 
   async function confirmBulkDelete() {
@@ -152,7 +170,7 @@ export function Candidates() {
           <span className="flex items-center gap-2">
             Candidates
             <span className="rounded-md bg-surface-active px-2 py-0.5 text-[13px] font-medium text-fg-muted">
-              {data?.length ?? 0}
+              {displayedCandidates.length}
             </span>
           </span>
         }
@@ -164,7 +182,7 @@ export function Candidates() {
         }
       />
 
-      <div className="mb-4 flex items-center gap-3">
+      <div className="mb-4 flex items-center gap-2.5">
         <SearchInput
           value={search}
           onChange={setSearch}
@@ -177,6 +195,29 @@ export function Candidates() {
           filtered={filtered}
           onClear={clearFilters}
         />
+
+        {/* Minimal Hide Rejected & Not Interested Toggle Button with Minimal Tooltip */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setHideRejected((h) => !h)}
+              className={cn(
+                "h-8 gap-1.5 px-2.5 text-xs transition-all cursor-pointer font-medium",
+                hideRejected
+                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/20"
+                  : "text-fg-subtle hover:text-fg hover:bg-surface-hover border-border",
+              )}
+            >
+              <EyeSlash className="h-3.5 w-3.5" />
+              <span>Hide</span>
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Hide NI &amp; Rejected</TooltipContent>
+        </Tooltip>
+
         <div className="ml-auto">
           <Button
             size="icon"
@@ -228,12 +269,12 @@ export function Candidates() {
       <div className="flex min-h-0 flex-1 flex-col">
         {isLoading ? (
           <Spinner className="py-16" />
-        ) : !data?.length ? (
+        ) : !displayedCandidates.length ? (
           <EmptyState
             icon={<IdentificationCard className="h-5 w-5" />}
             title="No candidates"
             description={
-              debounced || status !== "all"
+              debounced || status !== "all" || hideRejected
                 ? "Try adjusting your search or filters."
                 : "Candidates appear here when added to jobs."
             }
@@ -300,7 +341,7 @@ export function Candidates() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {sorted.map((c) => (
+              {displayedCandidates.map((c) => (
                 <tr
                   key={c.id}
                   className={cn(

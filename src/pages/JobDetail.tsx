@@ -5,7 +5,6 @@ import {
   BookOpen,
   Briefcase,
   ChatCircleText,
-  DotsThree,
   PencilSimple,
   Trash,
 } from "@phosphor-icons/react";
@@ -21,7 +20,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../components/ui/dropdown";
 import { OverviewTab } from "../components/jobs/tabs/OverviewTab";
@@ -103,29 +101,19 @@ export function JobDetail() {
         <div className="flex shrink-0 items-center gap-2">
           <StatusBadge status={job.status} kind="job" className="shrink-0" />
           <StatusSwitcher job={job} />
-          <Button variant="outline" onClick={() => setEditOpen(true)}>
+          <Button variant="outline" onClick={() => setEditOpen(true)} className="cursor-pointer">
             <PencilSimple className="h-4 w-4" />
             Edit
           </Button>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="icon" variant="ghost">
-                <DotsThree className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-              <DropdownMenuItem className="text-red-600 dark:text-red-400" onClick={() => setDeleteOpen(true)}>
-                <Trash className="h-3.5 w-3.5" />
-                Delete job
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => setActiveTab("candidates")}>
-                <Briefcase className="h-3.5 w-3.5" />
-                View candidates
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={() => setDeleteOpen(true)}
+            title="Delete job"
+            className="text-fg-subtle hover:text-red-500 hover:bg-red-500/10 cursor-pointer transition-colors"
+          >
+            <Trash className="h-4 w-4" />
+          </Button>
         </div>
       </div>
 

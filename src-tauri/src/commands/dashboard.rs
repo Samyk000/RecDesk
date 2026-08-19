@@ -50,7 +50,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     let jobs_by_status = status_counts(&conn, "jobs", "status")?;
 
     let recent_jobs: Vec<JobWithStats> = {
-        let mut stmt = conn.prepare(&format!("{JOB_SELECT} ORDER BY j.updated_at DESC LIMIT 8"))?;
+        let mut stmt = conn.prepare(&format!("{JOB_SELECT} WHERE j.status = 'active' ORDER BY j.updated_at DESC LIMIT 8"))?;
         let rows = stmt
             .query_map([], crate::rows::row_to_job_with_stats)?
             .collect::<Result<Vec<_>, rusqlite::Error>>()?;
@@ -59,7 +59,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
 
     let recent_candidates: Vec<Candidate> = {
         let mut stmt = conn.prepare(
-            &format!("{CANDIDATE_SELECT} ORDER BY c.last_updated DESC LIMIT 8"),
+            &format!("{CANDIDATE_SELECT} WHERE c.submission_status NOT IN ('not_interested', 'rejected') ORDER BY c.last_updated DESC LIMIT 8"),
         )?;
         let rows = stmt
             .query_map([], row_to_candidate)?

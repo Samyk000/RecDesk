@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ChatCircleText,
   Check,
   CircleNotch,
   Copy,
-  ListChecks,
   WarningCircle,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
@@ -29,7 +29,7 @@ export function ScreeningQADialog({ candidateId, open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-3xl overflow-hidden p-0 flex flex-col">
+      <DialogContent className="max-h-[90vh] w-full max-w-[620px] overflow-hidden p-0 flex flex-col">
         {candLoading || jobLoading || !candidate ? (
           <div className="flex h-64 items-center justify-center">
             <Spinner />
@@ -40,7 +40,6 @@ export function ScreeningQADialog({ candidateId, open, onOpenChange }: Props) {
             questions={job?.screening_questions ?? []}
             jobTitle={job?.title ?? "Job"}
             clientName={job?.client_name ?? ""}
-            onClose={() => onOpenChange(false)}
           />
         )}
       </DialogContent>
@@ -71,7 +70,6 @@ function ScreeningQABody({
   questions: string[];
   jobTitle: string;
   clientName: string;
-  onClose: () => void;
 }) {
   const updateCandidate = useUpdateCandidate();
   const initialAnswers = useMemo(() => parseAnswers(candidate.screening_answers), [candidate.screening_answers]);
@@ -156,7 +154,7 @@ function ScreeningQABody({
     try {
       await navigator.clipboard.writeText(formattedQA);
       setHasCopied(true);
-      toast.success("All screening Q&A copied to clipboard!");
+      toast.success("Screening Q&A copied to clipboard!");
       setTimeout(() => setHasCopied(false), 2000);
     } catch {
       toast.error("Failed to copy to clipboard");
@@ -167,17 +165,19 @@ function ScreeningQABody({
 
   return (
     <>
-      {/* Header bar - with pr-12 to reserve space for DialogPrimitive.Close */}
-      <div className="flex items-center justify-between border-b border-border px-5 py-3.5 bg-surface pr-12">
+      {/* Header bar - with Copy button positioned left of close icon */}
+      <div className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 pr-11">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-            <ListChecks className="h-4.5 w-4.5" />
+            <ChatCircleText className="h-4.5 w-4.5" />
           </div>
           <div className="min-w-0">
-            <DialogTitle className="text-[14px] font-semibold text-fg flex items-center gap-1.5 truncate">
+            <DialogTitle className="text-[13.5px] font-semibold text-fg flex items-center gap-1.5 truncate">
               <span className="truncate">{candidate.name}</span>
               <span className="text-xs font-normal text-fg-subtle">·</span>
-              <span className="text-xs font-normal text-fg-muted truncate">{jobTitle} {clientName ? `(${clientName})` : ""}</span>
+              <span className="text-xs font-normal text-fg-muted truncate">
+                {jobTitle} {clientName ? `(${clientName})` : ""}
+              </span>
             </DialogTitle>
             <p className="text-[11px] text-fg-subtle">
               Screening Q&A · {answeredCount}/{questions.length} answered
@@ -185,6 +185,7 @@ function ScreeningQABody({
           </div>
         </div>
 
+        {/* Action Controls: Autosave Badge + Copy Button */}
         <div className="flex items-center gap-2 shrink-0">
           {saveState === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
@@ -204,56 +205,60 @@ function ScreeningQABody({
               size="sm"
               variant="primary"
               onClick={handleCopyAll}
-              className="h-7 gap-1.5 px-3 text-xs shadow-sm font-medium"
+              className="h-7 gap-1.5 px-3 text-xs shadow-sm font-medium cursor-pointer"
             >
               {hasCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {hasCopied ? "Copied!" : "Copy all in format"}
+              {hasCopied ? "Copied!" : "Copy Q&A"}
             </Button>
           )}
         </div>
       </div>
 
-      {/* Questions list with compact, refined layout */}
-      <div className="flex-1 overflow-y-auto p-3.5 space-y-2 bg-background scrollbar-thin">
+      {/* Clean Q&A List with minimal divider lines (no outer card boxes) */}
+      <div className="flex-1 overflow-y-auto bg-background scrollbar-thin">
         {questions.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-center">
+          <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-amber-500/10 text-amber-500 mb-2">
               <WarningCircle className="h-4.5 w-4.5" />
             </div>
             <h4 className="text-xs font-semibold text-fg">No screening questions configured</h4>
-            <p className="mt-0.5 text-[11px] text-fg-subtle max-w-sm">
-              Add screening questions in the job's <strong>Pitch & Screening</strong> tab to start asking and recording candidate answers here.
+            <p className="mt-1 text-[11.5px] text-fg-subtle max-w-sm">
+              Add screening questions in the job's <strong>Pitch &amp; Screening</strong> tab to record answers here.
             </p>
           </div>
         ) : (
-          questions.map((question, idx) => {
-            const answer = answers[idx.toString()] || "";
-            return (
-              <div
-                key={idx}
-                className="rounded-lg border border-border bg-surface px-3 py-2 shadow-xs transition-all duration-150 focus-within:border-primary/60 focus-within:shadow-sm"
-              >
-                <div className="flex items-start gap-2 mb-1">
-                  <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded bg-surface-active font-mono text-[10px] font-semibold text-primary">
-                    {idx + 1}
-                  </span>
-                  <p className="text-[12px] font-medium leading-snug text-fg pt-px">
-                    {question}
-                  </p>
-                </div>
+          <div className="divide-y divide-border/60">
+            {questions.map((question, idx) => {
+              const answer = answers[idx.toString()] || "";
+              return (
+                <div
+                  key={idx}
+                  className="px-5 py-3 transition-colors hover:bg-surface-hover/20"
+                >
+                  {/* Clean Question Text with minimal prefix */}
+                  <div className="flex items-start gap-1.5 mb-1.5">
+                    <span className="text-[11.5px] font-bold text-primary font-mono tracking-tight shrink-0 pt-px select-none">
+                      Q{idx + 1}.
+                    </span>
+                    <p className="text-[12.5px] font-medium leading-snug text-fg select-text">
+                      {question}
+                    </p>
+                  </div>
 
-                <div className="pl-6">
-                  <textarea
-                    rows={1}
-                    value={answer}
-                    onChange={(e) => handleAnswerChange(idx, e.target.value)}
-                    placeholder="Type answer…"
-                    className="w-full min-h-[30px] resize-y rounded border border-border/70 bg-background/80 px-2 py-1 text-[12px] leading-tight text-fg placeholder:text-fg-subtle outline-none transition-colors focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary"
-                  />
+                  {/* Clean Resizable Answer Input Box */}
+                  <div className="pl-4">
+                    <textarea
+                      rows={2}
+                      value={answer}
+                      onChange={(e) => handleAnswerChange(idx, e.target.value)}
+                      placeholder="Type candidate's answer…"
+                      className="w-full min-h-[34px] resize-y rounded-md border border-border/80 bg-surface px-2.5 py-1.5 text-[12px] leading-relaxed text-fg placeholder:text-fg-subtle/70 outline-none transition-colors focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary/40 scrollbar-thin"
+                    />
+                  </div>
                 </div>
-              </div>
-            );
-          })
+              );
+            })}
+          </div>
         )}
       </div>
     </>

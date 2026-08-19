@@ -109,66 +109,90 @@ export function Dashboard() {
           <Section
             title="Recent jobs"
             to="/jobs"
-            empty={<p className="text-[13px] text-fg-subtle">No jobs yet.</p>}
+            empty={<p className="text-[13px] text-fg-subtle">No active jobs yet.</p>}
           >
-            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-              {data.recent_jobs.slice(0, 6).map((job) => (
-                <Link
-                  key={job.id}
-                  to={`/jobs/${job.id}`}
-                  className="flex items-center gap-3 px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-transform duration-150 group-hover:scale-105"
-                    style={{ background: `${jobPalette(job.status).dot}1a`, color: jobPalette(job.status).dot }}
-                  >
-                    <Briefcase className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-fg">{job.title}</span>
-                    <span className="block truncate text-xs text-fg-subtle">
-                      {job.client_name} · {job.job_id}
-                      <span className="ml-2 text-fg-muted">{job.candidate_count} candidates</span>
-                    </span>
-                  </span>
-                  <span className="shrink-0 text-xs text-fg-subtle">{timeAgo(job.updated_at)}</span>
-                </Link>
-              ))}
-            </div>
+            {data.recent_jobs.filter((j) => j.status === "active").length === 0 ? (
+              <div className="rounded-xl border border-border bg-surface p-4 text-center text-xs text-fg-subtle">
+                No active jobs
+              </div>
+            ) : (
+              <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+                {data.recent_jobs
+                  .filter((job) => job.status === "active")
+                  .slice(0, 6)
+                  .map((job) => (
+                    <Link
+                      key={job.id}
+                      to={`/jobs/${job.id}`}
+                      className="flex items-center gap-3 px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                    >
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-transform duration-150 group-hover:scale-105"
+                        style={{ background: `${jobPalette(job.status).dot}1a`, color: jobPalette(job.status).dot }}
+                      >
+                        <Briefcase className="h-4 w-4" />
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-fg">{job.title}</span>
+                        <span className="block truncate text-xs text-fg-subtle">
+                          {job.client_name} · {job.job_id}
+                          <span className="ml-2 text-fg-muted">{job.candidate_count} candidates</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-xs text-fg-subtle">{timeAgo(job.updated_at)}</span>
+                    </Link>
+                  ))}
+              </div>
+            )}
           </Section>
 
           <Section
             title="Recent candidates"
             to="/candidates"
-            empty={<p className="text-[13px] text-fg-subtle">No candidates yet.</p>}
+            empty={<p className="text-[13px] text-fg-subtle">No active candidates yet.</p>}
           >
-            <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
-              {data.recent_candidates.slice(0, 6).map((cand) => (
-                <Link
-                  key={cand.id}
-                  to={`/candidates?candidate=${cand.id}`}
-                  className="flex items-center gap-3 px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
-                >
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
-                    style={{
-                      background: `${submissionPalette(cand.submission_status).dot}1a`,
-                      color: submissionPalette(cand.submission_status).dot,
-                    }}
-                  >
-                    {nameInitials(cand.name)}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-medium text-fg">{cand.name}</span>
-                    <span className="block truncate text-xs text-fg-subtle">
-                      {cand.current_title ? `${cand.current_title} · ` : ""}
-                      {cand.current_company ?? "-"}
-                    </span>
-                  </span>
-                  <StatusBadge status={cand.submission_status} className="shrink-0" />
-                </Link>
-              ))}
-            </div>
+            {data.recent_candidates.filter(
+              (c) => c.submission_status !== "not_interested" && c.submission_status !== "rejected",
+            ).length === 0 ? (
+              <div className="rounded-xl border border-border bg-surface p-4 text-center text-xs text-fg-subtle">
+                No active candidates
+              </div>
+            ) : (
+              <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+                {data.recent_candidates
+                  .filter(
+                    (cand) =>
+                      cand.submission_status !== "not_interested" &&
+                      cand.submission_status !== "rejected",
+                  )
+                  .slice(0, 6)
+                  .map((cand) => (
+                    <Link
+                      key={cand.id}
+                      to={`/candidates?candidate=${cand.id}`}
+                      className="flex items-center gap-3 px-4 py-2.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                    >
+                      <span
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                        style={{
+                          background: `${submissionPalette(cand.submission_status).dot}1a`,
+                          color: submissionPalette(cand.submission_status).dot,
+                        }}
+                      >
+                        {nameInitials(cand.name)}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[13px] font-medium text-fg">{cand.name}</span>
+                        <span className="block truncate text-xs text-fg-subtle">
+                          {cand.current_title ? `${cand.current_title} · ` : ""}
+                          {cand.current_company ?? "-"}
+                        </span>
+                      </span>
+                      <StatusBadge status={cand.submission_status} className="shrink-0" />
+                    </Link>
+                  ))}
+              </div>
+            )}
           </Section>
         </div>
       )}

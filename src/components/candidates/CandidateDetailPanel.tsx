@@ -28,6 +28,8 @@ import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { RichTextEditor } from "../common/RichTextEditor";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
+import { SubmittedDatePicker } from "./SubmittedDatePicker";
+import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { ScreeningQADialog } from "./ScreeningQADialog";
 import { SubmissionDetailsDialog } from "./SubmissionDetailsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
@@ -402,19 +404,15 @@ function CandidatePanelBody({
             {(status === "submitted" || status === "interview" || status === "rejected") && (
               <div className="animate-[fade-up_0.25s_ease-out]">
                 {status === "submitted" && (
-                  <input
-                    type="date"
-                    defaultValue={candidate.submitted_at ?? ""}
-                    onChange={(e) => saveField({ submitted_at: e.target.value || null })}
-                    className="h-8 w-full rounded-md border border-border bg-transparent px-2 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+                  <SubmittedDatePicker
+                    value={candidate.submitted_at}
+                    onChange={(val) => saveField({ submitted_at: val })}
                   />
                 )}
                 {status === "interview" && (
-                  <input
-                    type="datetime-local"
-                    defaultValue={candidate.interview_at ?? ""}
-                    onChange={(e) => saveField({ interview_at: e.target.value || null })}
-                    className="h-8 w-full rounded-md border border-border bg-transparent px-2 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+                  <InterviewSchedulePicker
+                    value={candidate.interview_at}
+                    onChange={(val) => saveField({ interview_at: val })}
                   />
                 )}
                 {status === "rejected" && (
