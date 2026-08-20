@@ -3,11 +3,12 @@ export const SUBMISSION_STATUSES = [
   "in_touch",
   "submitted",
   "interview",
+  "placed",
   "rejected",
   "not_interested",
 ] as const;
 
-export const BULK_STATUSES = ["sourced", "in_touch", "not_interested"] as const;
+export const BULK_STATUSES = ["sourced", "in_touch", "placed", "not_interested"] as const;
 
 export const JOB_STATUSES = ["active", "on_hold", "closed"] as const;
 
@@ -63,6 +64,14 @@ const SUBMISSION_PALETTE: Record<string, Palette> = {
     chip: "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200",
     chipText: "text-violet-700 dark:text-violet-300",
     bar: "bg-violet-400",
+  },
+  placed: {
+    dot: "#10b981",
+    badge: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300",
+    badgeText: "text-emerald-700 dark:text-emerald-300",
+    chip: "bg-emerald-100 text-emerald-800 dark:bg-emerald-500/20 dark:text-emerald-200",
+    chipText: "text-emerald-700 dark:text-emerald-300",
+    bar: "bg-emerald-500",
   },
   rejected: {
     dot: "#ef4444",
@@ -143,6 +152,7 @@ export function submissionPalette(status: string): Palette {
 import {
   CalendarCheck,
   ChatCircle,
+  CheckCircle,
   MagnifyingGlass,
   PaperPlaneTilt,
   Prohibit,
@@ -155,6 +165,7 @@ const SUBMISSION_ICONS: Record<string, Icon> = {
   in_touch: ChatCircle,
   submitted: PaperPlaneTilt,
   interview: CalendarCheck,
+  placed: CheckCircle,
   rejected: XCircle,
   not_interested: Prohibit,
 };

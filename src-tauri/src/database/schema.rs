@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS candidates (
   candidate_status TEXT NOT NULL DEFAULT 'active',
   submitted_at TEXT,
   interview_at TEXT,
+  placed_at TEXT,
   rejection_reason TEXT,
   screening_answers TEXT NOT NULL DEFAULT '{}',
   submission_details TEXT NOT NULL DEFAULT '{}',
@@ -140,6 +141,7 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
     let additions = [
         ("submitted_at", "TEXT"),
         ("interview_at", "TEXT"),
+        ("placed_at", "TEXT"),
         ("rejection_reason", "TEXT"),
         ("linkedin_url", "TEXT"),
         ("screening_answers", "TEXT NOT NULL DEFAULT '{}'"),

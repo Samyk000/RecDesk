@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CalendarDots, FileText, Flag } from "@phosphor-icons/react";
+import { CalendarDots, FileText, Flag, CheckCircle, Building } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -17,6 +17,7 @@ import { errorMessage, titleCase } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
+import { PlacedDatePicker } from "./PlacedDatePicker";
 import type { CandidatePatch, CandidateWithJob } from "../../types";
 
 interface Props {
@@ -30,6 +31,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
   const [status, setStatus] = useState(initialStatus);
   const [submittedAt, setSubmittedAt] = useState<string | null>(candidate.submitted_at ?? null);
   const [interviewAt, setInterviewAt] = useState<string | null>(candidate.interview_at ?? null);
+  const [placedAt, setPlacedAt] = useState<string | null>(candidate.placed_at ?? null);
   const [rejectionReason, setRejectionReason] = useState(candidate.rejection_reason ?? "");
   const saving = bulkUpdate.isPending;
 
@@ -38,12 +40,19 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
     if (status === "submitted") {
       patch.submitted_at = submittedAt || null;
       patch.interview_at = null;
+      patch.placed_at = null;
     } else if (status === "interview") {
       patch.interview_at = interviewAt || null;
       patch.submitted_at = null;
+      patch.placed_at = null;
+    } else if (status === "placed") {
+      patch.placed_at = placedAt || null;
+      patch.submitted_at = null;
+      patch.interview_at = null;
     } else {
       patch.submitted_at = null;
       patch.interview_at = null;
+      patch.placed_at = null;
     }
     if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
     try {
@@ -69,7 +78,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value)}
-              className="h-8 w-full rounded-md border border-border bg-surface px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary"
+              className="h-8 w-full rounded-md border border-border bg-surface px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary cursor-pointer"
             >
               {SUBMISSION_STATUSES.map((s) => (
                 <option key={s} value={s}>
@@ -96,6 +105,25 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
                 Interview date & time
               </p>
               <InterviewSchedulePicker value={interviewAt} onChange={setInterviewAt} />
+            </div>
+          )}
+
+          {status === "placed" && (
+            <div className="space-y-2.5">
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1.5 text-xs text-fg-subtle">
+                  <CheckCircle className="h-3 w-3 text-emerald-500" />
+                  Selection date
+                </p>
+                <PlacedDatePicker value={placedAt} onChange={setPlacedAt} />
+              </div>
+
+              {candidate.client_name && (
+                <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-[11.5px] font-medium text-emerald-700 dark:text-emerald-300">
+                  <Building className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                  <span>Associated Client: <strong className="font-semibold">{candidate.client_name}</strong></span>
+                </div>
+              )}
             </div>
           )}
 

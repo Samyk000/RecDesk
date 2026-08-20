@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowSquareOut,
   Briefcase,
+  Building,
   CalendarDots,
   Copy,
   FileText,
@@ -20,7 +21,9 @@ import { toast } from "sonner";
 import {
   useAttachResume,
   useCandidate,
+  useClient,
   useDeleteCandidate,
+  useJob,
   useRemoveResume,
   useUpdateCandidate,
 } from "../../hooks/useQueries";
@@ -30,12 +33,13 @@ import { RichTextEditor } from "../common/RichTextEditor";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
+import { PlacedDatePicker } from "./PlacedDatePicker";
 import { ScreeningQADialog } from "./ScreeningQADialog";
 import { SubmissionDetailsDialog } from "./SubmissionDetailsDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials } from "../../lib/utils";
 import { Spinner } from "../common/Spinner";
-import type { Candidate, CandidateInput } from "../../types";
+import type { Candidate, CandidateInput, CandidateWithJob } from "../../types";
 
 interface Props {
   candidateId: string;
@@ -68,6 +72,9 @@ function CandidatePanelBody({
   const deleteCandidate = useDeleteCandidate();
   const attachResumeMut = useAttachResume();
   const removeResumeMut = useRemoveResume();
+  const { data: job } = useJob(candidate.job_id);
+  const { data: client } = useClient(job?.client_id);
+  const clientName = client?.name || (candidate as CandidateWithJob).client_name || "";
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showScreeningQA, setShowScreeningQA] = useState(false);
@@ -104,6 +111,7 @@ function CandidatePanelBody({
           candidate_status: candidate.candidate_status,
           submitted_at: candidate.submitted_at,
           interview_at: candidate.interview_at,
+          placed_at: candidate.placed_at,
           rejection_reason: candidate.rejection_reason,
           screening_answers: candidate.screening_answers,
           submission_details: candidate.submission_details,
@@ -397,11 +405,12 @@ function CandidatePanelBody({
                 const patch: Partial<CandidateInput> = { submission_status: v };
                 if (v !== "submitted") patch.submitted_at = null;
                 if (v !== "interview") patch.interview_at = null;
+                if (v !== "placed") patch.placed_at = null;
                 if (v !== "rejected") patch.rejection_reason = null;
                 saveField(patch);
               }}
             />
-            {(status === "submitted" || status === "interview" || status === "rejected") && (
+            {(status === "submitted" || status === "interview" || status === "placed" || status === "rejected") && (
               <div className="animate-[fade-up_0.25s_ease-out]">
                 {status === "submitted" && (
                   <SubmittedDatePicker
@@ -414,6 +423,20 @@ function CandidatePanelBody({
                     value={candidate.interview_at}
                     onChange={(val) => saveField({ interview_at: val })}
                   />
+                )}
+                {status === "placed" && (
+                  <div className="space-y-1.5">
+                    <PlacedDatePicker
+                      value={candidate.placed_at}
+                      onChange={(val) => saveField({ placed_at: val })}
+                    />
+                    {clientName && (
+                      <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                        <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="truncate">Client: <strong className="font-semibold">{clientName}</strong></span>
+                      </div>
+                    )}
+                  </div>
                 )}
                 {status === "rejected" && (
                   <Input

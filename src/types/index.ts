@@ -93,6 +93,7 @@ export interface Candidate {
   candidate_status: string;
   submitted_at?: string | null;
   interview_at?: string | null;
+  placed_at?: string | null;
   rejection_reason?: string | null;
   screening_answers?: string | null;
   submission_details?: string | null;
@@ -119,6 +120,7 @@ export interface CandidateInput {
   candidate_status?: string | null;
   submitted_at?: string | null;
   interview_at?: string | null;
+  placed_at?: string | null;
   rejection_reason?: string | null;
   screening_answers?: string | null;
   submission_details?: string | null;
@@ -145,6 +147,7 @@ export interface CandidatePatch {
   candidate_status?: string | null;
   submitted_at?: string | null;
   interview_at?: string | null;
+  placed_at?: string | null;
   rejection_reason?: string | null;
   screening_answers?: string | null;
   submission_details?: string | null;
@@ -161,6 +164,8 @@ export interface DashboardStats {
   total_candidates: number;
   total_clients: number;
   candidates_needing_action: number;
+  interview_candidates: number;
+  placed_candidates: number;
   on_hold_jobs: number;
   candidates_by_status: StatusCount[];
   jobs_by_status: StatusCount[];
@@ -188,4 +193,7 @@ export type ThemeName =
   | "violet"
   | "sunset"
   | "forest"
-  | "rose";
+  | "rose"
+  | "emerald"
+  | "amber"
+  | "slate";

@@ -40,6 +40,16 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         [],
         |r| r.get(0),
     )?;
+    let interview_candidates: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM candidates WHERE submission_status = 'interview'",
+        [],
+        |r| r.get(0),
+    )?;
+    let placed_candidates: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM candidates WHERE submission_status = 'placed'",
+        [],
+        |r| r.get(0),
+    )?;
     let on_hold_jobs: i64 = conn.query_row(
         "SELECT COUNT(*) FROM jobs WHERE status = 'on_hold'",
         [],
@@ -73,6 +83,8 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         total_candidates,
         total_clients,
         candidates_needing_action,
+        interview_candidates,
+        placed_candidates,
         on_hold_jobs,
         candidates_by_status,
         jobs_by_status,

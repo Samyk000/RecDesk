@@ -18,9 +18,22 @@ const THEME_CLASSES = [
   "theme-sunset",
   "theme-forest",
   "theme-rose",
+  "theme-emerald",
+  "theme-amber",
+  "theme-slate",
 ] as const;
 
-const THEMES: ThemeName[] = ["blue", "teal", "violet", "sunset", "forest", "rose"];
+const THEMES: ThemeName[] = [
+  "blue",
+  "teal",
+  "violet",
+  "sunset",
+  "forest",
+  "rose",
+  "emerald",
+  "amber",
+  "slate",
+];
 
 function legacyTheme(value: unknown): ThemeName {
   if (value === "sunset" || value === "forest" || value === "teal" || value === "violet" || value === "rose") {

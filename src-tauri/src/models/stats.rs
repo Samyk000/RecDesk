@@ -9,6 +9,8 @@ pub struct DashboardStats {
     pub total_candidates: i64,
     pub total_clients: i64,
     pub candidates_needing_action: i64,
+    pub interview_candidates: i64,
+    pub placed_candidates: i64,
     pub on_hold_jobs: i64,
     pub candidates_by_status: Vec<StatusCount>,
     pub jobs_by_status: Vec<StatusCount>,

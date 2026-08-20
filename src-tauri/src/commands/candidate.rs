@@ -12,7 +12,8 @@ pub const CANDIDATE_SELECT: &str = r#"
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details
+         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details,
+         c.placed_at
   FROM candidates c
 "#;
 
@@ -22,6 +23,7 @@ pub const CANDIDATE_SELECT_JOIN: &str = r#"
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
          c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details,
+         c.placed_at,
          j.title, j.job_id, cl.name
   FROM candidates c
   JOIN jobs j ON j.id = c.job_id
@@ -98,8 +100,8 @@ pub fn create_candidate(
                                  current_company, experience_years, resume_path, linkedin_url,
                                  recruiter_notes, match_score, submission_status, interview_status,
                                  client_feedback, candidate_status, submitted_at, interview_at,
-                                 rejection_reason, screening_answers, submission_details, date_added, last_updated)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?23)",
+                                 rejection_reason, screening_answers, submission_details, placed_at, date_added, last_updated)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?24)",
         params![
             id,
             input.job_id,
@@ -123,6 +125,7 @@ pub fn create_candidate(
             input.rejection_reason,
             input.screening_answers.unwrap_or_else(|| "{}".to_string()),
             input.submission_details.unwrap_or_else(|| "{}".to_string()),
+            input.placed_at,
             ts
         ],
     )?;
@@ -161,10 +164,11 @@ pub fn update_candidate(
                                interview_at = ?17,
                                rejection_reason = ?18,
                                linkedin_url = ?19,
-                               screening_answers = COALESCE(?20, screening_answers),
-                               submission_details = COALESCE(?21, submission_details),
-                               last_updated = ?22
-         WHERE id = ?23",
+                               placed_at = ?20,
+                               screening_answers = COALESCE(?21, screening_answers),
+                               submission_details = COALESCE(?22, submission_details),
+                               last_updated = ?23
+         WHERE id = ?24",
         params![
             input.job_id,
             input.name,
@@ -185,6 +189,7 @@ pub fn update_candidate(
             input.interview_at,
             input.rejection_reason,
             input.linkedin_url,
+            input.placed_at,
             input.screening_answers,
             input.submission_details,
             now(),
@@ -219,6 +224,8 @@ pub struct CandidatePatch {
     #[serde(default)]
     pub interview_at: Option<String>,
     #[serde(default)]
+    pub placed_at: Option<String>,
+    #[serde(default)]
     pub rejection_reason: Option<String>,
 }
 
@@ -250,7 +257,8 @@ pub fn bulk_update_candidates_sql(
                                 submitted_at = CASE WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at) ELSE submitted_at END,
                                 interview_at = CASE WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at) ELSE interview_at END,
                                 rejection_reason = CASE WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason) ELSE rejection_reason END,
-                                last_updated = ?9
+                                placed_at = CASE WHEN ?1 = 'placed' THEN COALESCE(?9, placed_at) ELSE placed_at END,
+                                last_updated = ?10
          WHERE id IN ({})",
         placeholders.join(",")
     );
@@ -263,6 +271,7 @@ pub fn bulk_update_candidates_sql(
         Box::new(patch.submitted_at.clone()),
         Box::new(patch.interview_at.clone()),
         Box::new(patch.rejection_reason.clone()),
+        Box::new(patch.placed_at.clone()),
         Box::new(now()),
     ];
     for id in ids {

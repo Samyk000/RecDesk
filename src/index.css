@@ -261,6 +261,117 @@
   --selection: #fb7185;
 }
 
+/* ============================================================
+   Theme: Emerald (Soothing Sage Mint & Rich Emerald)
+   ============================================================ */
+.theme-emerald {
+  --bg: #eaf5f0;
+  --bg-sidebar: #dff0e7;
+  --fg: #11231a;
+  --fg-muted: #385244;
+  --fg-subtle: #6c8a7b;
+  --surface: #f7fcf9;
+  --surface-hover: #e6f3ec;
+  --surface-active: #d8ebe1;
+  --border: #cce5d8;
+  --border-strong: #b6d7c7;
+  --primary: #059669;
+  --primary-hover: #047857;
+  --primary-fg: #ffffff;
+  --selection: #059669;
+}
+
+.dark.theme-emerald {
+  --bg: #08130e;
+  --bg-sidebar: #0d1b14;
+  --fg: #e6f4ed;
+  --fg-muted: #9abfb0;
+  --fg-subtle: #658b7c;
+  --surface: #11241c;
+  --surface-hover: #173026;
+  --surface-active: #1d3c30;
+  --border: #1c382c;
+  --border-strong: #2b5241;
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-fg: #042316;
+  --selection: #10b981;
+}
+
+/* ============================================================
+   Theme: Amber (Soothing Warm Sand & Espresso Gold)
+   ============================================================ */
+.theme-amber {
+  --bg: #f7f3ec;
+  --bg-sidebar: #eee7dc;
+  --fg: #261e14;
+  --fg-muted: #584a3b;
+  --fg-subtle: #8f7d6a;
+  --surface: #fdfbf8;
+  --surface-hover: #f3ede2;
+  --surface-active: #e8dfd2;
+  --border: #e3d7c5;
+  --border-strong: #d1c1a9;
+  --primary: #d97706;
+  --primary-hover: #b45309;
+  --primary-fg: #ffffff;
+  --selection: #d97706;
+}
+
+.dark.theme-amber {
+  --bg: #120e0b;
+  --bg-sidebar: #18130f;
+  --fg: #f4eee7;
+  --fg-muted: #c0b1a0;
+  --fg-subtle: #887766;
+  --surface: #1f1914;
+  --surface-hover: #28201a;
+  --surface-active: #322921;
+  --border: #2e231b;
+  --border-strong: #453528;
+  --primary: #f59e0b;
+  --primary-hover: #fbbf24;
+  --primary-fg: #271400;
+  --selection: #f59e0b;
+}
+
+/* ============================================================
+   Theme: Slate (Soothing Obsidian Slate & Ice Cyan)
+   ============================================================ */
+.theme-slate {
+  --bg: #edf2f7;
+  --bg-sidebar: #e2e8f0;
+  --fg: #0f172a;
+  --fg-muted: #475569;
+  --fg-subtle: #64748b;
+  --surface: #f8fafc;
+  --surface-hover: #edf2f7;
+  --surface-active: #e2e8f0;
+  --border: #cbd5e1;
+  --border-strong: #94a3b8;
+  --primary: #0284c7;
+  --primary-hover: #0369a1;
+  --primary-fg: #ffffff;
+  --selection: #0284c7;
+}
+
+.dark.theme-slate {
+  --bg: #080c14;
+  --bg-sidebar: #0d1320;
+  --fg: #f1f5f9;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --surface: #111a2c;
+  --surface-hover: #17233a;
+  --surface-active: #1e2d4a;
+  --border: #1e2c45;
+  --border-strong: #2c3f62;
+  --primary: #38bdf8;
+  --primary-hover: #7dd3fc;
+  --primary-fg: #082f49;
+  --selection: #38bdf8;
+}
+
 @layer base {
   * {
     @apply border-border;

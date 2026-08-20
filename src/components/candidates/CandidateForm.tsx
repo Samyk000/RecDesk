@@ -24,6 +24,7 @@ import { errorMessage } from "../../lib/utils";
 import { StatusSelectItem } from "./StatusSelectItem";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
+import { PlacedDatePicker } from "./PlacedDatePicker";
 import type { CandidateInput, JobWithStats } from "../../types";
 
 interface Props {
@@ -42,6 +43,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
   const [status, setStatus] = useState("sourced");
   const [submittedAt, setSubmittedAt] = useState("");
   const [interviewAt, setInterviewAt] = useState("");
+  const [placedAt, setPlacedAt] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
 
   const roles = useMemo(() => {
@@ -68,6 +70,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     setStatus("sourced");
     setSubmittedAt("");
     setInterviewAt("");
+    setPlacedAt("");
     setRejectionReason("");
     const form = document.getElementById("candidate-form") as HTMLFormElement | null;
     form?.reset();
@@ -102,6 +105,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
       candidate_status: "active",
       submitted_at: status === "submitted" ? submittedAt || null : null,
       interview_at: status === "interview" ? interviewAt || null : null,
+      placed_at: status === "placed" ? placedAt || null : null,
       rejection_reason: status === "rejected" ? rejectionReason.trim() || null : null,
     };
     if (!input.name.trim()) {
@@ -217,6 +221,13 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
             <div className="space-y-1.5">
               <Label>Interview date & time</Label>
               <InterviewSchedulePicker value={interviewAt} onChange={(val) => setInterviewAt(val || "")} />
+            </div>
+          )}
+
+          {status === "placed" && (
+            <div className="space-y-1.5">
+              <Label>Selection date</Label>
+              <PlacedDatePicker value={placedAt} onChange={(val) => setPlacedAt(val || "")} />
             </div>
           )}
 

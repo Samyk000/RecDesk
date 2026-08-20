@@ -3,7 +3,8 @@ import { Link, useNavigate } from "react-router-dom";
 import {
   ArrowRight,
   Briefcase,
-  Building,
+  CalendarCheck,
+  CheckCircle,
   Clock,
   IdentificationCard,
   Plus,
@@ -29,13 +30,6 @@ export function Dashboard() {
 
   const stats = [
     {
-      label: "Active jobs",
-      value: data.active_jobs,
-      icon: Briefcase,
-      accent: "text-blue-500",
-      to: "/jobs",
-    },
-    {
       label: "Total candidates",
       value: data.total_candidates,
       icon: IdentificationCard,
@@ -43,18 +37,25 @@ export function Dashboard() {
       to: "/candidates",
     },
     {
-      label: "Needing action",
-      value: data.candidates_needing_action,
-      icon: Clock,
-      accent: "text-amber-500",
-      to: "/candidates",
+      label: "Active jobs",
+      value: data.active_jobs,
+      icon: Briefcase,
+      accent: "text-blue-500",
+      to: "/jobs",
     },
     {
-      label: "Clients",
-      value: data.total_clients,
-      icon: Building,
+      label: "Interview",
+      value: data.interview_candidates,
+      icon: CalendarCheck,
+      accent: "text-violet-500",
+      to: "/candidates?status=interview",
+    },
+    {
+      label: "Placed",
+      value: data.placed_candidates,
+      icon: CheckCircle,
       accent: "text-emerald-500",
-      to: "/clients",
+      to: "/candidates?status=placed",
     },
   ];
 

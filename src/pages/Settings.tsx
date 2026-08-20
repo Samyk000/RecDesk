@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Database, DownloadSimple, Info, Monitor, Moon, Sun, UploadSimple, Sparkle } from "@phosphor-icons/react";
+import { Database, DownloadSimple, Info, Monitor, Moon, Sun, UploadSimple } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
@@ -23,10 +23,13 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
 const colorThemes: { value: ThemeName; label: string; primary: string; bg: string; darkBg: string }[] = [
   { value: "blue", label: "Blue", primary: "#2563eb", bg: "#f2f5fa", darkBg: "#0c0c0f" },
   { value: "teal", label: "Teal", primary: "#0d9488", bg: "#e9f4f1", darkBg: "#0a1211" },
-  { value: "violet", label: "Violet", primary: "#7c3aed", bg: "#f1eefb", darkBg: "#0d0b15" },
-  { value: "sunset", label: "Sunset", primary: "#f97316", bg: "#faf3ea", darkBg: "#120d08" },
+  { value: "emerald", label: "Emerald", primary: "#059669", bg: "#eaf5f0", darkBg: "#08130e" },
   { value: "forest", label: "Forest", primary: "#7a8f3d", bg: "#f1f4e7", darkBg: "#0d100a" },
+  { value: "amber", label: "Amber", primary: "#d97706", bg: "#f7f3ec", darkBg: "#120e0b" },
+  { value: "sunset", label: "Sunset", primary: "#f97316", bg: "#faf3ea", darkBg: "#120d08" },
   { value: "rose", label: "Rose", primary: "#e11d48", bg: "#faf1f3", darkBg: "#150d10" },
+  { value: "violet", label: "Violet", primary: "#7c3aed", bg: "#f1eefb", darkBg: "#0d0b15" },
+  { value: "slate", label: "Slate", primary: "#0284c7", bg: "#edf2f7", darkBg: "#080c14" },
 ];
 
 export function Settings() {
@@ -75,18 +78,6 @@ export function Settings() {
     }
   }
 
-  async function seedDemo() {
-    setBusy("seed");
-    try {
-      const summary = await apiData.seedDemo();
-      toast.success(`Seeded ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`);
-    } catch (err) {
-      toast.error(errorMessage(err));
-    } finally {
-      setBusy(null);
-    }
-  }
-
   return (
     <div className="px-6 pt-4">
       <PageHeader title="Settings" subtitle="Preferences and data management" />
@@ -118,7 +109,7 @@ export function Settings() {
               <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Theme</span>
               <span className="h-px flex-1 bg-border" />
             </div>
-                        <div className="mt-3 grid grid-cols-3 gap-2">
+            <div className="mt-3 grid grid-cols-3 gap-2">
               {colorThemes.map((opt) => (
                 <button
                   key={opt.value}
@@ -243,31 +234,16 @@ export function Settings() {
               </Button>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
-                <div className="flex items-center gap-3">
-                  <Database className="h-4 w-4 text-fg-subtle" />
-                  <div>
-                    <p className="text-[13px] font-medium text-fg">Replace on import</p>
-                    <p className="text-xs text-fg-subtle">Delete existing data before importing.</p>
-                  </div>
+            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
+              <div className="flex items-center gap-3">
+                <Database className="h-4 w-4 text-fg-subtle" />
+                <div>
+                  <p className="text-[13px] font-medium text-fg">Replace on import</p>
+                  <p className="text-xs text-fg-subtle">Delete existing data before importing.</p>
                 </div>
-                <Switch checked={replace} onCheckedChange={setReplace} />
-              </label>
-
-              <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
-                <div className="flex items-center gap-3">
-                  <Sparkle className="h-4 w-4 text-fg-subtle" />
-                  <div>
-                    <p className="text-[13px] font-medium text-fg">Load demo data</p>
-                    <p className="text-xs text-fg-subtle">Add sample data to explore the app.</p>
-                  </div>
-                </div>
-                <Button size="sm" variant="outline" onClick={seedDemo} disabled={busy !== null}>
-                  {busy === "seed" ? "Seeding…" : "Seed demo"}
-                </Button>
               </div>
-            </div>
+              <Switch checked={replace} onCheckedChange={setReplace} />
+            </label>
           </div>
         </section>
       </div>

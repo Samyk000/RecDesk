@@ -42,7 +42,7 @@ import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, formatDateShort, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { CandidateWithJob } from "../types";
 
-const DETAIL_STATUSES = new Set(["submitted", "interview", "rejected"]);
+const DETAIL_STATUSES = new Set(["submitted", "interview", "placed", "rejected"]);
 
 type SortKey = "job_title" | "client_name" | "location" | "date_added" | "last_updated";
 
@@ -58,7 +58,7 @@ export function Candidates() {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
-  const [status, setStatus] = useState("all");
+  const [status, setStatus] = useState(() => params.get("status") || "all");
   const [selectMode, setSelectMode] = useState(false);
   const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
   const [formOpen, setFormOpen] = useState(false);
@@ -79,6 +79,13 @@ export function Candidates() {
   useEffect(() => {
     localStorage.setItem("recdesk_hide_rejected", hideRejected.toString());
   }, [hideRejected]);
+
+  useEffect(() => {
+    const s = params.get("status");
+    if (s && s !== status) {
+      setStatus(s);
+    }
+  }, [params]);
 
   const { data, isLoading } = useCandidatesWithJob(
     debounced || undefined,
@@ -150,17 +157,35 @@ export function Candidates() {
 
   const filtered = status !== "all" || search.length > 0;
 
+  function handleFilterChange(newStatus: string) {
+    setStatus(newStatus);
+    const next = new URLSearchParams(params);
+    if (newStatus === "all") {
+      next.delete("status");
+    } else {
+      next.set("status", newStatus);
+    }
+    setParams(next, { replace: true });
+  }
+
   function clearFilters() {
     setStatus("all");
     setSearch("");
+    const next = new URLSearchParams(params);
+    next.delete("status");
+    setParams(next, { replace: true });
   }
 
   function openPanel(id: string) {
-    setParams({ candidate: id }, { replace: true });
+    const next = new URLSearchParams(params);
+    next.set("candidate", id);
+    setParams(next, { replace: true });
   }
 
   function closePanel() {
-    setParams({}, { replace: true });
+    const next = new URLSearchParams(params);
+    next.delete("candidate");
+    setParams(next, { replace: true });
   }
 
   return (
@@ -191,7 +216,7 @@ export function Candidates() {
         />
         <StatusFilter
           value={status}
-          onValueChange={setStatus}
+          onValueChange={handleFilterChange}
           filtered={filtered}
           onClear={clearFilters}
         />

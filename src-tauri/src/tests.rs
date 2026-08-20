@@ -258,6 +258,23 @@ mod tests {
             )
             .unwrap();
         assert_eq!(submitted_at, "2026-08-10T09:00:00Z");
+
+        // Moving to 'placed' sets placed_at when provided
+        let patch = CandidatePatch {
+            submission_status: Some("placed".to_string()),
+            placed_at: Some("2026-08-20".to_string()),
+            ..Default::default()
+        };
+        bulk_update_candidates_sql(&conn, std::slice::from_ref(&cand_id), &patch).unwrap();
+        let (status, placed_at): (String, Option<String>) = conn
+            .query_row(
+                "SELECT submission_status, placed_at FROM candidates WHERE id = ?1",
+                params![&cand_id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+        assert_eq!(status, "placed");
+        assert_eq!(placed_at.as_deref(), Some("2026-08-20"));
     }
 
     #[test]

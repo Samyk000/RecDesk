@@ -38,6 +38,8 @@ pub struct Candidate {
     #[serde(default)]
     pub interview_at: Option<String>,
     #[serde(default)]
+    pub placed_at: Option<String>,
+    #[serde(default)]
     pub rejection_reason: Option<String>,
     #[serde(default)]
     pub screening_answers: Option<String>,
@@ -83,6 +85,8 @@ pub struct CandidateInput {
     pub submitted_at: Option<String>,
     #[serde(default)]
     pub interview_at: Option<String>,
+    #[serde(default)]
+    pub placed_at: Option<String>,
     #[serde(default)]
     pub rejection_reason: Option<String>,
     #[serde(default)]
