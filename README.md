@@ -1,82 +1,181 @@
-# RecDesk
+<p align="center">
+  <img src="public/NewLogo.png" alt="RecDesk Logo" width="160" />
+</p>
 
-A **local-first** desktop app for managing your recruiting pipeline — track clients, jobs, and candidates in one place. Everything is stored in a SQLite database on your device, so your data stays yours.
+<h1 align="center">RecDesk</h1>
 
-> **Note:** RecDesk is in active development. Features and workflows will keep improving.
+<p align="center">
+  <strong>Fast, Local-First Desktop Command Center for Technical & Agency Recruiters</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/version-v0.1.2-blue.svg" alt="Version 0.1.2" />
+  <img src="https://img.shields.io/badge/platform-Windows%20x64-informational.svg" alt="Platform Windows" />
+  <img src="https://img.shields.io/badge/storage-Local%20SQLite-success.svg" alt="Local SQLite" />
+  <img src="https://img.shields.io/badge/privacy-100%25%20Offline-green.svg" alt="100% Privacy" />
+</p>
 
 ---
 
-## Features
+## 🚀 What is RecDesk?
 
-- **Clients** — maintain a roster of clients with contact details, hiring managers, and notes
-- **Jobs** — create positions per client with location, work model, engagement type, and status
-- **Candidates** — manage candidates per job with match scores, contact info, resumes, and recruiter notes
-- **Pipeline tracking** — move candidates through stages (sourced → in touch → submitted → interview → rejected / not interested), with dates and rejection reasons
-- **Job details** — refined job descriptions, boolean search strings, candidate pitch, and screening questions
-- **Dashboard** — overview of active jobs, candidates needing action, and recent activity
-- **Global search** — quickly find clients, jobs, and candidates (shortcut: `Ctrl/Cmd + K`)
-- **Theme** — light, dark, or system appearance
-- **Backup & restore** — export and import your data as JSON
-- **Demo data** — seed the app with sample data to explore it
+**RecDesk** is a **local-first, privacy-focused desktop recruiting workspace** designed specifically for recruiters, sourcers, and talent acquisition specialists.
 
-## Installation
+Unlike traditional cloud ATS (Applicant Tracking Systems) that are often slow, bloated, complex, and tied to expensive recurring monthly subscriptions, RecDesk is built for **speed, simplicity, and complete data ownership**. It lives directly on your computer with a high-performance native desktop architecture (built on **Tauri + Rust + SQLite** on the backend and **React + TypeScript + Tailwind CSS** on the frontend).
 
-Download the latest installer from the [Releases](https://github.com/Samyk000/RecDesk/releases) page:
+---
 
-- **Windows (recommended):** `RecDesk_<version>_x64-setup.exe`
-- **Windows (MSI):** `RecDesk_<version>_x64_en-US.msi`
+## 🎯 The Core Motive & Philosophy
 
-Since the installers are unsigned, Windows SmartScreen may warn you. Click **More info** → **Run anyway**.
+- **⚡ Zero Latency & Blazing Speed**: Everything is stored in a local SQLite database on your machine. Searching candidates, clicking into jobs, and scheduling interviews happens with zero network lag or loading spinners.
+- **🔒 100% Data Privacy & Ownership**: Your candidate dossiers, notes, rates, and client contacts never touch a third-party server or get mined for data. Everything is backed up and restorable with 1-click JSON exports.
+- **🛠️ Built for Real Recruiter Workflows**: Rather than generic CRM fields, RecDesk has dedicated tools for the exact daily tasks recruiters perform:
+  - Live call screening with autosaving Q&A.
+  - 1-click client submission formatting with Right-to-Represent (RTR) timestamps.
+  - Multi-timezone tracking to prevent scheduling errors.
+  - Boolean search string libraries for every role.
 
-## Getting started
+---
 
-1. Install RecDesk and launch it.
-2. Optional: open **Settings → Data → Load demo data** to explore with sample clients, jobs, and candidates.
-3. Start adding clients, then create jobs under each client, then add candidates to those jobs.
+## 🧭 Key Features & App Showcase
 
-> Your data is stored locally (AppData on Windows) and persists across updates. Use **Settings → Data → Export backup** to keep a copy.
+### 1. 📊 Centralized Dashboard & Multi-Timezone Command Center
+- **Prioritized Workflow Cards**: High-level metrics in active pipeline order:
+  $$\text{Total Candidates} \longrightarrow \text{Active Jobs} \longrightarrow \text{Interviews} \longrightarrow \text{Placed}$$
+- **Direct Click-to-Filter**: Clicking any metric card instantly navigates to and pre-filters your pipeline.
+- **Live World Clocks**: Configurable timezone bar in the header (EST, CST, MST, PST, GMT, IST) so you always know your hiring manager's and candidate's local time.
+- **Recent Pipeline Feeds**: Real-time snapshot of newly added jobs and active candidate stages.
 
-## Development
+<p align="center">
+  <img src="public/(1)Dashboard.png" alt="RecDesk Dashboard" width="100%" />
+</p>
 
-RecDesk is built with [Tauri v2](https://tauri.app/), Rust, and React (TypeScript + Vite).
+---
 
-### Prerequisites
+### 2. 👥 Candidate Management & Screening Pipeline
+- **Lifecycle Tracking**: Dedicated statuses: `Sourced`, `In Touch`, `Submitted`, `Interview`, `Placed` (with emerald accent), `Not Interested`, and `Rejected`.
+- **Minimal "Hide Rejected" Mode**: 1-click toggle to keep your active pipeline clean and distraction-free.
+- **Bulk Pipeline Actions**: Multi-select candidates for batch status updates or removals.
 
-- [Rust](https://rustup.rs/) (stable toolchain)
-- [Node.js](https://nodejs.org/) and [pnpm](https://pnpm.io/)
-- Platform prerequisites for Tauri (e.g. WebView2 and MSVC build tools on Windows) — see the [Tauri prerequisites](https://v2.tauri.app/start/prerequisites/)
+<p align="center">
+  <img src="public/(2)Candidates.png" alt="Candidate Pipeline" width="100%" />
+</p>
 
-### Run in development
+---
+
+### 3. 📋 Candidate Dossier, Notes & Screening Q&A
+- **Comprehensive Profile Panel**: Contact info, experience years, current company/title, and 1-click LinkedIn launcher.
+- **Resume Attachment Manager**: Attach local PDF/Word resumes and open them instantly from the app.
+- **Status Change Dialogs**: Dedicated popovers for submission tagging (Internal/External), interview scheduling with timezones, and placed date tracking.
+
+<p align="center">
+  <img src="public/(3)Candidate_Details.png" alt="Candidate Details & Screening" width="100%" />
+</p>
+
+---
+
+### 4. 💼 Job & Requisition Cockpit
+- **Role Details**: Work model (Remote, Hybrid, On-site), engagement types (W2, C2C, Contract-to-Hire, Direct Hire), bill rates, pay rates, and active candidate counts.
+- **Requisition Filters**: Instant search and status filtering across active and archived requisitions.
+
+<p align="center">
+  <img src="public/(4)Jobs.png" alt="Job Cockpit" width="100%" />
+</p>
+
+---
+
+### 5. 🔍 Requisition Workspace & Boolean Search Builder
+- **Three-Tab Requisition Workspace**:
+  1. **Overview**: Refined job description and recruiter internal notes.
+  2. **Pitch & Screening**:
+     - *Candidate Pitch*: Pre-written elevator pitch ready to read or message.
+     - *Screening Questions*: Role-specific qualifying questions.
+     - *Boolean Strings*: Built-in library of Tight, Normal, and Broad search strings.
+  3. **Candidates Tab**: View all candidates associated with that specific requisition.
+
+<p align="center">
+  <img src="public/(5)Job_Details.png" alt="Job Details & Boolean Search Builder" width="100%" />
+</p>
+
+---
+
+### 6. 🏢 Client & Account Directory
+- Store client company details, hiring manager contacts, direct phone/email, address, and recruiter account notes.
+- Instant overview of active open requisitions and total candidate count per client.
+- Custom drag-and-drop sort ordering.
+
+<p align="center">
+  <img src="public/(6)Clients.png" alt="Client Directory" width="100%" />
+</p>
+
+---
+
+### 7. 🎨 Customization, Theming & Data Portability
+- **Theming System**: Light Mode, Dark Mode, System Match with 9 curated color palettes (*Blue, Teal, Emerald, Forest, Amber, Sunset, Rose, Violet, Slate*).
+- **Timezone Customization**: Enable/disable world clocks matching your territory coverage.
+- **Backup & Restore**: 1-click full JSON backup export and import for instant machine migration.
+
+<p align="center">
+  <img src="public/(7)Settings.png" alt="Settings & Theming" width="100%" />
+</p>
+
+---
+
+## ⚡ Specialized Recruiting Superpowers
+
+- **📞 Quick Live Screening (`⌘K` / Header Button)**: Start a candidate phone screen in 1-click without creating a full profile first. Features an interactive Q&A interface with real-time autosave and a **"Copy Q&A Summary"** button to paste directly into client emails.
+- **📑 Submission Details & RTR Generator**: Candidate submission dossier tracking RTR timestamp, work authorization, last 4 of SIN/SSN, rate/salary expectations, and background check consent with a 1-click **"Copy Formatted Submission"** button.
+- **🗓️ Sidebar Interview & Submission Trackers**:
+  - **Upcoming Submissions**: Collapsible list of submitted candidates with internal/external badge indicators.
+  - **Upcoming Interviews**: Relative time cards (*Today*, *Tomorrow*, formatted time, timezone badge) with auto-fit zero-scroll design.
+- **🔎 Global Fuzzy Search (`⌘K` / `Ctrl+K`)**: Instant keyboard-first search across all clients, jobs, and candidates simultaneously.
+
+---
+
+## 📌 Current State of the App
+
+| Aspect | Current Status |
+| :--- | :--- |
+| **Version** | `v0.1.2` (Latest Release) |
+| **Installers** | Windows Setup (`.exe`), Windows Installer (`.msi`), Standalone Binary |
+| **Database** | Embedded SQLite (WAL mode, foreign-key integrity, ACID compliant) |
+| **Health & Stability** | 100% Rust backend test pass rate + strict TypeScript compilation |
+| **Performance** | Native desktop execution, sub-second startup, zero cloud latency |
+
+---
+
+## 💻 Technical Architecture & Development
+
+RecDesk is built as a native desktop application using [Tauri v2](https://tauri.app/).
+
+### Tech Stack
+
+| Layer | Technology |
+| :--- | :--- |
+| **Shell & Native Backend** | Tauri v2, Rust |
+| **Database & Storage** | Embedded SQLite (via `rusqlite` with WAL mode) |
+| **Frontend Framework** | React 19, TypeScript, Vite, Tailwind CSS |
+| **State Management** | TanStack Query (React Query), Zustand |
+| **Icons & UI** | Phosphor Icons, Radix UI primitives |
+
+### Local Development
 
 ```bash
+# 1. Install dependencies
 pnpm install
+
+# 2. Run in development mode
 pnpm tauri dev
-```
 
-### Build the app
+# 3. Run backend unit tests
+cargo test --manifest-path src-tauri/Cargo.toml
 
-```bash
+# 4. Build production installer
 pnpm tauri build
 ```
 
-The bundled installers are written to `src-tauri/target/release/bundle/`.
+---
 
-### Tests
-
-```bash
-cd src-tauri
-cargo test
-```
-
-## Tech stack
-
-| Layer    | Technology                                   |
-| -------- | -------------------------------------------- |
-| Shell    | Tauri v2                                     |
-| Frontend | React 19, TypeScript, Vite, Tailwind CSS     |
-| State    | TanStack Query, Zustand                      |
-| Storage  | SQLite (via rusqlite, bundled)               |
-
-## License
+## 📄 License
 
 Private project. All rights reserved.

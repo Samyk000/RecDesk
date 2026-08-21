@@ -67,7 +67,6 @@ export const apiSearch = {
 export const apiData = {
   export: () => call<string>("export_data"),
   import: (json: string, replace: boolean) => call<ImportSummary>("import_data", { json, replace }),
-  seedDemo: () => call<ImportSummary>("seed_demo_data"),
 };
 
 // ---- Files ----

@@ -60,7 +60,6 @@ pub fn run() {
             // data
             commands::data::export_data,
             commands::data::import_data,
-            commands::data::seed_demo_data,
             // files
             commands::files::attach_resume,
             commands::files::remove_resume,

@@ -3,6 +3,7 @@ import { Database, DownloadSimple, Info, Monitor, Moon, Sun, UploadSimple } from
 import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../store/theme";
 import { useProfile } from "../store/profile";
 import { US_TIME_ZONES } from "../lib/constants";
@@ -33,6 +34,7 @@ const colorThemes: { value: ThemeName; label: string; primary: string; bg: strin
 ];
 
 export function Settings() {
+  const qc = useQueryClient();
   const { mode, theme, setMode, setTheme } = useTheme();
   const { name, setName, timeZones, setTimeZones } = useProfile();
   const [replace, setReplace] = useState(false);
@@ -68,6 +70,11 @@ export function Settings() {
       if (!path || typeof path !== "string") return;
       const json = await readTextFile(path);
       const summary = await apiData.import(json, replace);
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
       toast.success(
         `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
       );

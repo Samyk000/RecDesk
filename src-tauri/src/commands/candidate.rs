@@ -254,10 +254,26 @@ pub fn bulk_update_candidates_sql(
                                 client_feedback = COALESCE(?3, client_feedback),
                                 match_score = COALESCE(?4, match_score),
                                 candidate_status = COALESCE(?5, candidate_status),
-                                submitted_at = CASE WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at) ELSE submitted_at END,
-                                interview_at = CASE WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at) ELSE interview_at END,
-                                rejection_reason = CASE WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason) ELSE rejection_reason END,
-                                placed_at = CASE WHEN ?1 = 'placed' THEN COALESCE(?9, placed_at) ELSE placed_at END,
+                                submitted_at = CASE
+                                    WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at)
+                                    WHEN ?1 IS NULL AND ?6 IS NOT NULL THEN ?6
+                                    ELSE submitted_at
+                                END,
+                                interview_at = CASE
+                                    WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at)
+                                    WHEN ?1 IS NULL AND ?7 IS NOT NULL THEN ?7
+                                    ELSE interview_at
+                                END,
+                                rejection_reason = CASE
+                                    WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason)
+                                    WHEN ?1 IS NULL AND ?8 IS NOT NULL THEN ?8
+                                    ELSE rejection_reason
+                                END,
+                                placed_at = CASE
+                                    WHEN ?1 = 'placed' THEN COALESCE(?9, placed_at)
+                                    WHEN ?1 IS NULL AND ?9 IS NOT NULL THEN ?9
+                                    ELSE placed_at
+                                END,
                                 last_updated = ?10
          WHERE id IN ({})",
         placeholders.join(",")

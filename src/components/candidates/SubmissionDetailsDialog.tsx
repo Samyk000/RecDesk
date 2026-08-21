@@ -20,6 +20,7 @@ import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Spinner } from "../common/Spinner";
 import { errorMessage } from "../../lib/utils";
+import { toCandidateInput } from "../../lib/candidateUtils";
 import type { Candidate } from "../../types";
 
 interface Props {
@@ -297,29 +298,9 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     updateCandidate.mutate(
       {
         id: candidate.id,
-        input: {
-          job_id: candidate.job_id,
-          name: candidate.name,
-          email: candidate.email,
-          phone: candidate.phone,
-          location: candidate.location,
-          current_title: candidate.current_title,
-          current_company: candidate.current_company,
-          experience_years: candidate.experience_years,
-          resume_path: candidate.resume_path,
-          linkedin_url: candidate.linkedin_url,
-          recruiter_notes: candidate.recruiter_notes,
-          match_score: candidate.match_score,
-          submission_status: candidate.submission_status,
-          interview_status: candidate.interview_status,
-          client_feedback: candidate.client_feedback,
-          candidate_status: candidate.candidate_status,
-          submitted_at: candidate.submitted_at,
-          interview_at: candidate.interview_at,
-          rejection_reason: candidate.rejection_reason,
-          screening_answers: candidate.screening_answers,
+        input: toCandidateInput(candidate, {
           submission_details: nextRaw,
-        },
+        }),
       },
       {
         onSuccess: () => {

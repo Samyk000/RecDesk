@@ -477,4 +477,52 @@ mod tests {
             Some("[{\"key\":\"rate\",\"label\":\"Rate\",\"value\":\"$80/hr\"}]")
         );
     }
+
+    #[test]
+    fn export_import_placed_roundtrip() {
+        use crate::commands::data::{export_json, import_json};
+
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let cand_id = new_id();
+        let ts = now();
+
+        conn.execute(
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order)
+             VALUES (?1, 'TechCorp', NULL, NULL, NULL, NULL, NULL, ?2, ?2, 0)",
+            params![cid, ts],
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, location, work_model, contract_type, bill_rate, pay_rate, status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes, created_at, updated_at, closed_at, sort_order)
+             VALUES (?1, ?2, 'JOB-1', 'Engineer', NULL, NULL, NULL, NULL, NULL, 'active', NULL, '[]', NULL, '[]', NULL, ?3, ?3, NULL, 0)",
+            params![jid, cid, ts],
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, email, phone, location, current_title, current_company, experience_years, resume_path, recruiter_notes, match_score, submission_status, interview_status, client_feedback, candidate_status, submitted_at, interview_at, rejection_reason, date_added, last_updated, linkedin_url, screening_answers, submission_details, placed_at)
+             VALUES (?1, ?2, 'Placed Candidate', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'placed', NULL, NULL, 'active', NULL, NULL, NULL, ?3, ?3, NULL, '{}', '{}', '2026-08-20')",
+            params![cand_id, jid, ts],
+        ).unwrap();
+
+        let json = export_json(&conn).unwrap();
+
+        let mut conn2 = test_conn();
+        let summary = import_json(&mut conn2, &json, true).unwrap();
+        assert_eq!(summary.clients, 1);
+        assert_eq!(summary.jobs, 1);
+        assert_eq!(summary.candidates, 1);
+
+        let placed_at: Option<String> = conn2
+            .query_row(
+                "SELECT placed_at FROM candidates WHERE id = ?1",
+                params![&cand_id],
+                |r| r.get(0),
+            )
+            .unwrap();
+
+        assert_eq!(placed_at.as_deref(), Some("2026-08-20"));
+    }
 }
+
