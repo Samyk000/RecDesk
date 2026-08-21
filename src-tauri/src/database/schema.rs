@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS candidates (
   rejection_reason TEXT,
   screening_answers TEXT NOT NULL DEFAULT '{}',
   submission_details TEXT NOT NULL DEFAULT '{}',
+  status_history TEXT NOT NULL DEFAULT '[]',
+  interview_feedback TEXT NOT NULL DEFAULT '{}',
   date_added TEXT NOT NULL,
   last_updated TEXT NOT NULL
 );
@@ -82,11 +84,19 @@ CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(submission_status
 CREATE INDEX IF NOT EXISTS idx_candidates_updated ON candidates(last_updated);
 "#;
 
+const CURRENT_SCHEMA_VERSION: i32 = 2;
+
 pub fn create_schema(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(SCHEMA_SQL)?;
-    migrate_clients(conn)?;
-    migrate_jobs(conn)?;
-    migrate_candidates(conn)?;
+
+    let user_version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+    if user_version < CURRENT_SCHEMA_VERSION {
+        migrate_clients(conn)?;
+        migrate_jobs(conn)?;
+        migrate_candidates(conn)?;
+        conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)?;
+    }
+
     Ok(())
 }
 
@@ -146,6 +156,8 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
         ("linkedin_url", "TEXT"),
         ("screening_answers", "TEXT NOT NULL DEFAULT '{}'"),
         ("submission_details", "TEXT NOT NULL DEFAULT '{}'"),
+        ("status_history", "TEXT NOT NULL DEFAULT '[]'"),
+        ("interview_feedback", "TEXT NOT NULL DEFAULT '{}'"),
     ];
     for (col, ty) in additions {
         if !existing.iter().any(|c| c == col) {

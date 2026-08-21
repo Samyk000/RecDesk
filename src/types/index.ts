@@ -73,6 +73,27 @@ export interface JobWithStats extends Job {
   client_name: string;
 }
 
+export interface StatusHistoryEntry {
+  id: string;
+  from_status: string;
+  to_status: string;
+  changed_at: string;
+  submitted_at?: string | null;
+  interview_at?: string | null;
+  placed_at?: string | null;
+  rejection_reason?: string | null;
+}
+
+export interface InterviewFeedback {
+  q1_duration_and_vibe?: string;
+  q2_topics?: string[];
+  q3_scope_and_team?: string;
+  q4_availability_to_start?: string;
+  q5_competing_interviews_and_rating?: string;
+  q6_offer_acceptance_permission?: string;
+  q7_decision_timeline?: string;
+}
+
 export interface Candidate {
   id: string;
   job_id: string;
@@ -97,6 +118,8 @@ export interface Candidate {
   rejection_reason?: string | null;
   screening_answers?: string | null;
   submission_details?: string | null;
+  status_history?: string | null;
+  interview_feedback?: string | null;
   date_added: string;
   last_updated: string;
 }
@@ -124,6 +147,8 @@ export interface CandidateInput {
   rejection_reason?: string | null;
   screening_answers?: string | null;
   submission_details?: string | null;
+  status_history?: string | null;
+  interview_feedback?: string | null;
 }
 
 export interface CandidateWithJob extends Candidate {
@@ -151,6 +176,8 @@ export interface CandidatePatch {
   rejection_reason?: string | null;
   screening_answers?: string | null;
   submission_details?: string | null;
+  status_history?: string | null;
+  interview_feedback?: string | null;
 }
 
 export interface StatusCount {
@@ -178,6 +205,23 @@ export interface SearchResults {
   jobs: JobWithStats[];
   candidates: CandidateWithJob[];
 }
+
+export interface ExportEnvelope {
+  version: number;
+  exported_at: string;
+  clients: Client[];
+  jobs: Job[];
+  candidates: Candidate[];
+}
+
+export type CandidateSubmissionStatus =
+  | "sourced"
+  | "in_touch"
+  | "submitted"
+  | "interview"
+  | "placed"
+  | "not_interested"
+  | "rejected";
 
 export interface ImportSummary {
   clients: number;

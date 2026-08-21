@@ -53,6 +53,10 @@ pub fn get_client(state: State<'_, AppState>, id: String) -> AppResult<ClientWit
 
 #[tauri::command]
 pub fn create_client(state: State<'_, AppState>, input: ClientInput) -> AppResult<Client> {
+    let name = input.name.trim().to_string();
+    if name.is_empty() {
+        return Err("Client name cannot be empty".into());
+    }
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let id = new_id();
     let ts = now();
@@ -61,7 +65,7 @@ pub fn create_client(state: State<'_, AppState>, input: ClientInput) -> AppResul
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?8, ?9)",
         params![
             id,
-            input.name,
+            name,
             input.company,
             input.email,
             input.hiring_manager,
@@ -85,11 +89,15 @@ pub fn update_client(
     id: String,
     input: ClientInput,
 ) -> AppResult<Client> {
+    let name = input.name.trim().to_string();
+    if name.is_empty() {
+        return Err("Client name cannot be empty".into());
+    }
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let affected = conn.execute(
         "UPDATE clients SET name = ?1, company = ?2, email = ?3, hiring_manager = ?4, address = ?5, notes = ?6, updated_at = ?7 WHERE id = ?8",
         params![
-            input.name,
+            name,
             input.company,
             input.email,
             input.hiring_manager,

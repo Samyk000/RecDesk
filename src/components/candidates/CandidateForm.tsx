@@ -137,35 +137,35 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
 
           {!jobId && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Role *</Label>
                 <Select value={selectedRole} onValueChange={(v) => { setSelectedRole(v); setSelectedClient(""); }}>
-                  <SelectTrigger className="h-8 text-[13px]">
+                  <SelectTrigger className="h-8 text-[13px] min-w-0 w-full" title={selectedRole || undefined}>
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
                   <SelectContent>
                     {roles.map((r) => (
-                      <SelectItem key={r.title} value={r.title}>
-                        {r.title}
+                      <SelectItem key={r.title} value={r.title} title={r.title}>
+                        <span className="truncate block">{r.title}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
+              <div className="min-w-0 space-y-1.5">
                 <Label>Client *</Label>
                 <Select
                   value={selectedClient}
                   onValueChange={setSelectedClient}
                   disabled={!selectedRole}
                 >
-                  <SelectTrigger className="h-8 text-[13px]">
+                  <SelectTrigger className="h-8 text-[13px] min-w-0 w-full" title={selectedClient || undefined}>
                     <SelectValue placeholder={selectedRole ? "Select client" : "Select role first"} />
                   </SelectTrigger>
                   <SelectContent>
                     {clientsForRole.map((c) => (
-                      <SelectItem key={c.client_name} value={c.client_name}>
-                        {c.client_name}
+                      <SelectItem key={c.client_name} value={c.client_name} title={c.client_name}>
+                        <span className="truncate block">{c.client_name}</span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -175,22 +175,22 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Email</Label>
               <Input name="email" type="email" placeholder="name@email.com" />
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Phone</Label>
               <Input name="phone" placeholder="+1 (555) 000-0000" />
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Location</Label>
               <Input name="location" placeholder="Boston, MA" />
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>LinkedIn</Label>
               <Input name="linkedin" placeholder="https://linkedin.com/in/…" />
             </div>

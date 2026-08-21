@@ -11,7 +11,7 @@ const SelectValue = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Value
     ref={ref}
-    className={cn("min-w-0 flex-1 truncate", className)}
+    className={cn("min-w-0 flex-1 truncate text-left block", className)}
     {...props}
   />
 ));
@@ -24,14 +24,14 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-8 w-full cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none transition-all hover:border-border-strong focus:border-primary/60 focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50",
+      "flex h-8 w-full min-w-0 cursor-pointer items-center justify-between gap-2 rounded-md border border-border bg-surface px-3 text-sm text-fg outline-none transition-all hover:border-border-strong focus:border-primary/60 focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1 [&>span]:truncate [&>span]:min-w-0 [&>span]:text-left",
       className,
     )}
     {...props}
   >
     {children}
     <SelectPrimitive.Icon asChild>
-      <CaretDown className="h-4 w-4 text-fg-subtle" />
+      <CaretDown className="h-4 w-4 shrink-0 text-fg-subtle" />
     </SelectPrimitive.Icon>
   </SelectPrimitive.Trigger>
 ));
@@ -46,7 +46,7 @@ const SelectContent = React.forwardRef<
       ref={ref}
       position={position}
       className={cn(
-        "z-50 max-h-[min(24rem,var(--radix-select-content-available-height))] min-w-[8rem] overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-popover animate-scale-in",
+        "z-50 max-h-[min(24rem,var(--radix-select-content-available-height))] min-w-[8rem] max-w-[min(26rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-surface p-1 shadow-popover animate-scale-in",
         position === "popper" && "data-[side=bottom]:translate-y-1",
         className,
       )}
@@ -65,12 +65,12 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center whitespace-nowrap rounded-md px-2 py-1.5 text-[13px] text-fg outline-none transition-colors data-[highlighted]:bg-surface-hover data-[state=checked]:bg-primary/10 data-[state=checked]:font-medium",
+      "relative flex cursor-default select-none items-center rounded-md px-2 py-1.5 text-[13px] text-fg outline-none transition-colors data-[highlighted]:bg-surface-hover data-[state=checked]:bg-primary/10 data-[state=checked]:font-medium min-w-0 max-w-full [&>span]:truncate [&>span]:min-w-0",
       className,
     )}
     {...props}
   >
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    <SelectPrimitive.ItemText className="truncate block min-w-0">{children}</SelectPrimitive.ItemText>
   </SelectPrimitive.Item>
 ));
 SelectItem.displayName = "SelectItem";

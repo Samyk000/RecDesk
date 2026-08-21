@@ -7,11 +7,21 @@ use crate::models::{Candidate, DashboardStats, JobWithStats, StatusCount};
 use crate::rows::row_to_candidate;
 use crate::AppState;
 
-fn status_counts(conn: &rusqlite::Connection, table: &str, status_col: &str) -> AppResult<Vec<StatusCount>> {
-    let sql = format!(
-        "SELECT {status_col} AS status, COUNT(*) AS count FROM {table} GROUP BY {status_col} ORDER BY count DESC"
-    );
-    let mut stmt = conn.prepare(&sql)?;
+enum StatusTarget {
+    CandidatesBySubmissionStatus,
+    JobsByStatus,
+}
+
+fn status_counts(conn: &rusqlite::Connection, target: StatusTarget) -> AppResult<Vec<StatusCount>> {
+    let sql = match target {
+        StatusTarget::CandidatesBySubmissionStatus => {
+            "SELECT submission_status AS status, COUNT(*) AS count FROM candidates GROUP BY submission_status ORDER BY count DESC"
+        }
+        StatusTarget::JobsByStatus => {
+            "SELECT status AS status, COUNT(*) AS count FROM jobs GROUP BY status ORDER BY count DESC"
+        }
+    };
+    let mut stmt = conn.prepare(sql)?;
     let rows = stmt
         .query_map([], |row| {
             Ok(StatusCount {
@@ -56,8 +66,8 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         |r| r.get(0),
     )?;
 
-    let candidates_by_status = status_counts(&conn, "candidates", "submission_status")?;
-    let jobs_by_status = status_counts(&conn, "jobs", "status")?;
+    let candidates_by_status = status_counts(&conn, StatusTarget::CandidatesBySubmissionStatus)?;
+    let jobs_by_status = status_counts(&conn, StatusTarget::JobsByStatus)?;
 
     let recent_jobs: Vec<JobWithStats> = {
         let mut stmt = conn.prepare(&format!("{JOB_SELECT} WHERE j.status = 'active' ORDER BY j.updated_at DESC LIMIT 8"))?;

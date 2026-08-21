@@ -12,6 +12,7 @@ import {
   ListChecks,
   CircleNotch,
   Paperclip,
+  PhoneCall,
   Trash,
   X,
 } from "@phosphor-icons/react";
@@ -36,9 +37,15 @@ import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
 import { ScreeningQADialog } from "./ScreeningQADialog";
 import { SubmissionDetailsDialog } from "./SubmissionDetailsDialog";
+import {
+  InterviewFeedbackDialog,
+  hasInterviewFeedback,
+} from "./InterviewFeedbackDialog";
+import { StatusHistoryTrail } from "./StatusHistoryTrail";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { errorMessage, formatDateAbbr, nameInitials } from "../../lib/utils";
+import { errorMessage, formatDateAbbr, nameInitials, cn } from "../../lib/utils";
 import { toCandidateInput } from "../../lib/candidateUtils";
+import { getUpdatedStatusHistory } from "../../lib/statusHistoryUtils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput, CandidateWithJob } from "../../types";
 
@@ -80,6 +87,7 @@ function CandidatePanelBody({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showScreeningQA, setShowScreeningQA] = useState(false);
   const [showSubmissionDetails, setShowSubmissionDetails] = useState(false);
+  const [showInterviewFeedback, setShowInterviewFeedback] = useState(false);
   const [saving, setSaving] = useState(false);
 
   // Show "Details" icon once moved to in_touch or if details have been recorded
@@ -88,8 +96,23 @@ function CandidatePanelBody({
   );
   const showDetailsIcon = candidate.submission_status !== "sourced" || hasSubmissionDetails;
 
+  // Show "Feedback Call" icon when on interview status OR if feedback was recorded
+  const hasFeedbackRecorded = hasInterviewFeedback(candidate);
+  const showFeedbackIcon = candidate.submission_status === "interview" || hasFeedbackRecorded;
+
   async function saveField(patch: Partial<CandidateInput>) {
     setSaving(true);
+
+    // If status is transitioning, compute updated status history trail
+    if (patch.submission_status && patch.submission_status !== candidate.submission_status) {
+      patch.status_history = getUpdatedStatusHistory(candidate, patch.submission_status, {
+        submitted_at: patch.submitted_at ?? candidate.submitted_at,
+        interview_at: patch.interview_at ?? candidate.interview_at,
+        placed_at: patch.placed_at ?? candidate.placed_at,
+        rejection_reason: patch.rejection_reason ?? candidate.rejection_reason,
+      });
+    }
+
     try {
       await update.mutateAsync({
         id: candidate.id,
@@ -185,6 +208,27 @@ function CandidatePanelBody({
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {showFeedbackIcon && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className={cn(
+                    "h-8 w-8 hover:bg-primary/10",
+                    hasFeedbackRecorded
+                      ? "text-primary font-semibold"
+                      : "text-fg-subtle hover:text-primary",
+                  )}
+                  onClick={() => setShowInterviewFeedback(true)}
+                  aria-label="Interview Feedback Call"
+                >
+                  <PhoneCall className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Interview Feedback Call</TooltipContent>
+            </Tooltip>
+          )}
           {showDetailsIcon && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -342,7 +386,7 @@ function CandidatePanelBody({
 
         {/* Row 4: Resume, Status */}
         <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1.5">
+          <div className="min-w-0 space-y-1.5">
             <p className="text-xs text-fg-subtle">Resume</p>
             {candidate.resume_path ? (
               <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
@@ -432,6 +476,9 @@ function CandidatePanelBody({
           </div>
         </div>
 
+        {/* Status History Trail */}
+        <StatusHistoryTrail rawHistory={candidate.status_history} />
+
         {/* Comments */}
         <div className="mt-2 space-y-1.5 border-t border-border pt-6">
           <p className="text-xs text-fg-subtle">Comments</p>
@@ -443,6 +490,12 @@ function CandidatePanelBody({
           />
         </div>
       </div>
+
+      <InterviewFeedbackDialog
+        candidateId={candidate.id}
+        open={showInterviewFeedback}
+        onOpenChange={setShowInterviewFeedback}
+      />
 
       <ScreeningQADialog
         candidateId={candidate.id}
@@ -470,7 +523,7 @@ function InlineField({
 }) {
   const ref = useRef<HTMLInputElement>(null);
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <p className="text-xs text-fg-subtle">{label}</p>
       <Input
         ref={ref}
@@ -492,7 +545,7 @@ function NameField({ value, onSave }: { value: string; onSave: (v: string) => vo
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
   return (
-    <div className="space-y-1.5">
+    <div className="min-w-0 space-y-1.5">
       <p className="text-xs text-fg-subtle">Name</p>
       <Input
         value={draft}

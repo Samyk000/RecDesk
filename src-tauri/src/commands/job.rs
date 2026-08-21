@@ -81,10 +81,28 @@ pub fn get_job(state: State<'_, AppState>, id: String) -> AppResult<JobWithStats
 
 #[tauri::command]
 pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobWithStats> {
+    let client_id = input.client_id.trim().to_string();
+    if client_id.is_empty() {
+        return Err("Client is required".into());
+    }
+    let job_id = input.job_id.trim().to_string();
+    if job_id.is_empty() {
+        return Err("Job ID cannot be empty".into());
+    }
+    let title = input.title.trim().to_string();
+    if title.is_empty() {
+        return Err("Job title cannot be empty".into());
+    }
+    let status_raw = input.status.as_deref().unwrap_or("active").trim().to_lowercase();
+    let status = match status_raw.as_str() {
+        "on_hold" => "on_hold".to_string(),
+        "closed" => "closed".to_string(),
+        _ => "active".to_string(),
+    };
+
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let id = new_id();
     let ts = now();
-    let status = input.status.unwrap_or_else(|| "active".to_string());
     let closed_at = if status == "closed" {
         input.closed_at.or_else(|| Some(now()))
     } else {
@@ -98,9 +116,9 @@ pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobW
          VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?16, ?17, ?18)",
         params![
             id,
-            input.client_id,
-            input.job_id,
-            input.title,
+            client_id,
+            job_id,
+            title,
             input.location,
             input.work_model,
             input.contract_type,
@@ -122,8 +140,26 @@ pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobW
 
 #[tauri::command]
 pub fn update_job(state: State<'_, AppState>, id: String, input: JobInput) -> AppResult<JobWithStats> {
+    let client_id = input.client_id.trim().to_string();
+    if client_id.is_empty() {
+        return Err("Client is required".into());
+    }
+    let job_id = input.job_id.trim().to_string();
+    if job_id.is_empty() {
+        return Err("Job ID cannot be empty".into());
+    }
+    let title = input.title.trim().to_string();
+    if title.is_empty() {
+        return Err("Job title cannot be empty".into());
+    }
+    let status_raw = input.status.as_deref().unwrap_or("active").trim().to_lowercase();
+    let status = match status_raw.as_str() {
+        "on_hold" => "on_hold".to_string(),
+        "closed" => "closed".to_string(),
+        _ => "active".to_string(),
+    };
+
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let status = input.status.unwrap_or_else(|| "active".to_string());
     let closed_at = if status == "closed" {
         input.closed_at.or_else(|| Some(now()))
     } else {
@@ -137,9 +173,9 @@ pub fn update_job(state: State<'_, AppState>, id: String, input: JobInput) -> Ap
                          updated_at = ?15, closed_at = ?16
          WHERE id = ?17",
         params![
-            input.client_id,
-            input.job_id,
-            input.title,
+            client_id,
+            job_id,
+            title,
             input.location,
             input.work_model,
             input.contract_type,

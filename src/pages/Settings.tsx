@@ -1,19 +1,32 @@
 import { useState } from "react";
-import { Database, DownloadSimple, Info, Monitor, Moon, Sun, UploadSimple } from "@phosphor-icons/react";
+import {
+  Database,
+  DownloadSimple,
+  FileXls,
+  Info,
+  Monitor,
+  Moon,
+  ShieldCheck,
+  Sun,
+  UploadSimple,
+} from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
-import { readTextFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { readFile, readTextFile, writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../store/theme";
 import { useProfile } from "../store/profile";
 import { US_TIME_ZONES } from "../lib/constants";
-import { apiData } from "../lib/api";
+import { apiClients, apiData, apiJobs } from "../lib/api";
 import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Switch } from "../components/ui/switch";
 import { errorMessage, cn } from "../lib/utils";
-import type { ThemeMode, ThemeName } from "../types";
+import { generateExcelWorkbook, generateSampleExcelTemplate } from "../lib/excelExport";
+import { parseExcelImport, type ExcelImportValidation } from "../lib/excelImport";
+import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
+import type { ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -39,19 +52,28 @@ export function Settings() {
   const { name, setName, timeZones, setTimeZones } = useProfile();
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [excelValidation, setExcelValidation] = useState<ExcelImportValidation | null>(null);
 
-  async function exportData() {
-    setBusy("export");
+  function invalidateAllDataQueries() {
+    qc.invalidateQueries({ queryKey: ["clients"] });
+    qc.invalidateQueries({ queryKey: ["jobs"] });
+    qc.invalidateQueries({ queryKey: ["candidates"] });
+    qc.invalidateQueries({ queryKey: ["dashboard"] });
+    qc.invalidateQueries({ queryKey: ["globalSearch"] });
+  }
+
+  async function exportJsonData() {
+    setBusy("export-json");
     try {
       const json = await apiData.export();
       const path = await saveDialog({
-        title: "Export data",
-        defaultPath: `recruiting-backup-${new Date().toISOString().slice(0, 10)}.json`,
+        title: "Export JSON backup",
+        defaultPath: `recdesk-backup-${new Date().toISOString().slice(0, 10)}.json`,
         filters: [{ name: "JSON", extensions: ["json"] }],
       });
       if (!path) return;
       await writeTextFile(path, json);
-      toast.success("Data exported");
+      toast.success("JSON backup exported");
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -59,24 +81,97 @@ export function Settings() {
     }
   }
 
-  async function importData() {
+  async function exportExcelData() {
+    setBusy("export-excel");
+    try {
+      const json = await apiData.export();
+      const envelope: ExportEnvelope = JSON.parse(json);
+      const excelBytes = generateExcelWorkbook(envelope);
+
+      const path = await saveDialog({
+        title: "Export Excel workbook",
+        defaultPath: `recdesk-export-${new Date().toISOString().slice(0, 10)}.xlsx`,
+        filters: [{ name: "Excel Workbook", extensions: ["xlsx"] }],
+      });
+      if (!path) return;
+      await writeFile(path, excelBytes);
+      toast.success("Excel workbook exported");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function downloadExcelTemplate() {
+    setBusy("template");
+    try {
+      const templateBytes = generateSampleExcelTemplate();
+      const path = await saveDialog({
+        title: "Save sample Excel template",
+        defaultPath: `recdesk-sample-template.xlsx`,
+        filters: [{ name: "Excel Workbook", extensions: ["xlsx"] }],
+      });
+      if (!path) return;
+      await writeFile(path, templateBytes);
+      toast.success("Sample Excel template saved");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleImportClick() {
     setBusy("import");
     try {
       const path = await openDialog({
-        title: "Import data",
+        title: "Import data (JSON or Excel)",
         multiple: false,
-        filters: [{ name: "JSON", extensions: ["json"] }],
+        filters: [
+          { name: "Supported Data Files", extensions: ["json", "xlsx", "xls"] },
+          { name: "Excel Workbook", extensions: ["xlsx", "xls"] },
+          { name: "JSON Backup", extensions: ["json"] },
+        ],
       });
       if (!path || typeof path !== "string") return;
-      const json = await readTextFile(path);
+
+      const lower = path.toLowerCase();
+      if (lower.endsWith(".xlsx") || lower.endsWith(".xls")) {
+        // Read Excel binary
+        const bytes = await readFile(path);
+        const [existingClients, existingJobs] = await Promise.all([
+          apiClients.list().catch(() => []),
+          apiJobs.list().catch(() => []),
+        ]);
+        const validation = parseExcelImport(bytes, existingClients, existingJobs);
+        setExcelValidation(validation);
+      } else {
+        // Read JSON text
+        const json = await readTextFile(path);
+        const summary = await apiData.import(json, replace);
+        invalidateAllDataQueries();
+        toast.success(
+          `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
+        );
+      }
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function confirmExcelImport() {
+    if (!excelValidation) return;
+    setBusy("confirming-excel");
+    try {
+      const json = JSON.stringify(excelValidation.envelope);
       const summary = await apiData.import(json, replace);
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["jobs"] });
-      qc.invalidateQueries({ queryKey: ["candidates"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+      invalidateAllDataQueries();
+      setExcelValidation(null);
       toast.success(
-        `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
+        `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates from Excel`,
       );
     } catch (err) {
       toast.error(errorMessage(err));
@@ -205,55 +300,140 @@ export function Settings() {
           </section>
         </div>
 
-        <section className="rounded-xl border border-border bg-surface p-6 lg:col-span-2">
-          <h2 className="font-display mb-1 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
-            <Database className="h-4 w-4 text-fg-subtle" />
-            Data
-          </h2>
-          <p className="mb-4 text-xs text-fg-subtle">
-            Your data is stored locally in a SQLite database on this device.
-          </p>
+        <section className="rounded-xl border border-border bg-surface p-5 lg:col-span-2 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
+            <div>
+              <h2 className="font-display flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
+                <Database className="h-4 w-4 text-primary" />
+                Data Management
+              </h2>
+              <p className="mt-0.5 text-xs text-fg-subtle">
+                Local-first private SQLite storage with backup, export, and migration capabilities.
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              100% Offline & Private
+            </span>
+          </div>
 
-          <div className="space-y-3">
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
-              <div className="flex items-center gap-3">
-                <DownloadSimple className="h-4 w-4 text-fg-subtle" />
-                <div>
-                  <p className="text-[13px] font-medium text-fg">Export backup</p>
-                  <p className="text-xs text-fg-subtle">Save all data to a JSON file.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+            {/* Export Group */}
+            <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface-hover/30 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                  <DownloadSimple className="h-3.5 w-3.5 text-primary" />
+                  Export & Backups
+                </span>
+                <span className="text-[10.5px] text-fg-subtle">Machine & Sheets</span>
+              </div>
+
+              <div className="space-y-2">
+                {/* Export JSON */}
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-fg truncate">JSON Snapshot</p>
+                    <p className="text-[11px] text-fg-subtle truncate">Raw backup for migration</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs shrink-0 cursor-pointer"
+                    onClick={exportJsonData}
+                    disabled={busy !== null}
+                  >
+                    {busy === "export-json" ? "Exporting…" : "Export JSON"}
+                  </Button>
+                </div>
+
+                {/* Export Excel */}
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-fg truncate">Excel Workbook</p>
+                    <p className="text-[11px] text-fg-subtle truncate">Multi-sheet .xlsx tables</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs shrink-0 cursor-pointer"
+                    onClick={exportExcelData}
+                    disabled={busy !== null}
+                  >
+                    <FileXls className="h-3.5 w-3.5 text-emerald-500 mr-1" />
+                    {busy === "export-excel" ? "Exporting…" : "Export Excel"}
+                  </Button>
                 </div>
               </div>
-              <Button size="sm" variant="outline" onClick={exportData} disabled={busy !== null}>
-                {busy === "export" ? "Exporting…" : "Export"}
-              </Button>
             </div>
 
-            <div className="flex items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
-              <div className="flex items-center gap-3">
-                <UploadSimple className="h-4 w-4 text-fg-subtle" />
-                <div>
-                  <p className="text-[13px] font-medium text-fg">Import backup</p>
-                  <p className="text-xs text-fg-subtle">Load data from a JSON file.</p>
-                </div>
+            {/* Import & Template Group */}
+            <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface-hover/30 p-3.5 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                  <UploadSimple className="h-3.5 w-3.5 text-primary" />
+                  Import & Templates
+                </span>
+                <span className="text-[10.5px] text-fg-subtle">JSON & Excel</span>
               </div>
-              <Button size="sm" variant="outline" onClick={importData} disabled={busy !== null}>
-                {busy === "import" ? "Importing…" : "Import"}
-              </Button>
-            </div>
 
-            <label className="flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-surface-hover/40 px-4 py-3 transition-colors duration-150 hover:bg-surface-hover/70">
-              <div className="flex items-center gap-3">
-                <Database className="h-4 w-4 text-fg-subtle" />
-                <div>
-                  <p className="text-[13px] font-medium text-fg">Replace on import</p>
-                  <p className="text-xs text-fg-subtle">Delete existing data before importing.</p>
+              <div className="space-y-2">
+                {/* Import File */}
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-fg truncate">Import Data File</p>
+                    <p className="text-[11px] text-fg-subtle truncate">Load .json or .xlsx file</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="primary"
+                    className="h-7 text-xs shrink-0 cursor-pointer"
+                    onClick={handleImportClick}
+                    disabled={busy !== null}
+                  >
+                    {busy === "import" ? "Reading…" : "Import File"}
+                  </Button>
+                </div>
+
+                {/* Sample Template */}
+                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-fg truncate">Sample Template</p>
+                    <p className="text-[11px] text-fg-subtle truncate">Pre-formatted Excel sheet</p>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-7 text-xs shrink-0 cursor-pointer"
+                    onClick={downloadExcelTemplate}
+                    disabled={busy !== null}
+                  >
+                    {busy === "template" ? "Generating…" : "Download"}
+                  </Button>
                 </div>
               </div>
-              <Switch checked={replace} onCheckedChange={setReplace} />
-            </label>
+            </div>
+          </div>
+
+          {/* Bottom Toolbar: Replace on Import toggle */}
+          <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-surface-hover/20 px-3.5 py-2.5">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-fg">Replace existing records on import</p>
+              <p className="text-[11px] text-fg-subtle">When enabled, existing database records will be erased prior to importing.</p>
+            </div>
+            <Switch checked={replace} onCheckedChange={setReplace} />
           </div>
         </section>
       </div>
+
+      {excelValidation && (
+        <ExcelImportPreviewDialog
+          validation={excelValidation}
+          replace={replace}
+          onConfirm={confirmExcelImport}
+          onClose={() => setExcelValidation(null)}
+          isImporting={busy === "confirming-excel"}
+        />
+      )}
     </div>
   );
 }

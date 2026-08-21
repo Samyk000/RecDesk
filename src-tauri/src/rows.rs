@@ -122,15 +122,17 @@ pub fn row_to_candidate(row: &Row) -> rusqlite::Result<Candidate> {
         screening_answers: row.get(22).unwrap_or(None),
         submission_details: row.get(23).unwrap_or(None),
         placed_at: row.get(24).unwrap_or(None),
+        status_history: row.get(25).unwrap_or(None),
+        interview_feedback: row.get(26).unwrap_or(None),
     })
 }
 
-// Candidate + job_title + job_id_ref + client_name (indices 25, 26, 27 appended)
+// Candidate + job_title + job_id_ref + client_name (indices 27, 28, 29 appended)
 pub fn row_to_candidate_with_job(row: &Row) -> rusqlite::Result<CandidateWithJob> {
     Ok(CandidateWithJob {
         candidate: row_to_candidate(row)?,
-        job_title: row.get(25)?,
-        job_id_ref: row.get(26)?,
-        client_name: row.get(27)?,
+        job_title: row.get(27)?,
+        job_id_ref: row.get(28)?,
+        client_name: row.get(29)?,
     })
 }

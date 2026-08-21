@@ -20,13 +20,15 @@ export function toCandidateInput(
     submission_status: candidate.submission_status ?? "sourced",
     interview_status: candidate.interview_status ?? null,
     client_feedback: candidate.client_feedback ?? null,
-    candidate_status: candidate.candidate_status ?? "in_process",
+    candidate_status: candidate.candidate_status ?? "active",
     submitted_at: candidate.submitted_at ?? null,
     interview_at: candidate.interview_at ?? null,
     placed_at: candidate.placed_at ?? null,
     rejection_reason: candidate.rejection_reason ?? null,
     screening_answers: candidate.screening_answers ?? null,
     submission_details: candidate.submission_details ?? null,
+    status_history: candidate.status_history ?? null,
+    interview_feedback: candidate.interview_feedback ?? null,
     ...patch,
   };
 }

@@ -116,7 +116,7 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
 
         <form id="job-form" onSubmit={handleSubmit} className="space-y-4 px-6 py-5">
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="job-form-client">Client</Label>
               <Select
                 value={clientId}
@@ -128,13 +128,13 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
                   }
                 }}
               >
-                <SelectTrigger id="job-form-client" className="w-full">
+                <SelectTrigger id="job-form-client" className="w-full min-w-0">
                   <SelectValue placeholder="Select client…" />
                 </SelectTrigger>
                 <SelectContent>
                   {clientsQuery.data?.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
+                    <SelectItem key={c.id} value={c.id} title={c.name}>
+                      <span className="truncate block">{c.name}</span>
                     </SelectItem>
                   ))}
                   <SelectItem value={NEW_CLIENT} className="text-primary">
@@ -146,7 +146,7 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="job-form-jobid">Job ID</Label>
               <Input id="job-form-jobid" name="job_id" placeholder="REQ-12345" defaultValue={job?.job_id} />
             </div>
@@ -164,14 +164,14 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
           </div>
 
           <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Location</Label>
               <Input name="location" placeholder="Boston, MA" defaultValue={job?.location ?? ""} />
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Work model</Label>
               <Select name="work_model" defaultValue={job?.work_model ?? ""}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
@@ -183,10 +183,10 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label>Engagement</Label>
               <Select name="contract_type" defaultValue={job?.contract_type ?? ""}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full min-w-0">
                   <SelectValue placeholder="Any" />
                 </SelectTrigger>
                 <SelectContent>
@@ -201,11 +201,11 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
           </div>
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="job-form-billrate">Bill rate</Label>
               <Input id="job-form-billrate" name="bill_rate" placeholder="e.g. $120/hr" />
             </div>
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label htmlFor="job-form-payrate">Pay rate</Label>
               <Input id="job-form-payrate" name="pay_rate" placeholder="e.g. $90/hr" />
             </div>

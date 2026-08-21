@@ -45,6 +45,10 @@ pub struct Candidate {
     pub screening_answers: Option<String>,
     #[serde(default)]
     pub submission_details: Option<String>,
+    #[serde(default)]
+    pub status_history: Option<String>,
+    #[serde(default)]
+    pub interview_feedback: Option<String>,
     pub date_added: String,
     pub last_updated: String,
 }
@@ -93,6 +97,10 @@ pub struct CandidateInput {
     pub screening_answers: Option<String>,
     #[serde(default)]
     pub submission_details: Option<String>,
+    #[serde(default)]
+    pub status_history: Option<String>,
+    #[serde(default)]
+    pub interview_feedback: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -404,8 +404,12 @@ export function Candidates() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.job_title}</td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.client_name}</td>
+                  <td className="max-w-[200px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.job_title}>
+                    <p className="truncate">{c.job_title}</p>
+                  </td>
+                  <td className="max-w-[160px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.client_name}>
+                    <p className="truncate">{c.client_name}</p>
+                  </td>
                   <td className="px-4 py-2.5">
                     <SubmissionStatusSelect
                       value={c.submission_status}

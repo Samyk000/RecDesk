@@ -13,7 +13,7 @@ pub const CANDIDATE_SELECT: &str = r#"
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
          c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details,
-         c.placed_at
+         c.placed_at, c.status_history, c.interview_feedback
   FROM candidates c
 "#;
 
@@ -23,7 +23,7 @@ pub const CANDIDATE_SELECT_JOIN: &str = r#"
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
          c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details,
-         c.placed_at,
+         c.placed_at, c.status_history, c.interview_feedback,
          j.title, j.job_id, cl.name
   FROM candidates c
   JOIN jobs j ON j.id = c.job_id
@@ -92,6 +92,15 @@ pub fn create_candidate(
     state: State<'_, AppState>,
     input: CandidateInput,
 ) -> AppResult<Candidate> {
+    let name = input.name.trim().to_string();
+    if name.is_empty() {
+        return Err("Candidate name cannot be empty".into());
+    }
+    let job_id = input.job_id.trim().to_string();
+    if job_id.is_empty() {
+        return Err("Job assignment is required".into());
+    }
+
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let id = new_id();
     let ts = now();
@@ -100,12 +109,13 @@ pub fn create_candidate(
                                  current_company, experience_years, resume_path, linkedin_url,
                                  recruiter_notes, match_score, submission_status, interview_status,
                                  client_feedback, candidate_status, submitted_at, interview_at,
-                                 rejection_reason, screening_answers, submission_details, placed_at, date_added, last_updated)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?24)",
+                                 rejection_reason, screening_answers, submission_details, placed_at,
+                                 status_history, interview_feedback, date_added, last_updated)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23, ?24, ?25, ?26, ?26)",
         params![
             id,
-            input.job_id,
-            input.name,
+            job_id,
+            name,
             input.email,
             input.phone,
             input.location,
@@ -126,6 +136,8 @@ pub fn create_candidate(
             input.screening_answers.unwrap_or_else(|| "{}".to_string()),
             input.submission_details.unwrap_or_else(|| "{}".to_string()),
             input.placed_at,
+            input.status_history.unwrap_or_else(|| "[]".to_string()),
+            input.interview_feedback.unwrap_or_else(|| "{}".to_string()),
             ts
         ],
     )?;
@@ -143,10 +155,19 @@ pub fn update_candidate(
     id: String,
     input: CandidateInput,
 ) -> AppResult<Candidate> {
+    let name_trimmed = input.name.trim().to_string();
+    if name_trimmed.is_empty() {
+        return Err("Candidate name cannot be empty".into());
+    }
+    let job_id_trimmed = input.job_id.trim().to_string();
+    if job_id_trimmed.is_empty() {
+        return Err("Job assignment is required".into());
+    }
+
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let affected = conn.execute(
-        "UPDATE candidates SET job_id = COALESCE(NULLIF(?1, ''), job_id),
-                               name = COALESCE(NULLIF(?2, ''), name),
+        "UPDATE candidates SET job_id = ?1,
+                               name = ?2,
                                email = ?3,
                                phone = ?4,
                                location = ?5,
@@ -167,11 +188,13 @@ pub fn update_candidate(
                                placed_at = ?20,
                                screening_answers = COALESCE(?21, screening_answers),
                                submission_details = COALESCE(?22, submission_details),
-                               last_updated = ?23
-         WHERE id = ?24",
+                               status_history = COALESCE(?23, status_history),
+                               interview_feedback = COALESCE(?24, interview_feedback),
+                               last_updated = ?25
+         WHERE id = ?26",
         params![
-            input.job_id,
-            input.name,
+            job_id_trimmed,
+            name_trimmed,
             input.email,
             input.phone,
             input.location,
@@ -192,6 +215,8 @@ pub fn update_candidate(
             input.placed_at,
             input.screening_answers,
             input.submission_details,
+            input.status_history,
+            input.interview_feedback,
             now(),
             id
         ],
@@ -227,6 +252,10 @@ pub struct CandidatePatch {
     pub placed_at: Option<String>,
     #[serde(default)]
     pub rejection_reason: Option<String>,
+    #[serde(default)]
+    pub status_history: Option<String>,
+    #[serde(default)]
+    pub interview_feedback: Option<String>,
 }
 
 #[tauri::command]
@@ -274,7 +303,9 @@ pub fn bulk_update_candidates_sql(
                                     WHEN ?1 IS NULL AND ?9 IS NOT NULL THEN ?9
                                     ELSE placed_at
                                 END,
-                                last_updated = ?10
+                                status_history = COALESCE(?10, status_history),
+                                interview_feedback = COALESCE(?11, interview_feedback),
+                                last_updated = ?12
          WHERE id IN ({})",
         placeholders.join(",")
     );
@@ -288,6 +319,8 @@ pub fn bulk_update_candidates_sql(
         Box::new(patch.interview_at.clone()),
         Box::new(patch.rejection_reason.clone()),
         Box::new(patch.placed_at.clone()),
+        Box::new(patch.status_history.clone()),
+        Box::new(patch.interview_feedback.clone()),
         Box::new(now()),
     ];
     for id in ids {

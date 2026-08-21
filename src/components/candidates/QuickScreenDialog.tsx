@@ -88,16 +88,18 @@ export function QuickScreenDialog({ open, onOpenChange, defaultJobId }: Props) {
           </DialogHeader>
 
           <form onSubmit={handleStart} className="space-y-4">
-            <div className="space-y-1.5">
+            <div className="min-w-0 space-y-1.5">
               <Label className="text-xs">Job Position *</Label>
               <Select value={selectedJobId} onValueChange={setJobId}>
-                <SelectTrigger className="h-9 w-full text-xs">
+                <SelectTrigger className="h-9 w-full min-w-0 text-xs">
                   <SelectValue placeholder={jobsLoading ? "Loading jobs…" : "Select a job…"} />
                 </SelectTrigger>
-                <SelectContent className="max-h-60">
+                <SelectContent className="max-h-60 max-w-[min(26rem,calc(100vw-2rem))]">
                   {jobs?.map((j) => (
-                    <SelectItem key={j.id} value={j.id} className="text-xs">
-                      {j.title} — <span className="text-fg-muted">{j.client_name}</span> ({j.job_id})
+                    <SelectItem key={j.id} value={j.id} className="text-xs" title={`${j.title} — ${j.client_name} (${j.job_id})`}>
+                      <span className="truncate block">
+                        {j.title} — <span className="text-fg-muted">{j.client_name}</span> ({j.job_id})
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
