@@ -526,4 +526,70 @@ mod tests {
         let version2: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
         assert_eq!(version2, 2);
     }
+
+    #[test]
+    fn ai_resume_extraction_and_missing_field_safety() {
+        let full_resume = r#"
+Johnathan Doe
+Senior Full Stack Engineer
+Email: john.doe@example.com
+Phone: (555) 123-4567
+Location: Austin, TX
+LinkedIn: https://www.linkedin.com/in/johndoe
+
+Summary:
+Over 7 years of experience building scalable distributed web applications.
+Proficient in React, TypeScript, Node.js, Rust, Docker, and AWS.
+"#;
+
+        let profile = crate::commands::ai::extract_profile_from_text(full_resume);
+        assert_eq!(profile.name, "Johnathan Doe");
+        assert_eq!(profile.email.as_deref(), Some("john.doe@example.com"));
+        assert_eq!(profile.phone.as_deref(), Some("(555) 123-4567"));
+        assert_eq!(profile.location.as_deref(), Some("Austin, TX"));
+        assert_eq!(profile.linkedin_url.as_deref(), Some("https://www.linkedin.com/in/johndoe"));
+        assert_eq!(profile.experience_years, Some(7.0));
+        assert!(profile.skills.contains(&"React".to_string()));
+        assert!(profile.skills.contains(&"TypeScript".to_string()));
+        assert!(profile.skills.contains(&"Rust".to_string()));
+
+        // Test minimal resume with missing fields (edge case handling)
+        let minimal_resume = r#"
+Jane Smith
+Developer
+Contact: jane@testdev.io, +1-800-555-0199
+Skills: Python, PostgreSQL, Kubernetes
+3 yrs experience.
+"#;
+
+        let minimal_profile = crate::commands::ai::extract_profile_from_text(minimal_resume);
+        assert_eq!(minimal_profile.name, "Jane Smith");
+        assert_eq!(minimal_profile.current_role.as_deref(), Some("Developer"));
+        assert_eq!(minimal_profile.email.as_deref(), Some("jane@testdev.io"));
+        assert_eq!(minimal_profile.location, None);
+        assert_eq!(minimal_profile.linkedin_url, None);
+        assert_eq!(minimal_profile.experience_years, Some(3.0));
+        assert!(minimal_profile.skills.contains(&"Python".to_string()));
+        assert!(minimal_profile.skills.contains(&"PostgreSQL".to_string()));
+
+        // Test resume without explicit "Location:" or "Title:" prefixes (Header Pipe format)
+        let header_pipe_resume = r#"
+Sarah Jenkins
+Senior Product Manager
+sarah.jenkins@example.com | (555) 987-6543 | Seattle, WA | linkedin.com/in/sarahjenkins
+
+Professional Experience:
+8+ years leading cross-functional teams building enterprise software products.
+Skills: Agile, Scrum, Figma, SQL, UI/UX
+"#;
+        let pipe_profile = crate::commands::ai::extract_profile_from_text(header_pipe_resume);
+        assert_eq!(pipe_profile.name, "Sarah Jenkins");
+        assert_eq!(pipe_profile.current_role.as_deref(), Some("Senior Product Manager"));
+        assert_eq!(pipe_profile.email.as_deref(), Some("sarah.jenkins@example.com"));
+        assert_eq!(pipe_profile.phone.as_deref(), Some("(555) 987-6543"));
+        assert_eq!(pipe_profile.location.as_deref(), Some("Seattle, WA"));
+        assert_eq!(pipe_profile.linkedin_url.as_deref(), Some("https://linkedin.com/in/sarahjenkins"));
+        assert_eq!(pipe_profile.experience_years, Some(8.0));
+        assert!(pipe_profile.skills.contains(&"Figma".to_string()));
+    }
 }

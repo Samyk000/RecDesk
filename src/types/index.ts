@@ -241,3 +241,35 @@ export type ThemeName =
   | "emerald"
   | "amber"
   | "slate";
+
+export interface ExtractedCandidateProfile {
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  current_role?: string | null;
+  experience_years?: number | null;
+  skills: string[];
+  location?: string | null;
+  linkedin_url?: string | null;
+  notes_summary?: string | null;
+}
+
+export interface AiModelInfo {
+  id: string;
+  name: string;
+  tier: "fast" | "balanced" | "precision" | string;
+  size_mb: number;
+  description: string;
+  filename: string;
+  download_url: string;
+  is_downloaded: boolean;
+  file_path?: string | null;
+}
+
+export interface DownloadProgressPayload {
+  model_id: string;
+  downloaded_bytes: number;
+  total_bytes: number;
+  percentage: number;
+  is_complete: boolean;
+}

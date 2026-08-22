@@ -63,6 +63,12 @@ pub fn run() {
             // files
             commands::files::attach_resume,
             commands::files::remove_resume,
+            // ai resume auto-fill & model manager
+            commands::ai::get_ai_models_status,
+            commands::ai::download_ai_model,
+            commands::ai::cancel_ai_download,
+            commands::ai::delete_ai_model,
+            commands::ai::parse_resume_text,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

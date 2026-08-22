@@ -398,9 +398,9 @@ export function Candidates() {
                       </span>
                       <div className="min-w-0">
                         <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{c.name}</p>
-                        {c.email && (
-                          <p className="truncate text-[11px] text-fg-subtle">{c.email}</p>
-                        )}
+                        <p className="truncate text-[11px] text-fg-subtle">
+                          {c.current_title ? `${c.current_title}${c.email ? ` · ${c.email}` : ""}` : c.email || ""}
+                        </p>
                       </div>
                     </div>
                   </td>

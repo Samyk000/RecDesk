@@ -1,5 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
+  Check,
+  CircleNotch,
+  Cpu,
   Database,
   DownloadSimple,
   FileXls,
@@ -7,17 +10,28 @@ import {
   Monitor,
   Moon,
   ShieldCheck,
+  Sparkle,
   Sun,
+  Trash,
   UploadSimple,
+  X,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readFile, readTextFile, writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
+import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../store/theme";
 import { useProfile } from "../store/profile";
+import { useAiStore } from "../store/ai";
 import { US_TIME_ZONES } from "../lib/constants";
 import { apiClients, apiData, apiJobs } from "../lib/api";
+import {
+  useAiModels,
+  useDownloadAiModel,
+  useCancelAiDownload,
+  useDeleteAiModel,
+} from "../hooks/useQueries";
 import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -26,7 +40,7 @@ import { errorMessage, cn } from "../lib/utils";
 import { generateExcelWorkbook, generateSampleExcelTemplate } from "../lib/excelExport";
 import { parseExcelImport, type ExcelImportValidation } from "../lib/excelImport";
 import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
-import type { ExportEnvelope, ThemeMode, ThemeName } from "../types";
+import type { DownloadProgressPayload, ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -46,13 +60,46 @@ const colorThemes: { value: ThemeName; label: string; primary: string; bg: strin
   { value: "slate", label: "Slate", primary: "#0284c7", bg: "#edf2f7", darkBg: "#080c14" },
 ];
 
+function formatModelSize(mb: number): string {
+  if (mb >= 1000) {
+    return `${(mb / 1000).toFixed(2)} GB`;
+  }
+  return `${mb} MB`;
+}
+
 export function Settings() {
   const qc = useQueryClient();
   const { mode, theme, setMode, setTheme } = useTheme();
   const { name, setName, timeZones, setTimeZones } = useProfile();
+  const { selectedModelId, setSelectedModelId } = useAiStore();
+
+  const { data: aiModels, refetch: refetchModels } = useAiModels();
+  const downloadAiMutation = useDownloadAiModel();
+  const cancelAiMutation = useCancelAiDownload();
+  const deleteAiMutation = useDeleteAiModel();
+
+  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressPayload | null>(null);
+  const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
+
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [excelValidation, setExcelValidation] = useState<ExcelImportValidation | null>(null);
+
+  useEffect(() => {
+    const unlisten = listen<DownloadProgressPayload>("ai-download-progress", (event) => {
+      setDownloadProgress(event.payload);
+      if (event.payload.is_complete) {
+        setDownloadingModelId(null);
+        setDownloadProgress(null);
+        refetchModels();
+        toast.success("AI model downloaded and ready for offline use!");
+      }
+    });
+
+    return () => {
+      unlisten.then((fn) => fn());
+    };
+  }, [refetchModels]);
 
   function invalidateAllDataQueries() {
     qc.invalidateQueries({ queryKey: ["clients"] });
@@ -60,6 +107,44 @@ export function Settings() {
     qc.invalidateQueries({ queryKey: ["candidates"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["globalSearch"] });
+  }
+
+  async function handleDownloadModel(modelId: string) {
+    setDownloadingModelId(modelId);
+    setDownloadProgress(null);
+    try {
+      await downloadAiMutation.mutateAsync(modelId);
+      refetchModels();
+    } catch (err) {
+      setDownloadingModelId(null);
+      setDownloadProgress(null);
+      const msg = errorMessage(err);
+      if (!msg.includes("cancelled")) {
+        toast.error(`Download failed: ${msg}`);
+      }
+    }
+  }
+
+  async function handleCancelDownload(modelId: string) {
+    try {
+      await cancelAiMutation.mutateAsync(modelId);
+      setDownloadingModelId(null);
+      setDownloadProgress(null);
+      refetchModels();
+      toast.info("Model download cancelled");
+    } catch (err) {
+      toast.error(`Cancel failed: ${errorMessage(err)}`);
+    }
+  }
+
+  async function handleDeleteModel(modelId: string) {
+    try {
+      await deleteAiMutation.mutateAsync(modelId);
+      refetchModels();
+      toast.success("AI model removed from local disk");
+    } catch (err) {
+      toast.error(`Delete failed: ${errorMessage(err)}`);
+    }
   }
 
   async function exportJsonData() {
@@ -181,57 +266,59 @@ export function Settings() {
   }
 
   return (
-    <div className="px-6 pt-4">
-      <PageHeader title="Settings" subtitle="Preferences and data management" />
+    <div className="px-6 pt-4 pb-12">
+      <PageHeader title="Settings" subtitle="Preferences, on-device AI, and data management" />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-1">
-          <section className="rounded-xl border border-border bg-surface p-6">
-            <h2 className="font-display mb-1 text-[15px] font-semibold tracking-tight text-fg">Appearance</h2>
-            <p className="mb-4 text-xs text-fg-subtle">Choose how the app looks.</p>
-            <div className="flex flex-wrap items-center gap-2">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        {/* Left Column: Preferences */}
+        <div className="space-y-4 lg:col-span-1">
+          <section className="rounded-xl border border-border bg-surface p-4.5 space-y-4">
+            <div>
+              <h2 className="font-display text-[14.5px] font-semibold tracking-tight text-fg">Appearance</h2>
+              <p className="mt-0.5 text-xs text-fg-subtle">Interface mode and color themes.</p>
+            </div>
+
+            {/* Mode Selector */}
+            <div className="grid grid-cols-3 gap-1.5">
               {themeOptions.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => setMode(opt.value)}
                   className={cn(
-                    "flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-all duration-150 active:scale-[0.97]",
+                    "flex h-8 cursor-pointer items-center justify-center gap-1.5 rounded-lg border text-xs font-medium transition-all duration-150 active:scale-[0.97]",
                     mode === opt.value
-                      ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
+                      ? "border-primary/50 bg-primary/10 text-fg font-semibold shadow-raise"
                       : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
                   )}
                 >
-                  <opt.icon className="h-4 w-4" />
+                  <opt.icon className="h-3.5 w-3.5" />
                   {opt.label}
                 </button>
               ))}
             </div>
 
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Theme</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-2">
+            {/* Color Palette */}
+            <div className="grid grid-cols-3 gap-1.5">
               {colorThemes.map((opt) => (
                 <button
                   key={opt.value}
                   onClick={() => setTheme(opt.value)}
-                  title={`${opt.label} theme (applies to light and dark)`}
+                  title={`${opt.label} theme`}
                   className={cn(
-                    "flex h-9 cursor-pointer items-center justify-center gap-2 rounded-lg border px-3 text-[13px] font-medium transition-all duration-150 active:scale-[0.97]",
+                    "flex h-7.5 cursor-pointer items-center justify-center gap-1.5 rounded-lg border px-2 text-xs font-medium transition-all duration-150 active:scale-[0.97]",
                     theme === opt.value
-                      ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
+                      ? "border-primary/50 bg-primary/10 text-fg font-semibold shadow-raise"
                       : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
                   )}
                 >
                   <span
-                    className="relative h-4 w-4 shrink-0 overflow-hidden rounded-full border border-border-strong"
+                    className="relative h-3.5 w-3.5 shrink-0 overflow-hidden rounded-full border border-border-strong"
                     style={{
                       background: `linear-gradient(135deg, ${opt.bg} 50%, ${opt.darkBg} 50%)`,
                     }}
                   >
                     <span
-                      className="absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+                      className="absolute left-1/2 top-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
                       style={{ background: opt.primary }}
                     />
                   </span>
@@ -240,189 +327,332 @@ export function Settings() {
               ))}
             </div>
 
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Your name</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            <div className="mt-3">
+            {/* Compact Name Section */}
+            <div className="flex items-center justify-between gap-3 border-t border-border/70 pt-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-semibold text-fg">Your Name</p>
+                <p className="text-[11px] text-fg-subtle">Greeting on dashboard</p>
+              </div>
               <Input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Samy"
-                className="h-8 text-[13px]"
+                className="h-7.5 w-36 text-xs text-right"
               />
-              <p className="mt-1.5 text-[11px] text-fg-subtle">Shown in the greeting on your dashboard.</p>
             </div>
 
-            <div className="mt-4 flex items-center gap-2">
-              <span className="text-[11px] font-medium uppercase tracking-wider text-fg-subtle">Clock</span>
-              <span className="h-px flex-1 bg-border" />
-            </div>
-            <p className="mt-1.5 mb-3 text-[11px] text-fg-subtle">
-              Show US time zones on the dashboard header.
-            </p>
-            <div className="flex flex-wrap items-center gap-2">
-              {US_TIME_ZONES.map((tz) => {
-                const active = timeZones.includes(tz.zone);
-                return (
-                  <button
-                    key={tz.zone}
-                    onClick={() =>
-                      setTimeZones(
+            {/* Compact Clock Section */}
+            <div className="border-t border-border/70 pt-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-fg">Dashboard Clock</p>
+                <p className="text-[10.5px] text-fg-subtle">US time zones</p>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {US_TIME_ZONES.map((tz) => {
+                  const active = timeZones.includes(tz.zone);
+                  return (
+                    <button
+                      key={tz.zone}
+                      onClick={() =>
+                        setTimeZones(
+                          active
+                            ? timeZones.filter((z) => z !== tz.zone)
+                            : [...timeZones, tz.zone],
+                        )
+                      }
+                      className={cn(
+                        "flex h-7 cursor-pointer items-center justify-center rounded-md border text-[11px] font-medium transition-all duration-150 active:scale-[0.97]",
                         active
-                          ? timeZones.filter((z) => z !== tz.zone)
-                          : [...timeZones, tz.zone],
-                      )
-                    }
-                    className={cn(
-                      "flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm font-medium transition-all duration-150 active:scale-[0.97]",
-                      active
-                        ? "border-primary/50 bg-primary/10 text-fg shadow-raise"
-                        : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
-                    )}
-                  >
-                    {tz.label}
-                  </button>
-                );
-              })}
+                          ? "border-primary/50 bg-primary/10 text-primary font-semibold shadow-raise"
+                          : "border-border text-fg-muted hover:bg-surface-hover hover:text-fg",
+                      )}
+                    >
+                      {tz.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </section>
 
-          <section className="rounded-xl border border-border bg-surface p-6">
-            <h2 className="font-display mb-3 flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
-              <Info className="h-4 w-4 text-fg-subtle" />
-              About
+          <section className="rounded-xl border border-border bg-surface p-4 space-y-1">
+            <h2 className="font-display flex items-center gap-1.5 text-xs font-semibold text-fg">
+              <Info className="h-3.5 w-3.5 text-fg-subtle" />
+              About RecDesk
             </h2>
-            <p className="text-[13px] text-fg-muted">
-              RecDesk. A local-first personal recruiting tracker.
-              Built with Tauri, Rust, and React.
+            <p className="text-[11.5px] text-fg-muted leading-relaxed">
+              Local-first personal recruiting tracker. Built with Tauri, Rust, SQLite, and React.
             </p>
           </section>
         </div>
 
-        <section className="rounded-xl border border-border bg-surface p-5 lg:col-span-2 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-3">
-            <div>
-              <h2 className="font-display flex items-center gap-2 text-[15px] font-semibold tracking-tight text-fg">
-                <Database className="h-4 w-4 text-primary" />
-                Data Management
-              </h2>
-              <p className="mt-0.5 text-xs text-fg-subtle">
-                Local-first private SQLite storage with backup, export, and migration capabilities.
-              </p>
-            </div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              100% Offline & Private
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-            {/* Export Group */}
-            <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface-hover/30 p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                  <DownloadSimple className="h-3.5 w-3.5 text-primary" />
-                  Export & Backups
-                </span>
-                <span className="text-[10.5px] text-fg-subtle">Machine & Sheets</span>
+        {/* Right Column: AI & Data Management */}
+        <div className="space-y-4 lg:col-span-2">
+          {/* Local AI Resume Engine Card */}
+          <section className="rounded-xl border border-border bg-surface p-4.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
+              <div>
+                <h2 className="font-display flex items-center gap-2 text-[14.5px] font-semibold tracking-tight text-fg">
+                  <Sparkle className="h-4 w-4 text-primary" />
+                  Local AI Models
+                </h2>
+                <p className="mt-0.5 text-xs text-fg-subtle">
+                  Download offline language models to power future local AI features.
+                </p>
               </div>
-
-              <div className="space-y-2">
-                {/* Export JSON */}
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-fg truncate">JSON Snapshot</p>
-                    <p className="text-[11px] text-fg-subtle truncate">Raw backup for migration</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs shrink-0 cursor-pointer"
-                    onClick={exportJsonData}
-                    disabled={busy !== null}
-                  >
-                    {busy === "export-json" ? "Exporting…" : "Export JSON"}
-                  </Button>
-                </div>
-
-                {/* Export Excel */}
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-fg truncate">Excel Workbook</p>
-                    <p className="text-[11px] text-fg-subtle truncate">Multi-sheet .xlsx tables</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs shrink-0 cursor-pointer"
-                    onClick={exportExcelData}
-                    disabled={busy !== null}
-                  >
-                    <FileXls className="h-3.5 w-3.5 text-emerald-500 mr-1" />
-                    {busy === "export-excel" ? "Exporting…" : "Export Excel"}
-                  </Button>
-                </div>
-              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                <Cpu className="h-3.5 w-3.5" />
+                100% Offline & Private
+              </span>
             </div>
 
-            {/* Import & Template Group */}
-            <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface-hover/30 p-3.5 space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
-                  <UploadSimple className="h-3.5 w-3.5 text-primary" />
-                  Import & Templates
-                </span>
-                <span className="text-[10.5px] text-fg-subtle">JSON & Excel</span>
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+              {(aiModels || []).map((model) => {
+                const isSelected = selectedModelId === model.id;
+                const isDownloading = downloadingModelId === model.id;
 
-              <div className="space-y-2">
-                {/* Import File */}
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-fg truncate">Import Data File</p>
-                    <p className="text-[11px] text-fg-subtle truncate">Load .json or .xlsx file</p>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    className="h-7 text-xs shrink-0 cursor-pointer"
-                    onClick={handleImportClick}
-                    disabled={busy !== null}
+                return (
+                  <div
+                    key={model.id}
+                    onClick={() => setSelectedModelId(model.id)}
+                    className={cn(
+                      "flex flex-col justify-between rounded-lg border p-3 space-y-2 cursor-pointer transition-all duration-150",
+                      isSelected
+                        ? "border-primary/60 bg-primary/5 shadow-raise"
+                        : "border-border/70 bg-surface-hover/30 hover:border-border hover:bg-surface-hover/60",
+                    )}
                   >
-                    {busy === "import" ? "Reading…" : "Import File"}
-                  </Button>
+                    <div>
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[12.5px] font-semibold text-fg truncate">{model.name}</span>
+                        {model.tier === "balanced" && (
+                          <span className="rounded bg-primary/15 px-1.5 py-0.2 text-[9.5px] font-medium text-primary shrink-0">
+                            Recommended
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-[11px] text-fg-subtle leading-relaxed line-clamp-2">
+                        {model.description}
+                      </p>
+                    </div>
+
+                    <div className="pt-1.5 border-t border-border/40 flex items-center justify-between text-xs">
+                      <span className="text-[11px] font-medium text-fg-muted">
+                        {formatModelSize(model.size_mb)}
+                      </span>
+                      {model.is_downloaded ? (
+                        <div className="flex items-center gap-1">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                            <Check className="h-3 w-3" /> Ready
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDeleteModel(model.id);
+                            }}
+                            className="ml-1 text-fg-subtle hover:text-red-500 p-0.5 cursor-pointer"
+                            title="Delete model file from disk"
+                          >
+                            <Trash className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : isDownloading ? (
+                        <div className="flex items-center gap-1.5">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+                            <CircleNotch className="h-3 w-3 animate-spin" />
+                            {downloadProgress ? `${Math.round(downloadProgress.percentage)}%` : "Starting…"}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCancelDownload(model.id);
+                            }}
+                            className="rounded p-0.5 text-fg-subtle hover:bg-surface-hover hover:text-red-500 cursor-pointer"
+                            title="Cancel download"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 text-[11px] cursor-pointer"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDownloadModel(model.id);
+                          }}
+                        >
+                          Download
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Download progress bar with Cancel button */}
+            {downloadProgress && downloadingModelId && (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5 animate-fade-in">
+                <div className="flex items-center justify-between text-xs font-medium">
+                  <span className="text-primary flex items-center gap-1.5 truncate">
+                    <CircleNotch className="h-3.5 w-3.5 animate-spin shrink-0" />
+                    Downloading model to AppData…
+                  </span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-fg-subtle text-[11px]">
+                      {(downloadProgress.downloaded_bytes / (1024 * 1024)).toFixed(0)} MB /{" "}
+                      {(downloadProgress.total_bytes / (1024 * 1024)).toFixed(0)} MB (
+                      {Math.round(downloadProgress.percentage)}%)
+                    </span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 px-1.5 text-[10.5px] text-red-500 hover:bg-red-500/10 cursor-pointer"
+                      onClick={() => handleCancelDownload(downloadingModelId)}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+                  <div
+                    className="h-full bg-primary transition-all duration-200"
+                    style={{ width: `${downloadProgress.percentage}%` }}
+                  />
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* Data Management Section */}
+          <section className="rounded-xl border border-border bg-surface p-4.5 space-y-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
+              <div>
+                <h2 className="font-display flex items-center gap-2 text-[14.5px] font-semibold tracking-tight text-fg">
+                  <Database className="h-4 w-4 text-primary" />
+                  Data Management
+                </h2>
+                <p className="mt-0.5 text-xs text-fg-subtle">
+                  Local-first private SQLite storage with backup, export, and migration capabilities.
+                </p>
+              </div>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                <ShieldCheck className="h-3.5 w-3.5" />
+                100% Offline & Private
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {/* Export Group */}
+              <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface-hover/30 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                    <DownloadSimple className="h-3.5 w-3.5 text-primary" />
+                    Export & Backups
+                  </span>
+                  <span className="text-[10.5px] text-fg-subtle">Machine & Sheets</span>
                 </div>
 
-                {/* Sample Template */}
-                <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
-                  <div className="min-w-0 flex-1">
-                    <p className="font-medium text-fg truncate">Sample Template</p>
-                    <p className="text-[11px] text-fg-subtle truncate">Pre-formatted Excel sheet</p>
+                <div className="space-y-2">
+                  {/* Export JSON */}
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-fg truncate">JSON Snapshot</p>
+                      <p className="text-[11px] text-fg-subtle truncate">Raw backup for migration</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs shrink-0 cursor-pointer"
+                      onClick={exportJsonData}
+                      disabled={busy !== null}
+                    >
+                      {busy === "export-json" ? "Exporting…" : "Export JSON"}
+                    </Button>
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs shrink-0 cursor-pointer"
-                    onClick={downloadExcelTemplate}
-                    disabled={busy !== null}
-                  >
-                    {busy === "template" ? "Generating…" : "Download"}
-                  </Button>
+
+                  {/* Export Excel */}
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-fg truncate">Excel Workbook</p>
+                      <p className="text-[11px] text-fg-subtle truncate">Multi-sheet .xlsx tables</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs shrink-0 cursor-pointer"
+                      onClick={exportExcelData}
+                      disabled={busy !== null}
+                    >
+                      <FileXls className="h-3.5 w-3.5 text-emerald-500 mr-1" />
+                      {busy === "export-excel" ? "Exporting…" : "Export Excel"}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Import & Template Group */}
+              <div className="flex flex-col justify-between rounded-lg border border-border/70 bg-surface-hover/30 p-3 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-fg-subtle">
+                    <UploadSimple className="h-3.5 w-3.5 text-primary" />
+                    Import & Templates
+                  </span>
+                  <span className="text-[10.5px] text-fg-subtle">JSON & Excel</span>
+                </div>
+
+                <div className="space-y-2">
+                  {/* Import File */}
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-fg truncate">Import Data File</p>
+                      <p className="text-[11px] text-fg-subtle truncate">Load .json or .xlsx file</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      className="h-7 text-xs shrink-0 cursor-pointer"
+                      onClick={handleImportClick}
+                      disabled={busy !== null}
+                    >
+                      {busy === "import" ? "Reading…" : "Import File"}
+                    </Button>
+                  </div>
+
+                  {/* Sample Template */}
+                  <div className="flex items-center justify-between gap-2 rounded-md border border-border/50 bg-surface px-3 py-2 text-xs">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-fg truncate">Sample Template</p>
+                      <p className="text-[11px] text-fg-subtle truncate">Pre-formatted Excel sheet</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs shrink-0 cursor-pointer"
+                      onClick={downloadExcelTemplate}
+                      disabled={busy !== null}
+                    >
+                      {busy === "template" ? "Generating…" : "Download"}
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* Bottom Toolbar: Replace on Import toggle */}
-          <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-surface-hover/20 px-3.5 py-2.5">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-fg">Replace existing records on import</p>
-              <p className="text-[11px] text-fg-subtle">When enabled, existing database records will be erased prior to importing.</p>
+            {/* Bottom Toolbar: Replace on Import toggle */}
+            <div className="flex items-center justify-between gap-4 rounded-lg border border-border/70 bg-surface-hover/20 px-3.5 py-2.5">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-fg">Replace existing records on import</p>
+                <p className="text-[11px] text-fg-subtle">When enabled, existing database records will be erased prior to importing.</p>
+              </div>
+              <Switch checked={replace} onCheckedChange={setReplace} />
             </div>
-            <Switch checked={replace} onCheckedChange={setReplace} />
-          </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       {excelValidation && (

@@ -75,3 +75,13 @@ export const apiFiles = {
     call<Candidate>("attach_resume", { candidateId, sourcePath }),
   removeResume: (candidateId: string) => call<Candidate>("remove_resume", { candidateId }),
 };
+
+// ---- AI & Model Manager ----
+export const apiAi = {
+  getModels: () => call<import("../types").AiModelInfo[]>("get_ai_models_status"),
+  downloadModel: (modelId: string) => call<string>("download_ai_model", { modelId }),
+  cancelDownloadModel: (modelId: string) => call<boolean>("cancel_ai_download", { modelId }),
+  deleteModel: (modelId: string) => call<boolean>("delete_ai_model", { modelId }),
+  parseResume: (text: string) =>
+    call<import("../types").ExtractedCandidateProfile>("parse_resume_text", { text }),
+};

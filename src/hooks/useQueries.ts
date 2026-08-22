@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClients, apiCandidates, apiDashboard, apiFiles, apiJobs } from "../lib/api";
+import { apiClients, apiCandidates, apiDashboard, apiFiles, apiJobs, apiAi } from "../lib/api";
 import type {
   CandidateInput,
   CandidatePatch,
@@ -293,3 +293,47 @@ export function useDashboardStats() {
     queryFn: () => apiDashboard.stats(),
   });
 }
+
+// ---- AI Model Management & Resume Parsing ----
+export function useAiModels() {
+  return useQuery({
+    queryKey: ["aiModels"],
+    queryFn: () => apiAi.getModels(),
+  });
+}
+
+export function useDownloadAiModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (modelId: string) => apiAi.downloadModel(modelId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["aiModels"] });
+    },
+  });
+}
+
+export function useCancelAiDownload() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (modelId: string) => apiAi.cancelDownloadModel(modelId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["aiModels"] });
+    },
+  });
+}
+
+export function useDeleteAiModel() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (modelId: string) => apiAi.deleteModel(modelId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["aiModels"] });
+    },
+  });
+}
+
+export function useParseResume() {
+  return useMutation({
+    mutationFn: (text: string) => apiAi.parseResume(text),
+  });
+}
