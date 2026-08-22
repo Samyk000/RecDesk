@@ -38,26 +38,22 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
 
   async function handleSave() {
     const patch: CandidatePatch = { submission_status: status };
-    if (status === "submitted") {
-      patch.submitted_at = submittedAt || null;
+    if (status === "sourced") {
+      patch.submitted_at = null;
       patch.interview_at = null;
       patch.placed_at = null;
+      patch.rejection_reason = null;
+      patch.status_history = "[]";
+    } else if (status === "submitted") {
+      patch.submitted_at = submittedAt || null;
     } else if (status === "interview") {
       patch.interview_at = interviewAt || null;
-      patch.submitted_at = null;
-      patch.placed_at = null;
     } else if (status === "placed") {
       patch.placed_at = placedAt || null;
-      patch.submitted_at = null;
-      patch.interview_at = null;
-    } else {
-      patch.submitted_at = null;
-      patch.interview_at = null;
-      patch.placed_at = null;
     }
     if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
 
-    if (status !== candidate.submission_status) {
+    if (status !== "sourced" && status !== candidate.submission_status) {
       patch.status_history = getUpdatedStatusHistory(candidate, status, {
         submitted_at: status === "submitted" ? (submittedAt || null) : candidate.submitted_at,
         interview_at: status === "interview" ? (interviewAt || null) : candidate.interview_at,

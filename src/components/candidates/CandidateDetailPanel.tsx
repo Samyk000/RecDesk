@@ -45,7 +45,7 @@ import { StatusHistoryTrail } from "./StatusHistoryTrail";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials, cn } from "../../lib/utils";
 import { toCandidateInput } from "../../lib/candidateUtils";
-import { getUpdatedStatusHistory } from "../../lib/statusHistoryUtils";
+import { getUpdatedStatusHistory, syncMilestoneDatesInHistory } from "../../lib/statusHistoryUtils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput, CandidateWithJob } from "../../types";
 
@@ -106,10 +106,22 @@ function CandidatePanelBody({
     // If status is transitioning, compute updated status history trail
     if (patch.submission_status && patch.submission_status !== candidate.submission_status) {
       patch.status_history = getUpdatedStatusHistory(candidate, patch.submission_status, {
-        submitted_at: patch.submitted_at ?? candidate.submitted_at,
-        interview_at: patch.interview_at ?? candidate.interview_at,
-        placed_at: patch.placed_at ?? candidate.placed_at,
-        rejection_reason: patch.rejection_reason ?? candidate.rejection_reason,
+        submitted_at: patch.submitted_at !== undefined ? patch.submitted_at : candidate.submitted_at,
+        interview_at: patch.interview_at !== undefined ? patch.interview_at : candidate.interview_at,
+        placed_at: patch.placed_at !== undefined ? patch.placed_at : candidate.placed_at,
+        rejection_reason: patch.rejection_reason !== undefined ? patch.rejection_reason : candidate.rejection_reason,
+      });
+    } else if (
+      patch.submitted_at !== undefined ||
+      patch.interview_at !== undefined ||
+      patch.placed_at !== undefined ||
+      patch.rejection_reason !== undefined
+    ) {
+      patch.status_history = syncMilestoneDatesInHistory(candidate, {
+        submitted_at: patch.submitted_at,
+        interview_at: patch.interview_at,
+        placed_at: patch.placed_at,
+        rejection_reason: patch.rejection_reason,
       });
     }
 
@@ -119,6 +131,28 @@ function CandidatePanelBody({
         input: toCandidateInput(candidate, patch),
       });
       toast.success("Saved");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function resetToSourced() {
+    setSaving(true);
+    try {
+      await update.mutateAsync({
+        id: candidate.id,
+        input: toCandidateInput(candidate, {
+          submission_status: "sourced",
+          submitted_at: null,
+          interview_at: null,
+          placed_at: null,
+          rejection_reason: null,
+          status_history: "[]",
+        }),
+      });
+      toast.success("Reset status to Sourced");
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -418,17 +452,30 @@ function CandidatePanelBody({
           </div>
 
           <div className="min-w-0 space-y-1.5">
-            <p className="text-xs text-fg-subtle">Status</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-fg-subtle">Status</p>
+              {status !== "sourced" && (
+                <button
+                  type="button"
+                  onClick={resetToSourced}
+                  title="Clear status and reset to Sourced"
+                  className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500"
+                >
+                  <X className="h-3 w-3" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
             <SubmissionStatusSelect
               value={status}
               triggerClassName="h-8 w-full text-xs"
               onValueChange={(v) => {
-                const patch: Partial<CandidateInput> = { submission_status: v };
-                if (v !== "submitted") patch.submitted_at = null;
-                if (v !== "interview") patch.interview_at = null;
-                if (v !== "placed") patch.placed_at = null;
-                if (v !== "rejected") patch.rejection_reason = null;
-                saveField(patch);
+                if (v === "sourced") {
+                  resetToSourced();
+                } else {
+                  const patch: Partial<CandidateInput> = { submission_status: v };
+                  saveField(patch);
+                }
               }}
             />
             {(status === "submitted" || status === "interview" || status === "placed" || status === "rejected") && (
@@ -477,7 +524,11 @@ function CandidatePanelBody({
         </div>
 
         {/* Status History Trail */}
-        <StatusHistoryTrail rawHistory={candidate.status_history} />
+        <StatusHistoryTrail
+          rawHistory={candidate.status_history}
+          candidate={candidate}
+          onReset={resetToSourced}
+        />
 
         {/* Comments */}
         <div className="mt-2 space-y-1.5 border-t border-border pt-6">
