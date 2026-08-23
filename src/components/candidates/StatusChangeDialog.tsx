@@ -18,7 +18,6 @@ import { Spinner } from "../common/Spinner";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
-import { getUpdatedStatusHistory } from "../../lib/statusHistoryUtils";
 import type { CandidatePatch, CandidateWithJob } from "../../types";
 
 interface Props {
@@ -43,7 +42,6 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
       patch.interview_at = null;
       patch.placed_at = null;
       patch.rejection_reason = null;
-      patch.status_history = "[]";
     } else if (status === "submitted") {
       patch.submitted_at = submittedAt || null;
     } else if (status === "interview") {
@@ -52,15 +50,6 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
       patch.placed_at = placedAt || null;
     }
     if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
-
-    if (status !== "sourced" && status !== candidate.submission_status) {
-      patch.status_history = getUpdatedStatusHistory(candidate, status, {
-        submitted_at: status === "submitted" ? (submittedAt || null) : candidate.submitted_at,
-        interview_at: status === "interview" ? (interviewAt || null) : candidate.interview_at,
-        placed_at: status === "placed" ? (placedAt || null) : candidate.placed_at,
-        rejection_reason: status === "rejected" ? (rejectionReason.trim() || null) : candidate.rejection_reason,
-      });
-    }
 
     try {
       await bulkUpdate.mutateAsync({ ids: [candidate.id], patch });

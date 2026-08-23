@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  ArrowCounterClockwise,
   ArrowSquareOut,
   Briefcase,
   Building,
@@ -45,12 +46,10 @@ import {
   InterviewFeedbackDialog,
   hasInterviewFeedback,
 } from "./InterviewFeedbackDialog";
-import { StatusHistoryTrail } from "./StatusHistoryTrail";
 import { ResumePreviewModal } from "./ResumePreviewModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { errorMessage, formatDateAbbr, nameInitials, cn } from "../../lib/utils";
+import { errorMessage, formatDateAbbr, nameInitials, titleCase, cn } from "../../lib/utils";
 import { toCandidateInput } from "../../lib/candidateUtils";
-import { getUpdatedStatusHistory, syncMilestoneDatesInHistory } from "../../lib/statusHistoryUtils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput, CandidateWithJob } from "../../types";
 
@@ -98,6 +97,13 @@ function CandidatePanelBody({
   const [showResumePreview, setShowResumePreview] = useState(false);
   const [isRenamingResume, setIsRenamingResume] = useState(false);
   const [resumeNewName, setResumeNewName] = useState("");
+  const [previousStatusSnapshot, setPreviousStatusSnapshot] = useState<{
+    submission_status: string;
+    submitted_at: string | null;
+    interview_at: string | null;
+    placed_at: string | null;
+    rejection_reason: string | null;
+  } | null>(null);
   const [saving, setSaving] = useState(false);
 
   // Show "Details" icon once moved to in_touch or if details have been recorded
@@ -111,30 +117,17 @@ function CandidatePanelBody({
   const showFeedbackIcon = candidate.submission_status === "interview" || hasFeedbackRecorded;
 
   async function saveField(patch: Partial<CandidateInput>) {
-    setSaving(true);
-
-    // If status is transitioning, compute updated status history trail
     if (patch.submission_status && patch.submission_status !== candidate.submission_status) {
-      patch.status_history = getUpdatedStatusHistory(candidate, patch.submission_status, {
-        submitted_at: patch.submitted_at !== undefined ? patch.submitted_at : candidate.submitted_at,
-        interview_at: patch.interview_at !== undefined ? patch.interview_at : candidate.interview_at,
-        placed_at: patch.placed_at !== undefined ? patch.placed_at : candidate.placed_at,
-        rejection_reason: patch.rejection_reason !== undefined ? patch.rejection_reason : candidate.rejection_reason,
-      });
-    } else if (
-      patch.submitted_at !== undefined ||
-      patch.interview_at !== undefined ||
-      patch.placed_at !== undefined ||
-      patch.rejection_reason !== undefined
-    ) {
-      patch.status_history = syncMilestoneDatesInHistory(candidate, {
-        submitted_at: patch.submitted_at,
-        interview_at: patch.interview_at,
-        placed_at: patch.placed_at,
-        rejection_reason: patch.rejection_reason,
+      setPreviousStatusSnapshot({
+        submission_status: candidate.submission_status,
+        submitted_at: candidate.submitted_at ?? null,
+        interview_at: candidate.interview_at ?? null,
+        placed_at: candidate.placed_at ?? null,
+        rejection_reason: candidate.rejection_reason ?? null,
       });
     }
 
+    setSaving(true);
     try {
       await update.mutateAsync({
         id: candidate.id,
@@ -149,6 +142,14 @@ function CandidatePanelBody({
   }
 
   async function resetToSourced() {
+    setPreviousStatusSnapshot({
+      submission_status: candidate.submission_status,
+      submitted_at: candidate.submitted_at ?? null,
+      interview_at: candidate.interview_at ?? null,
+      placed_at: candidate.placed_at ?? null,
+      rejection_reason: candidate.rejection_reason ?? null,
+    });
+
     setSaving(true);
     try {
       await update.mutateAsync({
@@ -159,10 +160,40 @@ function CandidatePanelBody({
           interview_at: null,
           placed_at: null,
           rejection_reason: null,
-          status_history: "[]",
         }),
       });
       toast.success("Reset status to Sourced");
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleRestoreStatus() {
+    if (!previousStatusSnapshot) return;
+    const toRestore = previousStatusSnapshot;
+    setPreviousStatusSnapshot({
+      submission_status: candidate.submission_status,
+      submitted_at: candidate.submitted_at ?? null,
+      interview_at: candidate.interview_at ?? null,
+      placed_at: candidate.placed_at ?? null,
+      rejection_reason: candidate.rejection_reason ?? null,
+    });
+
+    setSaving(true);
+    try {
+      await update.mutateAsync({
+        id: candidate.id,
+        input: toCandidateInput(candidate, {
+          submission_status: toRestore.submission_status,
+          submitted_at: toRestore.submitted_at,
+          interview_at: toRestore.interview_at,
+          placed_at: toRestore.placed_at,
+          rejection_reason: toRestore.rejection_reason,
+        }),
+      });
+      toast.success(`Restored status to ${titleCase(toRestore.submission_status)}`);
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -559,17 +590,30 @@ function CandidatePanelBody({
           <div className="min-w-0 space-y-1.5">
             <div className="flex items-center justify-between">
               <p className="text-xs text-fg-subtle">Status</p>
-              {status !== "sourced" && (
-                <button
-                  type="button"
-                  onClick={resetToSourced}
-                  title="Clear status and reset to Sourced"
-                  className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500"
-                >
-                  <X className="h-3 w-3" />
-                  <span>Reset</span>
-                </button>
-              )}
+              <div className="flex items-center gap-1.5">
+                {previousStatusSnapshot && previousStatusSnapshot.submission_status !== candidate.submission_status && (
+                  <button
+                    type="button"
+                    onClick={handleRestoreStatus}
+                    title={`Restore previous status: ${titleCase(previousStatusSnapshot.submission_status)}`}
+                    className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-primary transition-colors hover:bg-primary/10"
+                  >
+                    <ArrowCounterClockwise className="h-3 w-3" />
+                    <span>Restore</span>
+                  </button>
+                )}
+                {status !== "sourced" && (
+                  <button
+                    type="button"
+                    onClick={resetToSourced}
+                    title="Clear status and reset to Sourced"
+                    className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500"
+                  >
+                    <X className="h-3 w-3" />
+                    <span>Reset</span>
+                  </button>
+                )}
+              </div>
             </div>
             <SubmissionStatusSelect
               value={status}
@@ -627,13 +671,6 @@ function CandidatePanelBody({
             )}
           </div>
         </div>
-
-        {/* Status History Trail */}
-        <StatusHistoryTrail
-          rawHistory={candidate.status_history}
-          candidate={candidate}
-          onReset={resetToSourced}
-        />
 
         {/* Comments */}
         <div className="mt-2 space-y-1.5 border-t border-border pt-6">
