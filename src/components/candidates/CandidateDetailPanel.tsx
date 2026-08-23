@@ -5,20 +5,23 @@ import {
   Briefcase,
   Building,
   CalendarDots,
+  Check,
   Copy,
-  FileText,
   IdentificationCard,
   LinkedinLogo,
   ListChecks,
   CircleNotch,
   Paperclip,
+  PencilSimple,
   PhoneCall,
+  Sparkle,
   Trash,
   X,
 } from "@phosphor-icons/react";
-import { openPath, openUrl } from "@tauri-apps/plugin-opener";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   useAttachResume,
   useCandidate,
@@ -26,6 +29,7 @@ import {
   useDeleteCandidate,
   useJob,
   useRemoveResume,
+  useRenameResume,
   useUpdateCandidate,
 } from "../../hooks/useQueries";
 import { Input } from "../ui/input";
@@ -42,6 +46,7 @@ import {
   hasInterviewFeedback,
 } from "./InterviewFeedbackDialog";
 import { StatusHistoryTrail } from "./StatusHistoryTrail";
+import { ResumePreviewModal } from "./ResumePreviewModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials, cn } from "../../lib/utils";
 import { toCandidateInput } from "../../lib/candidateUtils";
@@ -76,10 +81,12 @@ function CandidatePanelBody({
   onClose: () => void;
   embedded?: boolean;
 }) {
+  const queryClient = useQueryClient();
   const update = useUpdateCandidate();
   const deleteCandidate = useDeleteCandidate();
   const attachResumeMut = useAttachResume();
   const removeResumeMut = useRemoveResume();
+  const renameResumeMut = useRenameResume();
   const { data: job } = useJob(candidate.job_id);
   const { data: client } = useClient(job?.client_id);
   const clientName = client?.name || (candidate as CandidateWithJob).client_name || "";
@@ -88,6 +95,9 @@ function CandidatePanelBody({
   const [showScreeningQA, setShowScreeningQA] = useState(false);
   const [showSubmissionDetails, setShowSubmissionDetails] = useState(false);
   const [showInterviewFeedback, setShowInterviewFeedback] = useState(false);
+  const [showResumePreview, setShowResumePreview] = useState(false);
+  const [isRenamingResume, setIsRenamingResume] = useState(false);
+  const [resumeNewName, setResumeNewName] = useState("");
   const [saving, setSaving] = useState(false);
 
   // Show "Details" icon once moved to in_touch or if details have been recorded
@@ -183,13 +193,54 @@ function CandidatePanelBody({
     }
   }
 
-  async function openResume() {
+  function startRenameResume() {
     if (!candidate.resume_path) return;
+    const currentName = candidate.resume_path.split(/[\\/]/).pop() ?? "";
+    const baseName = currentName.replace(/\.[^/.]+$/, "");
+    setResumeNewName(baseName || currentName);
+    setIsRenamingResume(true);
+  }
+
+  async function handleConfirmRename() {
+    const trimmed = resumeNewName.trim();
+    if (!trimmed) {
+      setIsRenamingResume(false);
+      return;
+    }
     try {
-      await openPath(candidate.resume_path);
+      await renameResumeMut.mutateAsync({
+        id: candidate.id,
+        newFilename: trimmed,
+      });
+      setIsRenamingResume(false);
+      toast.success("Resume renamed successfully");
     } catch (err) {
       toast.error(errorMessage(err));
     }
+  }
+
+  async function handleAutoRenameToCandidate() {
+    if (!candidate.resume_path) return;
+    const candName = candidate.name.trim();
+    if (!candName) {
+      toast.error("Candidate does not have a valid name");
+      return;
+    }
+    const formatted = `${candName} - Resume`;
+    try {
+      await renameResumeMut.mutateAsync({
+        id: candidate.id,
+        newFilename: formatted,
+      });
+      toast.success(`Resume renamed to "${formatted}"`);
+    } catch (err) {
+      toast.error(errorMessage(err));
+    }
+  }
+
+  function openResume() {
+    if (!candidate.resume_path) return;
+    setShowResumePreview(true);
   }
 
   function linkedInUrl() {
@@ -423,26 +474,80 @@ function CandidatePanelBody({
           <div className="min-w-0 space-y-1.5">
             <p className="text-xs text-fg-subtle">Resume</p>
             {candidate.resume_path ? (
-              <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
-                <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1 truncate text-[12px] text-fg" title={resumeName}>
-                  {resumeName}
-                </span>
-                <button
-                  onClick={openResume}
-                  title="Open resume"
-                  className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-                >
-                  <FileText className="h-3.5 w-3.5 text-primary" />
-                </button>
-                <button
-                  onClick={removeResume}
-                  title="Remove resume reference"
-                  className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-red-500"
-                >
-                  <Trash className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              isRenamingResume ? (
+                <div className="flex h-8 items-center gap-1 rounded-lg border border-primary/50 bg-surface px-1.5 shadow-xs">
+                  <input
+                    value={resumeNewName}
+                    onChange={(e) => setResumeNewName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") handleConfirmRename();
+                      if (e.key === "Escape") setIsRenamingResume(false);
+                    }}
+                    autoFocus
+                    placeholder="Resume filename…"
+                    className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-fg outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleConfirmRename}
+                    disabled={renameResumeMut.isPending}
+                    title="Save filename (Enter)"
+                    className="shrink-0 rounded p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
+                  >
+                    <Check className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsRenamingResume(false)}
+                    title="Cancel (Esc)"
+                    className="shrink-0 rounded p-1 text-fg-subtle hover:bg-surface-hover transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
+                  <button
+                    type="button"
+                    onClick={openResume}
+                    className="min-w-0 flex-1 truncate text-left text-[12px] text-fg hover:text-primary transition-colors cursor-pointer"
+                    title={`Preview ${resumeName}`}
+                  >
+                    {resumeName}
+                  </button>
+
+                  {/* 1-Click Rename to Candidate Name */}
+                  <button
+                    type="button"
+                    onClick={handleAutoRenameToCandidate}
+                    disabled={renameResumeMut.isPending}
+                    title={`1-Click Rename to "${candidate.name || "Candidate"} - Resume"`}
+                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-primary"
+                  >
+                    <Sparkle className="h-3.5 w-3.5" />
+                  </button>
+
+                  {/* Inline Rename button */}
+                  <button
+                    type="button"
+                    onClick={startRenameResume}
+                    title="Rename resume file"
+                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-primary"
+                  >
+                    <PencilSimple className="h-3.5 w-3.5" />
+                  </button>
+
+                  {/* Remove button */}
+                  <button
+                    type="button"
+                    onClick={removeResume}
+                    title="Remove resume reference"
+                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-red-500"
+                  >
+                    <Trash className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )
             ) : (
               <Button size="sm" variant="outline" onClick={attachResume} className="h-8 w-full text-[12px]">
                 <Paperclip className="h-3.5 w-3.5" />
@@ -559,6 +664,20 @@ function CandidatePanelBody({
         open={showSubmissionDetails}
         onOpenChange={setShowSubmissionDetails}
       />
+
+      {candidate.resume_path && (
+        <ResumePreviewModal
+          open={showResumePreview}
+          onClose={() => setShowResumePreview(false)}
+          filePath={candidate.resume_path}
+          candidateName={candidate.name}
+          candidateId={candidate.id}
+          onResumeUpdated={() => {
+            queryClient.invalidateQueries({ queryKey: ["candidate", candidate.id] });
+            queryClient.invalidateQueries({ queryKey: ["candidates"] });
+          }}
+        />
+      )}
     </div>
   );
 }

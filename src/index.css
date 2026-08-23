@@ -580,14 +580,37 @@
   padding-left: 1.25rem;
   margin: 0 0 0.5rem;
 }
-.tiptap-content ul {
-  list-style: disc;
+.tiptap-content ul,
+.tiptap ul,
+.ProseMirror ul {
+  list-style: disc !important;
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
 }
-.tiptap-content ol {
-  list-style: decimal;
+.tiptap-content ol,
+.tiptap ol,
+.ProseMirror ol {
+  list-style: decimal !important;
+  padding-left: 1.5rem !important;
+  margin: 0.5rem 0 !important;
 }
-.tiptap-content li {
-  margin: 0.15rem 0;
+.tiptap-content li,
+.tiptap li,
+.ProseMirror li {
+  margin: 0.25rem 0 !important;
+}
+.tiptap-content li p,
+.tiptap li p,
+.ProseMirror li p {
+  margin: 0 !important;
+  display: inline !important;
+}
+.tiptap mark,
+.ProseMirror mark {
+  padding: 0.1em 0.25em !important;
+  border-radius: 3px !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
 }
 .tiptap-content a {
   color: var(--primary);

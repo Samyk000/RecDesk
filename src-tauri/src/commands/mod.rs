@@ -5,4 +5,5 @@ pub mod dashboard;
 pub mod data;
 pub mod files;
 pub mod job;
+pub mod ocr;
 pub mod search;

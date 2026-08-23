@@ -272,4 +272,23 @@ export interface DownloadProgressPayload {
   total_bytes: number;
   percentage: number;
   is_complete: boolean;
+}
+
+export interface OcrModelInfo {
+  id: string;
+  name: string;
+  size_mb: number;
+  description: string;
+  filename: string;
+  download_url: string;
+  is_downloaded: boolean;
+  file_path?: string | null;
+}
+
+export interface OcrDownloadProgressPayload {
+  model_id: string;
+  downloaded_bytes: number;
+  total_bytes: number;
+  percentage: number;
+  is_complete: boolean;
 }

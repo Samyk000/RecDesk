@@ -256,6 +256,24 @@ export function useRemoveResume() {
   });
 }
 
+export function useRenameResume() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, newFilename }: { id: string; newFilename: string }) =>
+      apiFiles.renameResume(id, newFilename),
+    onSuccess: (cand) => {
+      qc.setQueryData(["candidate", cand.id], cand);
+      qc.invalidateQueries({ queryKey: ["candidate", cand.id] });
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
 export function useBulkUpdateCandidates() {
   const qc = useQueryClient();
   return useMutation({

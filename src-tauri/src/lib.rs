@@ -63,12 +63,20 @@ pub fn run() {
             // files
             commands::files::attach_resume,
             commands::files::remove_resume,
+            commands::files::rename_resume,
+            commands::files::read_resume_bytes,
+            commands::files::write_resume_bytes,
             // ai resume auto-fill & model manager
             commands::ai::get_ai_models_status,
             commands::ai::download_ai_model,
             commands::ai::cancel_ai_download,
             commands::ai::delete_ai_model,
             commands::ai::parse_resume_text,
+            // ocr engine model manager
+            commands::ocr::get_ocr_model_status,
+            commands::ocr::download_ocr_model,
+            commands::ocr::cancel_ocr_download,
+            commands::ocr::delete_ocr_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

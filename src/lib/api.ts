@@ -74,6 +74,11 @@ export const apiFiles = {
   attachResume: (candidateId: string, sourcePath: string) =>
     call<Candidate>("attach_resume", { candidateId, sourcePath }),
   removeResume: (candidateId: string) => call<Candidate>("remove_resume", { candidateId }),
+  renameResume: (candidateId: string, newFilename: string) =>
+    call<Candidate>("rename_resume", { candidateId, newFilename }),
+  readResumeBytes: (filePath: string) => call<number[]>("read_resume_bytes", { filePath }),
+  writeResumeBytes: (filePath: string, bytes: number[]) =>
+    call<void>("write_resume_bytes", { filePath, bytes }),
 };
 
 // ---- AI & Model Manager ----
@@ -84,4 +89,12 @@ export const apiAi = {
   deleteModel: (modelId: string) => call<boolean>("delete_ai_model", { modelId }),
   parseResume: (text: string) =>
     call<import("../types").ExtractedCandidateProfile>("parse_resume_text", { text }),
+};
+
+// ---- OCR Model Manager ----
+export const apiOcr = {
+  getStatus: () => call<import("../types").OcrModelInfo>("get_ocr_model_status"),
+  downloadModel: (modelId: string) => call<string>("download_ocr_model", { modelId }),
+  cancelDownload: (modelId: string) => call<void>("cancel_ocr_download", { modelId }),
+  deleteModel: (modelId: string) => call<void>("delete_ocr_model", { modelId }),
 };
