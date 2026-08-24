@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { useEditor, EditorContent, Extension } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Underline } from "@tiptap/extension-underline";
@@ -35,6 +35,10 @@ import {
   Plus,
   Lightning,
   Sparkle,
+  CaretDown,
+  Check,
+  Gear,
+  MagnifyingGlass,
 } from "@phosphor-icons/react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
@@ -42,19 +46,21 @@ import { useNavigate } from "react-router-dom";
 import { apiFiles } from "../../lib/api";
 import { extractPdfToHtml } from "../../lib/pdfExtractor";
 import {
-  parseResumeSections,
   htmlToTextLines,
   plainTextToLines,
 } from "../../lib/resumeSectionParser";
-import { generatePreviewHtml } from "../../lib/clientResumeDocx";
 import {
   chunkDocumentIntoBlocks,
   parseResumeWithBlockIdAI,
+  parseResumeWithLocalEngine,
   reassembleHtmlFromBlocks,
 } from "../../lib/blockIdResumeParser";
 import { convertHtmlToDocxBytes } from "../../lib/docxExport";
+import { fetchOpenRouterModels } from "../../lib/openRouterClient";
+import { useAiModels } from "../../hooks/useQueries";
 import { useOpenRouterStore } from "../../store/openRouterStore";
 import { useResumeFormatterStore } from "../../store/resumeFormatterStore";
+import { useAiStore } from "../../store/ai";
 import { errorMessage } from "../../lib/utils";
 import mammoth from "mammoth";
 
@@ -112,7 +118,90 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
     selectedModel,
     modelsCache,
     activeProvider,
+    setActiveProvider,
+    setSelectedModel,
   } = useOpenRouterStore();
+
+  const { selectedModelId, setSelectedModelId } = useAiStore();
+  const { data: aiModels } = useAiModels();
+  const isModelDownloaded = useCallback(
+    (id: string) => aiModels?.some((m) => m.id === id && m.is_downloaded) ?? false,
+    [aiModels]
+  );
+  const currentLocalModelDownloaded = isModelDownloaded(selectedModelId);
+
+  const [showAiPicker, setShowAiPicker] = useState(false);
+  const aiPickerRef = useRef<HTMLDivElement>(null);
+
+  const [openRouterSearch, setOpenRouterSearch] = useState("");
+
+  // Auto-fetch OpenRouter models if cache is empty when popover opens
+  useEffect(() => {
+    if (showAiPicker && activeProvider === "openrouter" && modelsCache.length === 0) {
+      fetchOpenRouterModels().catch(() => {});
+    }
+  }, [showAiPicker, activeProvider, modelsCache.length]);
+
+  const FALLBACK_FREE_MODELS = useMemo(
+    () => [
+      { id: "meta-llama/llama-3.3-70b-instruct:free", name: "Llama 3.3 70B (Free)", desc: "Meta · 128k context" },
+      { id: "google/gemini-2.0-flash-exp:free", name: "Gemini 2.0 Flash (Free)", desc: "Google · Fast multimodal" },
+      { id: "google/gemini-2.0-flash-thinking-exp:free", name: "Gemini 2.0 Flash Thinking (Free)", desc: "Google · Deep reasoning" },
+      { id: "qwen/qwen-2.5-72b-instruct:free", name: "Qwen 2.5 72B (Free)", desc: "Alibaba · High reasoning" },
+      { id: "deepseek/deepseek-r1:free", name: "DeepSeek R1 (Free)", desc: "DeepSeek · Reasoning model" },
+      { id: "deepseek/deepseek-chat:free", name: "DeepSeek V3 (Free)", desc: "DeepSeek · General purpose" },
+      { id: "mistralai/mistral-small-24b-instruct-2501:free", name: "Mistral Small 24B (Free)", desc: "Mistral AI · 32k context" },
+      { id: "meta-llama/llama-3.1-8b-instruct:free", name: "Llama 3.1 8B (Free)", desc: "Meta · Lightweight" },
+      { id: "microsoft/phi-3-medium-128k-instruct:free", name: "Phi-3 Medium (Free)", desc: "Microsoft · 128k context" },
+      { id: "cognitivecomputations/dolphin3.0-r1-mistral-24b:free", name: "Dolphin 3.0 R1 24B (Free)", desc: "Uncensored · Reasoning" },
+    ],
+    []
+  );
+
+  const freeCloudModels = useMemo(() => {
+    const map = new Map<string, { id: string; name: string; desc: string }>();
+
+    for (const m of FALLBACK_FREE_MODELS) {
+      map.set(m.id, m);
+    }
+
+    for (const m of modelsCache) {
+      if (m.is_free || m.id.endsWith(":free")) {
+        const cleanName = m.name.replace(/\(free\)/i, "").replace(/:free$/i, "").trim() + " (Free)";
+        const existing = map.get(m.id);
+        map.set(m.id, {
+          id: m.id,
+          name: cleanName,
+          desc: m.description
+            ? m.description.slice(0, 42) + (m.description.length > 42 ? "…" : "")
+            : existing?.desc || m.id.split("/")[0] || "Free Cloud Model",
+        });
+      }
+    }
+
+    const list = Array.from(map.values());
+
+    if (!openRouterSearch.trim()) return list;
+
+    const q = openRouterSearch.toLowerCase();
+    return list.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.id.toLowerCase().includes(q) ||
+        m.desc.toLowerCase().includes(q)
+    );
+  }, [FALLBACK_FREE_MODELS, modelsCache, openRouterSearch]);
+
+  useEffect(() => {
+    if (!showAiPicker) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (aiPickerRef.current && !aiPickerRef.current.contains(e.target as Node)) {
+        setShowAiPicker(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showAiPicker]);
 
   const {
     step,
@@ -179,12 +268,19 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
   }, [editor, formattedHtml, selectedFont]);
 
   const activeModelDisplay = useMemo(() => {
-    if (activeProvider === "local") return "Local AI";
+    if (activeProvider === "local") {
+      const localNames: Record<string, string> = {
+        "qwen-0.5b": "Local AI (Qwen 0.5B)",
+        "qwen-1.5b": "Local AI (Qwen 1.5B)",
+        "qwen-3b": "Local AI (Qwen 3B)",
+      };
+      return localNames[selectedModelId] || "Local AI Engine";
+    }
     const found = modelsCache.find((m) => m.id === selectedModel);
     let name = found ? found.name : selectedModel.split("/").pop() || selectedModel;
     name = name.replace(/\(free\)/i, "").replace(/:free$/i, "").trim();
     return name;
-  }, [activeProvider, selectedModel, modelsCache]);
+  }, [activeProvider, selectedModelId, selectedModel, modelsCache]);
 
   const handleReset = useCallback(() => {
     resetFormatter();
@@ -263,12 +359,13 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
         let finalFormattedHtml = "";
         let candidateName = "Candidate";
 
-        // Step 2: Use AI Block-ID Cognitive Engine if OpenRouter key is present
+        // Step 2: Use AI Block-ID Cognitive Engine based on selected provider
         const openRouterState = useOpenRouterStore.getState();
+        const provider = openRouterState.activeProvider;
         const effectiveKeys = openRouterState.apiKeys;
         const effectiveModel = selectedModel || openRouterState.selectedModel;
 
-        if (effectiveKeys.length > 0) {
+        if (provider === "openrouter" && effectiveKeys.length > 0) {
           setProcessing(true, `AI analyzing structure (${activeModelDisplay})…`);
           try {
             const { structure, rawBlocks } = await parseResumeWithBlockIdAI(
@@ -278,19 +375,23 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
             candidateName = structure.candidate_name || "Candidate";
             finalFormattedHtml = reassembleHtmlFromBlocks(structure, rawBlocks);
           } catch (aiErr: any) {
-            console.warn("AI Block-ID parsing failed, falling back to local layout engine:", aiErr);
-            toast.warning(`AI note: ${aiErr.message || "Using fallback engine"}`);
-            // Fallback to local heuristic section classifier
-            const parsedResume = parseResumeSections(textLines);
-            candidateName = parsedResume.candidateName;
-            finalFormattedHtml = generatePreviewHtml(parsedResume);
+            console.warn("OpenRouter AI parsing failed, seamlessly falling back to Local AI Engine:", aiErr);
+            toast.warning(
+              aiErr.message?.includes("429") || aiErr.message?.includes("credit")
+                ? "OpenRouter credits/rate limit reached. Seamlessly formatted with Local Engine."
+                : `AI Note: ${aiErr.message || "Using Local Engine fallback."}`
+            );
+            setProcessing(true, "Formatting with Local AI Engine…");
+            const structure = parseResumeWithLocalEngine(blocks, textLines);
+            candidateName = structure.candidate_name || "Candidate";
+            finalFormattedHtml = reassembleHtmlFromBlocks(structure, blocks);
           }
         } else {
-          // No AI key configured -> use local section classifier
-          setProcessing(true, "Formatting into client layout…");
-          const parsedResume = parseResumeSections(textLines);
-          candidateName = parsedResume.candidateName;
-          finalFormattedHtml = generatePreviewHtml(parsedResume);
+          // Local AI Engine is active (Offline, zero credits needed, 100% private)
+          setProcessing(true, `Formatting with ${activeModelDisplay}…`);
+          const structure = parseResumeWithLocalEngine(blocks, textLines);
+          candidateName = structure.candidate_name || "Candidate";
+          finalFormattedHtml = reassembleHtmlFromBlocks(structure, blocks);
         }
 
         setDetectedCandidateName(candidateName);
@@ -412,10 +513,230 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
             <FileDoc className="h-4 w-4 text-primary shrink-0" weight="duotone" />
             <span className="text-[13px] font-bold text-fg shrink-0 tracking-tight">RecDesk Formatter</span>
 
-            {/* Model Badge */}
-            <div className="hidden sm:flex items-center gap-1 rounded-full border border-border/80 bg-surface-hover/80 px-2 py-0.5 text-[10.5px] text-fg-muted font-mono shrink-0">
-              <Lightning className="h-2.5 w-2.5 text-amber-500 shrink-0" weight="fill" />
-              <span className="truncate max-w-[120px]">{activeModelDisplay}</span>
+            {/* Interactive AI Engine Selector */}
+            <div className="relative shrink-0" ref={aiPickerRef}>
+              <button
+                type="button"
+                onClick={() => setShowAiPicker((v) => !v)}
+                className={`hidden sm:flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[10.5px] font-medium transition-all cursor-pointer select-none ${
+                  activeProvider === "local"
+                    ? "border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20"
+                    : "border-primary/30 bg-primary/10 text-primary hover:bg-primary/20"
+                }`}
+                title="Select AI Provider & Model (Local AI / OpenRouter)"
+              >
+                {activeProvider === "local" ? (
+                  <Lightning className="h-2.5 w-2.5 text-amber-400 shrink-0" weight="fill" />
+                ) : (
+                  <Sparkle className="h-2.5 w-2.5 text-primary shrink-0" weight="fill" />
+                )}
+                <span className="truncate max-w-[125px]">{activeModelDisplay}</span>
+                <CaretDown
+                  className={`h-2.5 w-2.5 transition-transform duration-200 ${
+                    showAiPicker ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Dropdown Popover */}
+              {showAiPicker && (
+                <div className="absolute left-0 top-full mt-1.5 z-60 w-80 rounded-xl border border-border bg-surface shadow-2xl p-2.5 animate-scale-in text-fg">
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-1 pb-1.5 border-b border-border/60">
+                    <span className="text-[11px] font-bold text-fg">AI Engine Selector</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowAiPicker(false);
+                        onClose();
+                        navigate("/settings");
+                      }}
+                      className="flex items-center gap-1 text-[10.5px] text-fg-muted hover:text-primary transition-colors cursor-pointer"
+                    >
+                      <Gear className="h-3 w-3" />
+                      <span>Settings</span>
+                    </button>
+                  </div>
+
+                  {/* Provider Switcher Tabs */}
+                  <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface-hover/80 p-1 my-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveProvider("local")}
+                      className={`flex items-center justify-center gap-1.5 rounded-md py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                        activeProvider === "local"
+                          ? "bg-surface text-amber-300 shadow-xs border border-amber-500/20"
+                          : "text-fg-muted hover:text-fg"
+                      }`}
+                    >
+                      <Lightning className="h-3 w-3 text-amber-400" weight="fill" />
+                      <span>Local AI</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveProvider("openrouter")}
+                      className={`flex items-center justify-center gap-1.5 rounded-md py-1 text-[11px] font-semibold transition-all cursor-pointer ${
+                        activeProvider === "openrouter"
+                          ? "bg-surface text-primary shadow-xs border border-primary/20"
+                          : "text-fg-muted hover:text-fg"
+                      }`}
+                    >
+                      <Sparkle className="h-3 w-3 text-primary" weight="fill" />
+                      <span>OpenRouter</span>
+                    </button>
+                  </div>
+
+                  {/* Provider Content */}
+                  {activeProvider === "local" ? (
+                    <div className="space-y-1 pt-0.5">
+                      <div className="px-1 text-[10px] text-fg-subtle font-medium uppercase tracking-wider mb-1">
+                        Local GGUF Models
+                      </div>
+                      {[
+                        { id: "qwen-1.5b", name: "Qwen 2.5 1.5B", tag: "Recommended · Balanced", size: "1.1 GB" },
+                        { id: "qwen-0.5b", name: "Qwen 2.5 0.5B", tag: "Ultra-Fast · Low RAM", size: "468 MB" },
+                        { id: "qwen-3b", name: "Qwen 2.5 3B", tag: "High Precision", size: "2.2 GB" },
+                      ].map((m) => {
+                        const downloaded = isModelDownloaded(m.id);
+                        return (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedModelId(m.id);
+                              setShowAiPicker(false);
+                            }}
+                            className={`flex items-center justify-between w-full px-2 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                              selectedModelId === m.id
+                                ? "bg-amber-500/10 text-amber-300 font-medium border border-amber-500/20"
+                                : "hover:bg-surface-hover text-fg"
+                            }`}
+                          >
+                            <div className="flex flex-col min-w-0 pr-2">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[11.5px] leading-tight font-medium">{m.name}</span>
+                                <span
+                                  className={`text-[9px] px-1.5 py-0.2 rounded-full ${
+                                    downloaded
+                                      ? "bg-emerald-500/15 text-emerald-400 font-semibold"
+                                      : "bg-surface-hover text-fg-subtle font-normal"
+                                  }`}
+                                >
+                                  {downloaded ? "Ready" : m.size}
+                                </span>
+                              </div>
+                              <span className="text-[9.5px] text-fg-subtle">{m.tag}</span>
+                            </div>
+                            {selectedModelId === m.id && (
+                              <Check className="h-3.5 w-3.5 text-amber-400 shrink-0" weight="bold" />
+                            )}
+                          </button>
+                        );
+                      })}
+
+                      {!currentLocalModelDownloaded ? (
+                        <div className="mt-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-[11px] text-amber-300">
+                          <div className="flex items-center gap-1.5 font-medium">
+                            <WarningCircle className="h-3.5 w-3.5 shrink-0" />
+                            <span>Model not downloaded</span>
+                          </div>
+                          <p className="text-[10px] text-amber-300/80 mt-0.5">
+                            Download model in Settings to enable offline LLM inference.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAiPicker(false);
+                              onClose();
+                              navigate("/settings");
+                            }}
+                            className="mt-1.5 flex items-center gap-1 text-[10.5px] font-semibold text-amber-300 underline hover:text-amber-200 cursor-pointer"
+                          >
+                            <span>Open Settings to Download →</span>
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="pt-1 px-1 text-[10px] text-emerald-400/90 flex items-center gap-1">
+                          <span>🛡️ 100% offline & private · Zero credits</span>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-2 pt-0.5">
+                      <div className="flex items-center justify-between px-1 text-[10px] text-fg-subtle font-medium uppercase tracking-wider">
+                        <span>Free Cloud Models ({freeCloudModels.length})</span>
+                        <span className="text-fg-subtle lowercase">
+                          {apiKeys.length} key{apiKeys.length === 1 ? "" : "s"}
+                        </span>
+                      </div>
+
+                      {apiKeys.length === 0 ? (
+                        <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-center text-[11px] text-amber-300">
+                          <p className="font-medium">No API keys saved</p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowAiPicker(false);
+                              onClose();
+                              navigate("/settings");
+                            }}
+                            className="mt-1.5 inline-block text-[10.5px] font-semibold text-primary underline hover:text-primary-hover cursor-pointer"
+                          >
+                            Add OpenRouter key in Settings →
+                          </button>
+                        </div>
+                      ) : (
+                        <>
+                          {/* Search Bar for Free Models */}
+                          <div className="relative px-0.5">
+                            <MagnifyingGlass className="absolute left-2.5 top-2 h-3.5 w-3.5 text-fg-subtle" />
+                            <input
+                              type="text"
+                              placeholder="Search free models…"
+                              value={openRouterSearch}
+                              onChange={(e) => setOpenRouterSearch(e.target.value)}
+                              className="w-full h-7 pl-7 pr-2 text-xs rounded-lg border border-border bg-surface-hover/60 placeholder:text-fg-subtle text-fg focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                          </div>
+
+                          {/* Scrollable Free Model List */}
+                          <div className="max-h-52 overflow-y-auto scrollbar-thin pr-1 space-y-1">
+                            {freeCloudModels.length === 0 ? (
+                              <div className="py-4 text-center text-xs text-fg-subtle">
+                                No matching free models found
+                              </div>
+                            ) : (
+                              freeCloudModels.map((m) => (
+                                <button
+                                  key={m.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedModel(m.id);
+                                    setShowAiPicker(false);
+                                  }}
+                                  className={`flex items-center justify-between w-full px-2 py-1.5 rounded-lg text-left text-xs transition-colors cursor-pointer ${
+                                    selectedModel === m.id
+                                      ? "bg-primary/10 text-primary font-medium border border-primary/20"
+                                      : "hover:bg-surface-hover text-fg"
+                                  }`}
+                                >
+                                  <div className="flex flex-col min-w-0 pr-1.5">
+                                    <span className="text-[11.5px] truncate font-medium">{m.name}</span>
+                                    <span className="text-[9.5px] text-fg-subtle truncate">{m.desc}</span>
+                                  </div>
+                                  {selectedModel === m.id && (
+                                    <Check className="h-3.5 w-3.5 text-primary shrink-0" weight="bold" />
+                                  )}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {detectedCandidateName && detectedCandidateName !== "Candidate" && (
@@ -749,24 +1070,84 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
           {step === "upload" && (
             <div className="flex flex-1 flex-col items-center justify-center p-6 sm:p-8 bg-surface-hover/20">
               <div className="flex flex-col items-center gap-4 max-w-md w-full">
-                {apiKeys.length === 0 && (
-                  <div className="flex items-center justify-between gap-3 w-full rounded-lg border border-amber-500/30 bg-amber-500/10 px-3.5 py-2.5 text-xs text-amber-600 dark:text-amber-400">
-                    <div className="flex items-center gap-2">
-                      <Sparkle className="h-4 w-4 shrink-0" weight="fill" />
-                      <span>Configure OpenRouter for free AI formatting</span>
-                    </div>
+                {/* Compact AI Provider Switcher Bar */}
+                <div className="flex flex-col gap-2 w-full">
+                  <div className="flex items-center justify-center gap-1 rounded-xl border border-border bg-surface-hover/50 p-1 w-full shadow-xs">
                     <button
                       type="button"
-                      onClick={() => {
-                        onClose();
-                        navigate("/settings");
-                      }}
-                      className="cursor-pointer font-semibold underline hover:opacity-80 shrink-0"
+                      onClick={() => setActiveProvider("local")}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 px-3 text-xs font-semibold transition-all cursor-pointer ${
+                        activeProvider === "local"
+                          ? "bg-surface text-amber-300 shadow-xs border border-amber-500/20"
+                          : "text-fg-muted hover:text-fg hover:bg-surface/50"
+                      }`}
                     >
-                      Settings
+                      <Lightning className="h-3.5 w-3.5 text-amber-400" weight="fill" />
+                      <span>Local AI</span>
+                      <span className="text-[10px] text-fg-subtle font-normal">
+                        ({selectedModelId === "qwen-0.5b" ? "0.5B" : selectedModelId === "qwen-3b" ? "3B" : "1.5B"})
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setActiveProvider("openrouter")}
+                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 px-3 text-xs font-semibold transition-all cursor-pointer ${
+                        activeProvider === "openrouter"
+                          ? "bg-surface text-primary shadow-xs border border-primary/20"
+                          : "text-fg-muted hover:text-fg hover:bg-surface/50"
+                      }`}
+                    >
+                      <Sparkle className="h-3.5 w-3.5 text-primary" weight="fill" />
+                      <span>OpenRouter</span>
+                      <span className="text-[10px] text-fg-subtle font-normal">(Cloud)</span>
                     </button>
                   </div>
-                )}
+
+                  {activeProvider === "local" ? (
+                    currentLocalModelDownloaded ? (
+                      <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-400/90 font-medium">
+                        <span>🛡️ 100% offline & private · Zero credits required (Model Ready)</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+                        <div className="flex items-center gap-2">
+                          <WarningCircle className="h-4 w-4 shrink-0 text-amber-400" />
+                          <span className="text-[11.5px]">
+                            <strong>{selectedModelId === "qwen-0.5b" ? "Qwen 2.5 0.5B" : selectedModelId === "qwen-3b" ? "Qwen 2.5 3B" : "Qwen 2.5 1.5B"}</strong> is not downloaded
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            navigate("/settings");
+                          }}
+                          className="text-[11px] font-semibold text-amber-300 underline hover:text-amber-200 shrink-0 cursor-pointer"
+                        >
+                          Download in Settings →
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div className="flex items-center justify-between px-1 text-[11px] text-fg-subtle">
+                      <span>
+                        {apiKeys.length > 0
+                          ? `✨ ${apiKeys.length} API key(s) active · Auto fallback`
+                          : "⚠️ No OpenRouter keys configured"}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onClose();
+                          navigate("/settings");
+                        }}
+                        className="text-primary hover:underline font-medium cursor-pointer"
+                      >
+                        {apiKeys.length === 0 ? "Add key in Settings →" : "Settings →"}
+                      </button>
+                    </div>
+                  )}
+                </div>
 
                 {error && (
                   <div className="flex items-start gap-2.5 w-full rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300">

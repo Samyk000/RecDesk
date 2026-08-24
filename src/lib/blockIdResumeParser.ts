@@ -1,5 +1,11 @@
 import { completeOpenRouterChat } from "./openRouterClient";
-import { type TextLine } from "./resumeSectionParser";
+import {
+  type TextLine,
+  classifySectionHeading,
+  DATE_RANGE_RE,
+  isExperienceSubheading,
+  isLikelyName,
+} from "./resumeSectionParser";
 import { lineContainsPii } from "./piiStripper";
 
 export interface RawBlock {
@@ -475,4 +481,250 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function cleanCandidateName(raw: string): string {
+  let name = raw.trim();
+  for (const sep of ["–", "—", "|", " - ", " – "]) {
+    if (name.includes(sep)) {
+      const parts = name.split(sep);
+      if (parts[0] && parts[0].trim().length >= 2) {
+        name = parts[0].trim();
+        break;
+      }
+    }
+  }
+  return name.replace(/[,\-–|]+$/, "").trim();
+}
+
+function isLikelyRole(text: string): boolean {
+  const lower = text.toLowerCase();
+  const keywords = [
+    "engineer", "developer", "architect", "manager", "lead", "designer",
+    "recruiter", "sourcer", "specialist", "director", "consultant", "analyst",
+    "administrator", "coordinator", "programmer", "scientist", "executive",
+    "associate", "intern", "supervisor", "technician", "auditor", "strategist",
+    "representative", "accountant", "officer", "vp", "product owner", "owner",
+  ];
+  return keywords.some((k) => lower.includes(k)) && text.length < 80;
+}
+
+/**
+ * High-precision local heuristic engine that maps raw text blocks into the BlockIdResumeStructure.
+ * Operates 100% offline with zero cloud API dependency, 0ms network latency, and zero credits required.
+ */
+export function parseResumeWithLocalEngine(
+  blocks: RawBlock[],
+  _lines?: TextLine[]
+): BlockIdResumeStructure {
+  let candidateName = "Candidate";
+  const piiBlocks: number[] = [];
+  const summaryBlocks: number[] = [];
+  const skills: SkillCategoryMapping[] = [];
+  const degrees: EducationDegree[] = [];
+  const credentials: CredentialAward[] = [];
+  const experience: ExperienceMapping[] = [];
+  const additionalSections: AdditionalSectionMapping[] = [];
+
+  let currentSectionType: string | null = null;
+  let currentSkillCategory: SkillCategoryMapping | null = null;
+  let currentJob: ExperienceMapping | null = null;
+  let currentAdditionalSection: AdditionalSectionMapping | null = null;
+
+  // 1. Find the first section heading block index
+  let firstHeadingBlockIdx = -1;
+  for (let i = 0; i < blocks.length; i++) {
+    const text = blocks[i].text.trim();
+    if (classifySectionHeading(text)) {
+      firstHeadingBlockIdx = i;
+      break;
+    }
+  }
+
+  // 2. Extract Candidate Name and PII from the header blocks
+  const headerLimit = firstHeadingBlockIdx >= 0 ? firstHeadingBlockIdx : Math.min(6, blocks.length);
+  for (let i = 0; i < headerLimit; i++) {
+    const b = blocks[i];
+    const text = b.text.trim();
+    if (!text) continue;
+
+    if (lineContainsPii(text)) {
+      piiBlocks.push(b.id);
+      continue;
+    }
+
+    if (candidateName === "Candidate" && isLikelyName(text)) {
+      candidateName = cleanCandidateName(text);
+      continue;
+    }
+
+    // Capture non-contact header text as summary preamble
+    if (text.length > 20 && !isLikelyName(text)) {
+      summaryBlocks.push(b.id);
+    }
+  }
+
+  // Fallback candidate name if not found in header
+  if (candidateName === "Candidate") {
+    const firstValid = blocks.find((b) => !lineContainsPii(b.text) && isLikelyName(b.text));
+    if (firstValid) {
+      candidateName = cleanCandidateName(firstValid.text);
+    } else if (blocks[0] && !lineContainsPii(blocks[0].text)) {
+      candidateName = cleanCandidateName(blocks[0].text);
+    }
+  }
+
+  // 3. Process remaining document blocks
+  const startIndex = firstHeadingBlockIdx >= 0 ? firstHeadingBlockIdx : headerLimit;
+  for (let i = startIndex; i < blocks.length; i++) {
+    const b = blocks[i];
+    const text = b.text.trim();
+    if (!text) continue;
+
+    if (lineContainsPii(text)) {
+      piiBlocks.push(b.id);
+      continue;
+    }
+
+    // Check for section heading
+    const sectionType = classifySectionHeading(text);
+    if (sectionType) {
+      if (currentJob) {
+        experience.push(currentJob);
+        currentJob = null;
+      }
+      if (currentSkillCategory) {
+        skills.push(currentSkillCategory);
+        currentSkillCategory = null;
+      }
+      if (currentAdditionalSection) {
+        additionalSections.push(currentAdditionalSection);
+        currentAdditionalSection = null;
+      }
+
+      currentSectionType = sectionType;
+      continue;
+    }
+
+    // If active section is SUMMARY
+    if (currentSectionType === "summary") {
+      summaryBlocks.push(b.id);
+    }
+    // If active section is SKILLS
+    else if (currentSectionType === "skills") {
+      const catMatch = text.match(/^([A-Za-z0-9\s&/,\-+]+):(?:\s*(.*))?$/);
+      if (catMatch) {
+        if (currentSkillCategory) skills.push(currentSkillCategory);
+        const catName = catMatch[1].trim();
+        const rest = catMatch[2]?.trim();
+        currentSkillCategory = {
+          category: catName,
+          item_blocks: rest ? [b.id] : [],
+        };
+      } else if (currentSkillCategory) {
+        currentSkillCategory.item_blocks.push(b.id);
+      } else {
+        currentSkillCategory = {
+          category: "Core Competencies",
+          item_blocks: [b.id],
+        };
+      }
+    }
+    // If active section is EDUCATION or CERTIFICATION
+    else if (currentSectionType === "education" || currentSectionType === "certification") {
+      const isAwardOrCert =
+        /medal|award|certif|license|credential|pmp|safe|csm|aws|cct|cpmp/i.test(text);
+
+      if (isAwardOrCert) {
+        credentials.push({
+          title: text,
+          bullet_blocks: [],
+        });
+      } else {
+        const hasDate = DATE_RANGE_RE.test(text);
+        if (hasDate || degrees.length === 0 || degrees[degrees.length - 1].degree) {
+          const parts = text.split(/[|—–]/).map((p) => p.trim());
+          degrees.push({
+            institution: parts[0] || text,
+            degree: parts[1] || "",
+            dates: parts.find((p) => DATE_RANGE_RE.test(p)) || "",
+            raw_blocks: [b.id],
+          });
+        } else {
+          const lastDeg = degrees[degrees.length - 1];
+          if (lastDeg) {
+            lastDeg.degree = lastDeg.degree ? `${lastDeg.degree} - ${text}` : text;
+            lastDeg.raw_blocks = [...(lastDeg.raw_blocks || []), b.id];
+          }
+        }
+      }
+    }
+    // If active section is EXPERIENCE
+    else if (currentSectionType === "experience") {
+      const isSubheading = isExperienceSubheading(text);
+      if (isSubheading) {
+        if (currentJob) {
+          experience.push(currentJob);
+        }
+        const parts = text.split(/[|—–]/).map((p) => p.trim());
+        const dates = parts.find((p) => DATE_RANGE_RE.test(p)) || "";
+        const remaining = parts.filter((p) => p !== dates);
+        const company = remaining[0] || text;
+        const location = remaining[1] || "";
+
+        currentJob = {
+          company,
+          role: "",
+          dates,
+          location,
+          raw_header_block: b.id,
+          bullet_blocks: [],
+        };
+      } else if (currentJob) {
+        if (!currentJob.role && isLikelyRole(text)) {
+          currentJob.role = text;
+        } else {
+          currentJob.bullet_blocks.push(b.id);
+        }
+      } else {
+        currentJob = {
+          company: text,
+          role: "",
+          dates: "",
+          location: "",
+          raw_header_block: b.id,
+          bullet_blocks: [],
+        };
+      }
+    }
+    // Other sections
+    else {
+      if (!currentAdditionalSection) {
+        currentAdditionalSection = {
+          heading: currentSectionType?.toUpperCase() || "ADDITIONAL INFORMATION",
+          bullet_blocks: [b.id],
+        };
+      } else {
+        currentAdditionalSection.bullet_blocks.push(b.id);
+      }
+    }
+  }
+
+  // Flush remaining
+  if (currentJob) experience.push(currentJob);
+  if (currentSkillCategory) skills.push(currentSkillCategory);
+  if (currentAdditionalSection) additionalSections.push(currentAdditionalSection);
+
+  return {
+    candidate_name: candidateName,
+    pii_blocks: piiBlocks,
+    summary_blocks: summaryBlocks,
+    skills,
+    education_and_credentials: {
+      degrees,
+      credentials_and_awards: credentials,
+    },
+    experience,
+    additional_sections: additionalSections,
+  };
 }

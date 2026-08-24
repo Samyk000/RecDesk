@@ -202,10 +202,10 @@ function isGenericHeading(line: string): boolean {
 /**
  * Detect experience subheadings: "Company Name | Role | Date Range"
  */
-const DATE_RANGE_RE =
+export const DATE_RANGE_RE =
   /\b(19|20)\d{2}\s*[-–—to]+\s*(19|20)?\d{0,4}\s*(present|current|now)?\b|\b(present|current|now)\b|\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\w*\s+(19|20)\d{2}\b/i;
 
-function isExperienceSubheading(line: string): boolean {
+export function isExperienceSubheading(line: string): boolean {
   if (line.length > 120 || line.length < 5) return false;
   if (isBulletLine(line)) return false;
 
@@ -220,7 +220,7 @@ function isExperienceSubheading(line: string): boolean {
 
 // ─── Name Extraction ─────────────────────────────────────────────────────────
 
-const TITLE_KEYWORDS = [
+export const TITLE_KEYWORDS = [
   "engineer", "developer", "architect", "manager", "lead", "designer",
   "recruiter", "sourcer", "specialist", "director", "consultant", "analyst",
   "administrator", "coordinator", "programmer", "scientist", "executive",
@@ -228,7 +228,7 @@ const TITLE_KEYWORDS = [
   "representative", "accountant", "officer", "vp", "head of",
 ];
 
-function isLikelyName(line: string): boolean {
+export function isLikelyName(line: string): boolean {
   const trimmed = line.trim();
   if (trimmed.length < 2 || trimmed.length > 45) return false;
   if (trimmed.includes("@") || trimmed.includes("http") || trimmed.includes("www.")) return false;
