@@ -7,6 +7,7 @@ import {
   DownloadSimple,
   FileXls,
   Info,
+  Lightning,
   Monitor,
   Moon,
   ShieldCheck,
@@ -24,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../store/theme";
 import { useProfile } from "../store/profile";
 import { useAiStore } from "../store/ai";
+import { useOpenRouterStore } from "../store/openRouterStore";
 import { US_TIME_ZONES } from "../lib/constants";
 import { apiClients, apiData, apiJobs } from "../lib/api";
 import {
@@ -40,6 +42,7 @@ import { errorMessage, cn } from "../lib/utils";
 import { generateExcelWorkbook, generateSampleExcelTemplate } from "../lib/excelExport";
 import { parseExcelImport, type ExcelImportValidation } from "../lib/excelImport";
 import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
+import { OpenRouterSettings } from "../components/settings/OpenRouterSettings";
 import type { DownloadProgressPayload, ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
@@ -72,6 +75,7 @@ export function Settings() {
   const { mode, theme, setMode, setTheme } = useTheme();
   const { name, setName, timeZones, setTimeZones } = useProfile();
   const { selectedModelId, setSelectedModelId } = useAiStore();
+  const { activeProvider, setActiveProvider } = useOpenRouterStore();
 
   const { data: aiModels, refetch: refetchModels } = useAiModels();
   const downloadAiMutation = useDownloadAiModel();
@@ -266,10 +270,10 @@ export function Settings() {
   }
 
   return (
-    <div className="px-6 pt-4 pb-12">
-      <PageHeader title="Settings" subtitle="Preferences, on-device AI, and data management" />
+    <div className="px-6 pt-3.5 pb-6">
+      <PageHeader title="Settings" subtitle="Preferences, AI models, and data management" />
 
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Left Column: Preferences */}
         <div className="space-y-4 lg:col-span-1">
           <section className="rounded-xl border border-border bg-surface p-4.5 space-y-4">
@@ -388,144 +392,178 @@ export function Settings() {
 
         {/* Right Column: AI & Data Management */}
         <div className="space-y-4 lg:col-span-2">
-          {/* Local AI Resume Engine Card */}
-          <section className="rounded-xl border border-border bg-surface p-4.5 space-y-3">
+          {/* Unified AI Models Card */}
+          <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
               <div>
                 <h2 className="font-display flex items-center gap-2 text-[14.5px] font-semibold tracking-tight text-fg">
                   <Sparkle className="h-4 w-4 text-primary" />
-                  Local AI Models
+                  AI Models
                 </h2>
                 <p className="mt-0.5 text-xs text-fg-subtle">
-                  Download offline language models to power future local AI features.
+                  Choose between local on-device models or cloud OpenRouter for AI features.
                 </p>
               </div>
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                <Cpu className="h-3.5 w-3.5" />
-                100% Offline & Private
-              </span>
+
+              {/* Segmented Pill Tabs */}
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-hover/50 p-0.5">
+                <button
+                  type="button"
+                  onClick={() => setActiveProvider("local")}
+                  className={cn(
+                    "cursor-pointer flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-150 active:scale-[0.97]",
+                    activeProvider === "local"
+                      ? "bg-primary text-white font-semibold shadow-raise"
+                      : "text-fg-muted hover:text-fg"
+                  )}
+                >
+                  <Cpu className="h-3.5 w-3.5" />
+                  Local AI
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveProvider("openrouter")}
+                  className={cn(
+                    "cursor-pointer flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-150 active:scale-[0.97]",
+                    activeProvider === "openrouter"
+                      ? "bg-primary text-white font-semibold shadow-raise"
+                      : "text-fg-muted hover:text-fg"
+                  )}
+                >
+                  <Lightning className="h-3.5 w-3.5" />
+                  OpenRouter
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-              {(aiModels || []).map((model) => {
-                const isSelected = selectedModelId === model.id;
-                const isDownloading = downloadingModelId === model.id;
+            {/* Tab 1: Local AI */}
+            {activeProvider === "local" && (
+              <div className="space-y-2.5 animate-fade-in">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+                  {(aiModels || []).map((model) => {
+                    const isSelected = selectedModelId === model.id;
+                    const isDownloading = downloadingModelId === model.id;
 
-                return (
-                  <div
-                    key={model.id}
-                    onClick={() => setSelectedModelId(model.id)}
-                    className={cn(
-                      "flex flex-col justify-between rounded-lg border p-3 space-y-2 cursor-pointer transition-all duration-150",
-                      isSelected
-                        ? "border-primary/60 bg-primary/5 shadow-raise"
-                        : "border-border/70 bg-surface-hover/30 hover:border-border hover:bg-surface-hover/60",
-                    )}
-                  >
-                    <div>
-                      <div className="flex items-center justify-between gap-1">
-                        <span className="text-[12.5px] font-semibold text-fg truncate">{model.name}</span>
-                        {model.tier === "balanced" && (
-                          <span className="rounded bg-primary/15 px-1.5 py-0.2 text-[9.5px] font-medium text-primary shrink-0">
-                            Recommended
-                          </span>
+                    return (
+                      <div
+                        key={model.id}
+                        onClick={() => setSelectedModelId(model.id)}
+                        className={cn(
+                          "flex flex-col justify-between rounded-lg border p-3 space-y-2 cursor-pointer transition-all duration-150",
+                          isSelected
+                            ? "border-primary/60 bg-primary/5 shadow-raise"
+                            : "border-border/70 bg-surface-hover/30 hover:border-border hover:bg-surface-hover/60",
                         )}
-                      </div>
-                      <p className="mt-1 text-[11px] text-fg-subtle leading-relaxed line-clamp-2">
-                        {model.description}
-                      </p>
-                    </div>
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-1">
+                            <span className="text-[12.5px] font-semibold text-fg truncate">{model.name}</span>
+                            {model.tier === "balanced" && (
+                              <span className="rounded bg-primary/15 px-1.5 py-0.2 text-[9.5px] font-medium text-primary shrink-0">
+                                Recommended
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-1 text-[11px] text-fg-subtle leading-relaxed line-clamp-2">
+                            {model.description}
+                          </p>
+                        </div>
 
-                    <div className="pt-1.5 border-t border-border/40 flex items-center justify-between text-xs">
-                      <span className="text-[11px] font-medium text-fg-muted">
-                        {formatModelSize(model.size_mb)}
+                        <div className="pt-1.5 border-t border-border/40 flex items-center justify-between text-xs">
+                          <span className="text-[11px] font-medium text-fg-muted">
+                            {formatModelSize(model.size_mb)}
+                          </span>
+                          {model.is_downloaded ? (
+                            <div className="flex items-center gap-1">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
+                                <Check className="h-3 w-3" /> Ready
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleDeleteModel(model.id);
+                                }}
+                                className="ml-1 text-fg-subtle hover:text-red-500 p-0.5 cursor-pointer"
+                                title="Delete model file from disk"
+                              >
+                                <Trash className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : isDownloading ? (
+                            <div className="flex items-center gap-1.5">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
+                                <CircleNotch className="h-3 w-3 animate-spin" />
+                                {downloadProgress ? `${Math.round(downloadProgress.percentage)}%` : "Starting…"}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCancelDownload(model.id);
+                                }}
+                                className="rounded p-0.5 text-fg-subtle hover:bg-surface-hover hover:text-red-500 cursor-pointer"
+                                title="Cancel download"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 text-[11px] cursor-pointer"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDownloadModel(model.id);
+                              }}
+                            >
+                              Download
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {/* Download progress bar with Cancel button */}
+                {downloadProgress && downloadingModelId && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5 animate-fade-in">
+                    <div className="flex items-center justify-between text-xs font-medium">
+                      <span className="text-primary flex items-center gap-1.5 truncate">
+                        <CircleNotch className="h-3.5 w-3.5 animate-spin shrink-0" />
+                        Downloading model to AppData…
                       </span>
-                      {model.is_downloaded ? (
-                        <div className="flex items-center gap-1">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                            <Check className="h-3 w-3" /> Ready
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteModel(model.id);
-                            }}
-                            className="ml-1 text-fg-subtle hover:text-red-500 p-0.5 cursor-pointer"
-                            title="Delete model file from disk"
-                          >
-                            <Trash className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : isDownloading ? (
-                        <div className="flex items-center gap-1.5">
-                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
-                            <CircleNotch className="h-3 w-3 animate-spin" />
-                            {downloadProgress ? `${Math.round(downloadProgress.percentage)}%` : "Starting…"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleCancelDownload(model.id);
-                            }}
-                            className="rounded p-0.5 text-fg-subtle hover:bg-surface-hover hover:text-red-500 cursor-pointer"
-                            title="Cancel download"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </div>
-                      ) : (
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-fg-subtle text-[11px]">
+                          {(downloadProgress.downloaded_bytes / (1024 * 1024)).toFixed(0)} MB /{" "}
+                          {(downloadProgress.total_bytes / (1024 * 1024)).toFixed(0)} MB (
+                          {Math.round(downloadProgress.percentage)}%)
+                        </span>
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-6 px-2 text-[11px] cursor-pointer"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDownloadModel(model.id);
-                          }}
+                          variant="ghost"
+                          className="h-5 px-1.5 text-[10.5px] text-red-500 hover:bg-red-500/10 cursor-pointer"
+                          onClick={() => handleCancelDownload(downloadingModelId)}
                         >
-                          Download
+                          Cancel
                         </Button>
-                      )}
+                      </div>
+                    </div>
+                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/60">
+                      <div
+                        className="h-full bg-primary transition-all duration-200"
+                        style={{ width: `${downloadProgress.percentage}%` }}
+                      />
                     </div>
                   </div>
-                );
-              })}
-            </div>
-
-            {/* Download progress bar with Cancel button */}
-            {downloadProgress && downloadingModelId && (
-              <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5 animate-fade-in">
-                <div className="flex items-center justify-between text-xs font-medium">
-                  <span className="text-primary flex items-center gap-1.5 truncate">
-                    <CircleNotch className="h-3.5 w-3.5 animate-spin shrink-0" />
-                    Downloading model to AppData…
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-fg-subtle text-[11px]">
-                      {(downloadProgress.downloaded_bytes / (1024 * 1024)).toFixed(0)} MB /{" "}
-                      {(downloadProgress.total_bytes / (1024 * 1024)).toFixed(0)} MB (
-                      {Math.round(downloadProgress.percentage)}%)
-                    </span>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-5 px-1.5 text-[10.5px] text-red-500 hover:bg-red-500/10 cursor-pointer"
-                      onClick={() => handleCancelDownload(downloadingModelId)}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/60">
-                  <div
-                    className="h-full bg-primary transition-all duration-200"
-                    style={{ width: `${downloadProgress.percentage}%` }}
-                  />
-                </div>
+                )}
               </div>
             )}
+
+            {/* Tab 2: OpenRouter */}
+            {activeProvider === "openrouter" && <OpenRouterSettings />}
           </section>
 
           {/* Data Management Section */}

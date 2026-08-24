@@ -64,7 +64,7 @@ export function JobDetail() {
     <div className="flex h-full flex-col px-6 pt-4">
       <div className="mb-4 flex items-center gap-2">
         <button
-          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/jobs"))}
+          onClick={() => (job.client_id ? navigate(`/clients/${job.client_id}`) : navigate("/jobs"))}
           className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
         >
           <ArrowLeft className="h-4 w-4" />

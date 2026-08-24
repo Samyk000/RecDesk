@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from "docx";
+import { Document, Packer, Paragraph, TextRun, AlignmentType, TabStopType } from "docx";
 
 function parseHexColor(colorStr?: string): string | undefined {
   if (!colorStr) return undefined;
@@ -64,7 +64,19 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
   const doc = parser.parseFromString(htmlContent, "text/html");
   const paragraphs: Paragraph[] = [];
 
-  function extractRuns(element: HTMLElement): TextRun[] {
+  function extractRuns(
+    element: HTMLElement,
+    baseFmt: {
+      bold?: boolean;
+      italic?: boolean;
+      underline?: boolean;
+      strike?: boolean;
+      color?: string;
+      highlight?: string;
+      font?: string;
+      size?: number;
+    } = {}
+  ): TextRun[] {
     const runs: TextRun[] = [];
 
     function traverse(
@@ -96,7 +108,7 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
               color: validatedColor,
               shading: validatedHighlight ? { fill: validatedHighlight } : undefined,
               font: fmt.font || "Times New Roman",
-              size: fmt.size,
+              size: fmt.size ?? 20,
             })
           );
         }
@@ -120,9 +132,13 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
           nextFmt.font = el.style.fontFamily.split(",")[0].replace(/['"]/g, "").trim();
         }
         if (el.style.fontSize) {
-          const px = parseFloat(el.style.fontSize);
-          if (!isNaN(px) && px > 0) {
-            nextFmt.size = Math.round(px * 1.5);
+          const raw = el.style.fontSize.trim();
+          if (raw.endsWith("pt")) {
+            const pt = parseFloat(raw);
+            if (!isNaN(pt) && pt > 0) nextFmt.size = Math.round(pt * 2);
+          } else {
+            const px = parseFloat(raw);
+            if (!isNaN(px) && px > 0) nextFmt.size = Math.round(px * 1.5);
           }
         }
 
@@ -130,8 +146,17 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
       }
     }
 
-    traverse(element, { font: "Times New Roman" });
-    return runs.length > 0 ? runs : [new TextRun({ text: element.textContent || "", font: "Times New Roman" })];
+    traverse(element, { font: "Times New Roman", size: 20, ...baseFmt });
+    return runs.length > 0
+      ? runs
+      : [
+          new TextRun({
+            text: element.textContent || "",
+            font: baseFmt.font || "Times New Roman",
+            size: baseFmt.size ?? 20,
+            bold: baseFmt.bold,
+          }),
+        ];
   }
 
   function processNode(node: Node, parentAlign?: (typeof AlignmentType)[keyof typeof AlignmentType]) {
@@ -149,57 +174,83 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
       if (tag === "h1") {
         paragraphs.push(
           new Paragraph({
-            children: extractRuns(el),
-            heading: HeadingLevel.HEADING_1,
-            alignment: align,
-            spacing: { before: 200, after: 120 },
+            children: extractRuns(el, { bold: true, size: 22, font: "Times New Roman" }),
+            alignment: align || AlignmentType.CENTER,
+            spacing: { before: 0, after: 120 },
           })
         );
       } else if (tag === "h2") {
         paragraphs.push(
           new Paragraph({
-            children: extractRuns(el),
-            heading: HeadingLevel.HEADING_2,
-            alignment: align,
-            spacing: { before: 160, after: 100 },
+            children: extractRuns(el, { bold: true, size: 22, font: "Times New Roman" }),
+            alignment: align || AlignmentType.LEFT,
+            spacing: { before: 200, after: 50 },
           })
         );
       } else if (tag === "h3") {
         paragraphs.push(
           new Paragraph({
-            children: extractRuns(el),
-            heading: HeadingLevel.HEADING_3,
-            alignment: align,
-            spacing: { before: 120, after: 80 },
+            children: extractRuns(el, { bold: true, size: 20, font: "Times New Roman" }),
+            alignment: align || AlignmentType.LEFT,
+            spacing: { before: 140, after: 40 },
           })
         );
       } else if (tag === "p") {
-        paragraphs.push(
-          new Paragraph({
-            children: extractRuns(el),
-            alignment: align,
-            spacing: { after: 100, line: 276 },
-          })
-        );
+        const isFlexSplit =
+          el.style.display === "flex" ||
+          el.style.justifyContent === "space-between" ||
+          (el.children.length === 2 && (el.children[1] as HTMLElement).style?.float === "right");
+
+        const rawMt = el.style.marginTop;
+        const mtPx = rawMt ? parseFloat(rawMt) : 0;
+        const isLargeGap = mtPx >= 10 || isFlexSplit;
+        const beforeSpacing = isLargeGap ? 240 : mtPx > 0 ? Math.round(mtPx * 15) : 0;
+
+        if (isFlexSplit && el.children.length === 2) {
+          const leftRuns = extractRuns(el.children[0] as HTMLElement, { bold: true, size: 20 });
+          const rightRuns = extractRuns(el.children[1] as HTMLElement, { bold: true, size: 20 });
+          paragraphs.push(
+            new Paragraph({
+              tabStops: [{ type: TabStopType.RIGHT, position: 10800 }],
+              children: [
+                ...leftRuns,
+                new TextRun({ text: "\t", font: "Times New Roman", size: 20, bold: true }),
+                ...rightRuns,
+              ],
+              spacing: { before: 240, after: 20, line: 260 },
+            })
+          );
+        } else {
+          paragraphs.push(
+            new Paragraph({
+              children: extractRuns(el, { size: 20 }),
+              alignment: align,
+              spacing: { before: beforeSpacing, after: 40, line: 260 },
+            })
+          );
+        }
       } else if (tag === "ul") {
         el.querySelectorAll(":scope > li").forEach((li) => {
           paragraphs.push(
             new Paragraph({
-              children: extractRuns(li as HTMLElement),
+              children: extractRuns(li as HTMLElement, { size: 20 }),
               bullet: { level: 0 },
               alignment: align,
-              spacing: { after: 60 },
+              spacing: { after: 30 },
             })
           );
         });
       } else if (tag === "ol") {
-        el.querySelectorAll(":scope > li").forEach((li) => {
+        el.querySelectorAll(":scope > li").forEach((li, idx) => {
+          const runs = extractRuns(li as HTMLElement, { size: 20 });
           paragraphs.push(
             new Paragraph({
-              children: extractRuns(li as HTMLElement),
-              bullet: { level: 0 },
+              children: [
+                new TextRun({ text: `${idx + 1}. `, bold: true, font: "Times New Roman", size: 20 }),
+                ...runs,
+              ],
               alignment: align,
-              spacing: { after: 60 },
+              spacing: { after: 30 },
             })
           );
         });
@@ -214,7 +265,16 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
   const docxDocument = new Document({
     sections: [
       {
-        properties: {},
+        properties: {
+          page: {
+            margin: {
+              top: 720,    // 0.5 inch (Narrow)
+              right: 720,  // 0.5 inch (Narrow)
+              bottom: 720, // 0.5 inch (Narrow)
+              left: 720,   // 0.5 inch (Narrow)
+            },
+          },
+        },
         children: paragraphs.length > 0 ? paragraphs : [new Paragraph({ text: "" })],
       },
     ],

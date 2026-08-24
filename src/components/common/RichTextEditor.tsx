@@ -61,6 +61,20 @@ export function RichTextEditor({
     },
   });
 
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
+  useEffect(() => {
+    return () => {
+      if (editor && !editor.isDestroyed && onChangeRef.current) {
+        const html = editor.isEmpty ? "" : editor.getHTML();
+        if (html !== valueRef.current) {
+          onChangeRef.current(html);
+        }
+      }
+    };
+  }, [editor]);
+
   useEffect(() => {
     if (!editor) return;
     const current = editor.isEmpty ? "" : editor.getHTML();

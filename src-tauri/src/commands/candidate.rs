@@ -378,11 +378,11 @@ pub fn get_candidates_with_job(
     }
     if let Some(s) = &search {
         conditions.push(
-            "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(j.title,'') LIKE ? ESCAPE '\\')"
+            "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.location,'') LIKE ? ESCAPE '\\' OR COALESCE(j.title,'') LIKE ? ESCAPE '\\')"
                 .to_string(),
         );
         let p = like_pattern(s.trim());
-        for _ in 0..4 {
+        for _ in 0..6 {
             params.push(Box::new(p.clone()));
         }
     }

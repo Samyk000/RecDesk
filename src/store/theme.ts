@@ -53,11 +53,29 @@ function resolve(mode: ThemeMode): "light" | "dark" {
 
 function applyTheme(mode: ThemeMode, theme: ThemeName) {
   const root = document.documentElement;
-  root.classList.remove(...THEME_CLASSES);
-  if (mode === "dark" || (mode === "system" && resolve(mode) === "dark")) {
+  const isDark = mode === "dark" || (mode === "system" && resolve(mode) === "dark");
+  
+  const toRemove = THEME_CLASSES.filter(
+    (c) => c !== `theme-${theme}` && (c === "dark" ? !isDark : true)
+  );
+  root.classList.remove(...toRemove);
+  
+  if (isDark) {
     root.classList.add("dark");
+  } else {
+    root.classList.remove("dark");
   }
   root.classList.add(`theme-${theme}`);
+}
+
+function transitionTheme(mode: ThemeMode, theme: ThemeName) {
+  if (typeof document !== "undefined" && "startViewTransition" in document) {
+    (document as any).startViewTransition(() => {
+      applyTheme(mode, theme);
+    });
+  } else {
+    applyTheme(mode, theme);
+  }
 }
 
 export const useTheme = create<ThemeState>()(
@@ -69,11 +87,11 @@ export const useTheme = create<ThemeState>()(
       setMode: (mode) => {
         const resolved = resolve(mode);
         set({ mode, resolved });
-        applyTheme(mode, get().theme);
+        transitionTheme(mode, get().theme);
       },
       setTheme: (theme) => {
         set({ theme });
-        applyTheme(get().mode, theme);
+        transitionTheme(get().mode, theme);
       },
     }),
     {

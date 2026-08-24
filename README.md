@@ -9,19 +9,41 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.1.2-blue.svg" alt="Version 0.1.2" />
+  <img src="https://img.shields.io/badge/version-v0.1.3-blue.svg" alt="Version 0.1.3" />
   <img src="https://img.shields.io/badge/platform-Windows%20x64-informational.svg" alt="Platform Windows" />
   <img src="https://img.shields.io/badge/storage-Local%20SQLite-success.svg" alt="Local SQLite" />
-  <img src="https://img.shields.io/badge/privacy-100%25%20Offline-green.svg" alt="100% Privacy" />
+  <img src="https://img.shields.io/badge/AI%20Engine-Local%20GGUF%20%2B%20OpenRouter-purple.svg" alt="AI Engine" />
+  <img src="https://img.shields.io/badge/privacy-100%25%20Offline%20Ready-green.svg" alt="100% Privacy" />
 </p>
 
 ---
 
 ## 🚀 What is RecDesk?
 
-**RecDesk** is a **local-first, privacy-focused desktop recruiting workspace** designed specifically for recruiters, sourcers, and talent acquisition specialists.
+**RecDesk** is a **fast, local-first desktop command center and candidate management workspace** designed specifically for technical recruiters, headhunters, sourcers, and agency talent acquisition specialists.
 
-Unlike traditional cloud ATS (Applicant Tracking Systems) that are often slow, bloated, complex, and tied to expensive recurring monthly subscriptions, RecDesk is built for **speed, simplicity, and complete data ownership**. It lives directly on your computer with a high-performance native desktop architecture (built on **Tauri + Rust + SQLite** on the backend and **React + TypeScript + Tailwind CSS** on the frontend).
+Unlike traditional cloud ATS (Applicant Tracking Systems) that are often slow, bloated, complex, and tied to expensive recurring monthly subscriptions, RecDesk is built for **speed, simplicity, complete data ownership, and automated client submission formatting**. It lives directly on your computer with a high-performance native desktop architecture (built on **Tauri v2 + Rust + SQLite** on the backend and **React 19 + TypeScript + Tailwind CSS** on the frontend).
+
+---
+
+## 🤖 RecDesk Formatter & Cognitive AI Engine
+
+RecDesk features an intelligent **Resume Formatter & Cognitive Engine** that transforms raw PDF/Word candidate resumes into clean, standardized client submissions in seconds.
+
+### 🌟 Key AI & Formatting Capabilities:
+- **🧠 Cognitive Block-ID Indexing**: Rather than letting an LLM hallucinate or summarize, RecDesk breaks the document into integer-indexed text blocks. The AI maps block coordinates into structured sections, guaranteeing **100% verbatim text retention** with zero lost bullet points.
+- **🛡️ Automated PII Stripping**: Automatically detects and redacts personal contact information (emails, phone numbers, personal addresses, LinkedIn URLs, GitHub links) to protect candidate privacy and agency ownership.
+- **⚡ Dual AI Engine Support**:
+  - **Local On-Device Models**: Run Qwen 2.5 (0.5B, 1.5B, 3B) locally and offline with zero cloud dependency and 0% background idle CPU.
+  - **OpenRouter Cloud Engine**: Multi-key rotation and automatic 429 rate-limit fallback across free models (`llama-3.3-70b`, `gemini-2.0-flash-exp`, `qwen-2.5-72b`, `mistral-small-24b`).
+- **📄 Word "Narrow" Margins (0.5 in / 720 dxa)**: Pre-calibrated 0.5-inch page margins with right-aligned tab stops for dates and locations.
+- **📐 Universal Client Submission Layout**:
+  - `CANDIDATE NAME`: Centered, 11pt Bold, Times New Roman.
+  - `PROFESSIONAL SUMMARY:`: 11pt Bold with sentence-level bullet points (`• `).
+  - `SKILLS:`: 11pt Bold with inline category grouping (**Category:** item1, item2...).
+  - `EDUCATION & CREDENTIALS:`: 11pt Bold with split Institution/Dates header and bulleted awards/medals.
+  - `WORK EXPERIENCE:`: 11pt Bold with 10pt Bold Company/Role headers, generous blank line enter spacing between projects, and verbatim accomplishment bullets.
+- **✏️ Live Side-by-Side Comparison & WYSIWYG Editing**: TipTap rich text editing ribbon with instant preview, zoom controls (60%–150%), and 1-click `.docx` download.
 
 ---
 
