@@ -38,6 +38,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { getCandidateSubStageLabel } from "../lib/candidateUtils";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, formatDateShort, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { CandidateWithJob } from "../types";
@@ -411,14 +412,21 @@ export function Candidates() {
                     <p className="truncate">{c.client_name}</p>
                   </td>
                   <td className="px-4 py-2.5">
-                    <SubmissionStatusSelect
-                      value={c.submission_status}
-                      triggerClassName="h-7 w-[118px] text-[11px]"
-                      onValueChange={(v) => {
-                        if (v === c.submission_status) return;
-                        handleStatusChange(c, v);
-                      }}
-                    />
+                    <div className="flex flex-col gap-1">
+                      <SubmissionStatusSelect
+                        value={c.submission_status}
+                        triggerClassName="h-7 w-[118px] text-[11px]"
+                        onValueChange={(v) => {
+                          if (v === c.submission_status) return;
+                          handleStatusChange(c, v);
+                        }}
+                      />
+                      {getCandidateSubStageLabel(c) && (
+                        <span className="inline-flex items-center self-start rounded bg-surface-hover border border-border/60 px-1.5 py-0.2 text-[10px] font-medium text-fg-subtle">
+                          {getCandidateSubStageLabel(c)}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
                   <td className="px-4 py-2.5 text-[13px] text-fg-muted">{formatDateShort(c.date_added)}</td>

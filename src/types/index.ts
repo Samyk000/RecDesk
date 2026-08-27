@@ -223,6 +223,42 @@ export type CandidateSubmissionStatus =
   | "not_interested"
   | "rejected";
 
+export type SubmissionType = "internal" | "client";
+
+export type RejectionOrigin =
+  | "internal"
+  | "client_screening"
+  | "interview"
+  | "general"
+  | "candidate_withdrew";
+
+export interface InterviewRound {
+  id: string;
+  round_number: number;
+  round_name: string;
+  scheduled_at?: string | null;
+  interviewer?: string | null;
+  meeting_link?: string | null;
+  notes?: string | null;
+  status: "scheduled" | "completed" | "passed" | "rejected";
+}
+
+export interface RejectionDetail {
+  origin: RejectionOrigin;
+  round_number?: number | null;
+  category?: string | null;
+  reason?: string | null;
+  rejected_at?: string | null;
+}
+
+export interface StatusHistoryEntry {
+  from_status: string;
+  to_status: string;
+  timestamp: string;
+  sub_stage?: string | null;
+  notes?: string | null;
+}
+
 export interface ImportSummary {
   clients: number;
   jobs: number;

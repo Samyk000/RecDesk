@@ -28,6 +28,7 @@ import {
   SelectValue,
 } from "../../ui/select";
 import { CandidateForm } from "../../candidates/CandidateForm";
+import { getCandidateSubStageLabel } from "../../../lib/candidateUtils";
 import { CandidateDetailPanel } from "../../candidates/CandidateDetailPanel";
 import { StatusFilter } from "../../candidates/StatusFilter";
 import { DetailDrawer } from "../../common/DetailDrawer";
@@ -298,7 +299,10 @@ function CandidateRow({
       </td>
       <td className="px-3 py-2.5 text-[13px] text-fg-muted">{candidate.location ?? "-"}</td>
       <td className="px-3 py-2.5">
-        <StatusBadge status={candidate.submission_status} />
+        <StatusBadge
+          status={candidate.submission_status}
+          subStage={getCandidateSubStageLabel(candidate)}
+        />
       </td>
       <td className="px-3 py-2.5 text-[13px] text-fg-muted">{formatDateShort(candidate.date_added)}</td>
       <td className="px-3 py-2.5 text-[13px] text-fg-muted">

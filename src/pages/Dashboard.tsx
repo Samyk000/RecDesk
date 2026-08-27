@@ -16,6 +16,7 @@ import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
 import { jobPalette, submissionPalette } from "../lib/constants";
+import { getCandidateSubStageLabel } from "../lib/candidateUtils";
 import { cn, formatZoneTime, greetingLine, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import { useProfile } from "../store/profile";
 
@@ -189,7 +190,11 @@ export function Dashboard() {
                           {cand.current_company ?? "-"}
                         </span>
                       </span>
-                      <StatusBadge status={cand.submission_status} className="shrink-0" />
+                      <StatusBadge
+                        status={cand.submission_status}
+                        subStage={getCandidateSubStageLabel(cand)}
+                        className="shrink-0"
+                      />
                     </Link>
                   ))}
               </div>

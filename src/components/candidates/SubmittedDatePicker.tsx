@@ -109,13 +109,13 @@ export function SubmittedDatePicker({ value, onChange, className }: Props) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-surface-hover/80 px-2.5 text-[12.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
+          "flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-border bg-surface-hover/80 px-2 text-[11.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
           open && "ring-1 ring-primary/50 border-primary/50",
         )}
       >
         <span className="flex items-center gap-1.5 min-w-0 truncate">
-          <CalendarDots className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span className={cn("truncate font-medium text-[12px]", !hasValue && "text-fg-muted font-normal")}>
+          <CalendarDots className="h-3 w-3 shrink-0 text-primary" />
+          <span className={cn("truncate font-medium text-[11px]", !hasValue && "text-fg-muted font-normal")}>
             {hasValue ? formatDateDisplay(parsed.date) : "Select date…"}
           </span>
         </span>
@@ -123,7 +123,7 @@ export function SubmittedDatePicker({ value, onChange, className }: Props) {
         {hasValue && (
           <span
             className={cn(
-              "shrink-0 rounded px-1.5 py-0.2 text-[10px] font-bold uppercase tracking-wider",
+              "shrink-0 rounded px-1 py-0.2 text-[9.5px] font-bold uppercase tracking-wider",
               parsed.type === "internal"
                 ? "bg-blue-500/15 text-blue-600 dark:text-blue-400"
                 : "bg-amber-500/15 text-amber-600 dark:text-amber-400",

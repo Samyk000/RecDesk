@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CalendarCheck, CaretDown, Clock, CalendarBlank } from "@phosphor-icons/react";
 import { useCandidatesWithJob } from "../../hooks/useQueries";
 import { cn } from "../../lib/utils";
+import { parseInterviewRounds } from "../../lib/candidateUtils";
 import type { CandidateWithJob } from "../../types";
 
 function formatInterviewSchedule(iso: string | null | undefined): {
@@ -190,6 +191,8 @@ export function SidebarInterviews() {
             ) : (
               upcoming.map((cand) => {
                 const schedule = formatInterviewSchedule(cand.interview_at);
+                const rounds = parseInterviewRounds(cand.interview_status, cand.interview_at);
+                const roundNum = rounds.length || 1;
 
                 return (
                   <button
@@ -213,8 +216,12 @@ export function SidebarInterviews() {
                       )}
                     </div>
 
-                    {/* Line 2: Date, Capitalized Time & Distinct Timezone Badge */}
+                    {/* Line 2: Round Badge + Date/Time + Timezone */}
                     <div className="mt-1 flex items-center justify-center gap-1">
+                      <span className="shrink-0 rounded bg-primary/20 px-1 py-0.2 text-[9px] font-bold text-primary tracking-wider">
+                        R{roundNum}
+                      </span>
+
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium leading-none tracking-tight",

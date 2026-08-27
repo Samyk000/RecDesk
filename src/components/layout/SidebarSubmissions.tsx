@@ -5,16 +5,20 @@ import { useCandidatesWithJob } from "../../hooks/useQueries";
 import { cn } from "../../lib/utils";
 import type { CandidateWithJob } from "../../types";
 
-function formatSubmissionDate(iso: string | null | undefined): {
+function formatSubmissionDate(
+  iso?: string | null,
+  overrideType?: "internal" | "client" | "external",
+): {
   dateLabel: string;
-  type: "internal" | "external";
+  type: "internal" | "client";
   isToday: boolean;
   isYesterday: boolean;
 } {
+  const finalType = overrideType === "internal" ? "internal" : "client";
   if (!iso) {
     return {
       dateLabel: "Date TBD",
-      type: "external",
+      type: finalType,
       isToday: false,
       isYesterday: false,
     };
@@ -22,8 +26,6 @@ function formatSubmissionDate(iso: string | null | undefined): {
 
   const parts = iso.trim().split(/\s+/);
   const datePart = parts[0] || "";
-  const typePart = (parts[1]?.toLowerCase() as "internal" | "external") || "external";
-  const finalType = typePart === "internal" ? "internal" : "external";
 
   const [year, month, day] = datePart.split("-").map(Number);
   if (!year || !month || !day) {
@@ -167,7 +169,10 @@ export function SidebarSubmissions() {
               </div>
             ) : (
               submittedList.map((cand) => {
-                const sub = formatSubmissionDate(cand.submitted_at);
+                const sub = formatSubmissionDate(
+                  cand.submitted_at,
+                  cand.client_feedback === "internal" ? "internal" : "client",
+                );
 
                 return (
                   <button

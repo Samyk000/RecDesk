@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowCounterClockwise,
   ArrowSquareOut,
+  ArrowsOutSimple,
   Briefcase,
   Building,
   CalendarDots,
@@ -35,13 +36,21 @@ import {
 } from "../../hooks/useQueries";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "../ui/dialog";
 import { RichTextEditor } from "../common/RichTextEditor";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
-import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
 import { ScreeningQADialog } from "./ScreeningQADialog";
 import { SubmissionDetailsDialog } from "./SubmissionDetailsDialog";
+import { InterviewRoundsManager } from "./InterviewRoundsManager";
 import {
   InterviewFeedbackDialog,
   hasInterviewFeedback,
@@ -49,9 +58,23 @@ import {
 import { ResumePreviewModal } from "./ResumePreviewModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials, titleCase, cn } from "../../lib/utils";
-import { toCandidateInput, syncCandidateFieldsToSubmissionDetails } from "../../lib/candidateUtils";
+import {
+  toCandidateInput,
+  syncCandidateFieldsToSubmissionDetails,
+  parseInterviewRounds,
+  serializeInterviewRounds,
+  getActiveInterviewSchedule,
+  parseRejectionDetail,
+  serializeRejectionDetail,
+} from "../../lib/candidateUtils";
 import { Spinner } from "../common/Spinner";
-import type { Candidate, CandidateInput, CandidateWithJob } from "../../types";
+import type {
+  Candidate,
+  CandidateInput,
+  CandidateWithJob,
+  RejectionDetail,
+  RejectionOrigin,
+} from "../../types";
 
 interface Props {
   candidateId: string;
@@ -619,45 +642,71 @@ function CandidatePanelBody({
                 }
               }}
             />
-            {(status === "submitted" || status === "interview" || status === "placed" || status === "rejected") && (
-              <div className="animate-[fade-up_0.25s_ease-out]">
+            {(status === "submitted" ||
+              status === "interview" ||
+              status === "placed" ||
+              status === "rejected" ||
+              status === "not_interested") && (
+              <div className="animate-[fade-up_0.25s_ease-out] pt-1">
                 {status === "submitted" && (
-                  <SubmittedDatePicker
-                    value={candidate.submitted_at}
-                    onChange={(val) => saveField({ submitted_at: val })}
+                  <SubmissionSubStageSection
+                    candidate={candidate}
+                    onSave={saveField}
                   />
                 )}
                 {status === "interview" && (
-                  <InterviewSchedulePicker
-                    value={candidate.interview_at}
-                    onChange={(val) => saveField({ interview_at: val })}
+                  <InterviewRoundsManager
+                    rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
+                    onChange={(newRounds) => {
+                      saveField({
+                        interview_status: serializeInterviewRounds(newRounds),
+                        interview_at: getActiveInterviewSchedule(newRounds),
+                      });
+                    }}
+                    onSelectAndPlace={() => {
+                      saveField({
+                        submission_status: "placed",
+                        placed_at: new Date().toISOString(),
+                      });
+                      toast.success("Candidate marked as Placed!");
+                    }}
+                    onRejectRound={(rNum) => {
+                      const detail: RejectionDetail = {
+                        origin: "interview",
+                        round_number: rNum,
+                        category: "Interview feedback",
+                        reason: null,
+                        rejected_at: new Date().toISOString(),
+                      };
+                      saveField({
+                        submission_status: "rejected",
+                        rejection_reason: serializeRejectionDetail(detail),
+                      });
+                      toast.success(`Candidate marked as Rejected after Round ${rNum}`);
+                    }}
                   />
                 )}
                 {status === "placed" && (
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
                     <PlacedDatePicker
                       value={candidate.placed_at}
                       onChange={(val) => saveField({ placed_at: val })}
                     />
                     {clientName && (
-                      <div className="flex items-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-[11px] font-medium text-emerald-700 dark:text-emerald-300">
+                      <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
                         <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span className="truncate">Client: <strong className="font-semibold">{clientName}</strong></span>
+                        <span className="truncate">
+                          Client: <strong className="font-semibold">{clientName}</strong>
+                        </span>
                       </div>
                     )}
                   </div>
                 )}
                 {status === "rejected" && (
-                  <Input
-                    defaultValue={candidate.rejection_reason ?? ""}
-                    placeholder="Rejection reason…"
-                    className="h-8 w-full text-[13px]"
-                    onBlur={(e) => {
-                      const v = e.target.value.trim();
-                      if (v === (candidate.rejection_reason ?? "")) return;
-                      saveField({ rejection_reason: v || null });
-                    }}
-                  />
+                  <RejectionDetailsCard candidate={candidate} onSave={saveField} />
+                )}
+                {status === "not_interested" && (
+                  <NotInterestedDetailsCard candidate={candidate} onSave={saveField} />
                 )}
               </div>
             )}
@@ -825,6 +874,298 @@ function NameField({ value, onSave }: { value: string; onSave: (v: string) => vo
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
       />
+    </div>
+  );
+}
+
+function SubmissionSubStageSection({
+  candidate,
+  onSave,
+}: {
+  candidate: Candidate;
+  onSave: (patch: Partial<CandidateInput>) => void;
+}) {
+  const subType = candidate.client_feedback === "internal" ? "internal" : "client";
+
+  const handleSetSubType = (type: "internal" | "client") => {
+    onSave({
+      client_feedback: type,
+      submitted_at: candidate.submitted_at || new Date().toISOString(),
+    });
+  };
+
+  const handleReject = () => {
+    if (subType === "internal") {
+      const detail: RejectionDetail = {
+        origin: "internal",
+        category: null,
+        reason: null,
+        rejected_at: new Date().toISOString(),
+      };
+      onSave({
+        submission_status: "rejected",
+        rejection_reason: serializeRejectionDetail(detail),
+      });
+      toast.success("Candidate marked as Internally Rejected");
+    } else {
+      const detail: RejectionDetail = {
+        origin: "client_screening",
+        category: null,
+        reason: null,
+        rejected_at: new Date().toISOString(),
+      };
+      onSave({
+        submission_status: "rejected",
+        rejection_reason: serializeRejectionDetail(detail),
+      });
+      toast.success("Marked as Client Rejected — you can enter feedback below");
+    }
+  };
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-1.5">
+      <div className="flex rounded-md bg-surface p-0.5 border border-border/70 text-[10.5px]">
+        <button
+          type="button"
+          onClick={() => handleSetSubType("internal")}
+          className={cn(
+            "flex-1 py-0.5 rounded transition-all font-semibold text-center cursor-pointer",
+            subType === "internal"
+              ? "bg-amber-500 text-white shadow-2xs"
+              : "text-fg-subtle hover:text-fg",
+          )}
+        >
+          Internal
+        </button>
+        <button
+          type="button"
+          onClick={() => handleSetSubType("client")}
+          className={cn(
+            "flex-1 py-0.5 rounded transition-all font-semibold text-center cursor-pointer",
+            subType === "client"
+              ? "bg-amber-500 text-white shadow-2xs"
+              : "text-fg-subtle hover:text-fg",
+          )}
+        >
+          External
+        </button>
+      </div>
+
+      <SubmittedDatePicker
+        value={candidate.submitted_at}
+        onChange={(val) => onSave({ submitted_at: val })}
+      />
+
+      <div className="flex items-center justify-end pt-0.5 border-t border-amber-500/10">
+        <button
+          type="button"
+          onClick={handleReject}
+          className="text-[10px] font-semibold text-red-500 hover:underline cursor-pointer"
+        >
+          {subType === "internal" ? "Reject Internally" : "Reject by Client"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function RejectionDetailsCard({
+  candidate,
+  onSave,
+}: {
+  candidate: Candidate;
+  onSave: (patch: Partial<CandidateInput>) => void;
+}) {
+  const detail = parseRejectionDetail(candidate.rejection_reason);
+  const origin = detail.origin || "general";
+  const [currentReason, setCurrentReason] = useState(detail.reason ?? "");
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    setCurrentReason(detail.reason ?? "");
+  }, [candidate.rejection_reason]);
+
+  const handleOriginChange = (newOrigin: RejectionOrigin) => {
+    const nextDetail: RejectionDetail = {
+      ...detail,
+      origin: newOrigin,
+      rejected_at: detail.rejected_at || new Date().toISOString(),
+    };
+    onSave({ rejection_reason: serializeRejectionDetail(nextDetail) });
+  };
+
+  const handleSaveReason = (val: string) => {
+    const trimmed = val.trim();
+    const nextDetail: RejectionDetail = {
+      ...detail,
+      reason: trimmed || null,
+      rejected_at: detail.rejected_at || new Date().toISOString(),
+    };
+    onSave({ rejection_reason: serializeRejectionDetail(nextDetail) });
+  };
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-red-500/20 bg-red-500/5 p-1.5 text-xs">
+      {/* Origin Dropdown */}
+      <select
+        value={origin}
+        onChange={(e) => handleOriginChange(e.target.value as RejectionOrigin)}
+        className="h-6.5 w-full rounded border border-border bg-surface px-2 text-[11px] font-medium text-fg outline-none cursor-pointer"
+      >
+        <option value="internal">Internal Review</option>
+        <option value="client_screening">Client Resume Screening</option>
+        <option value="interview">Interview Feedback</option>
+        <option value="general">General</option>
+      </select>
+
+      {/* Manual Input with Modal Expand Button */}
+      <div className="flex items-center gap-1 min-w-0">
+        <Input
+          value={currentReason}
+          onChange={(e) => setCurrentReason(e.target.value)}
+          onBlur={() => handleSaveReason(currentReason)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSaveReason(currentReason);
+          }}
+          placeholder="Reason for rejection…"
+          className="h-6.5 text-[11px] flex-1 px-2"
+        />
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          className="flex h-6.5 w-6.5 items-center justify-center rounded border border-border bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover shrink-0 cursor-pointer transition-colors"
+          title="Open full rejection note modal"
+        >
+          <ArrowsOutSimple className="h-3 w-3" />
+        </button>
+      </div>
+
+      {/* Small Rejection Modal Dialog */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Rejection Reason & Notes</DialogTitle>
+            <DialogDescription>
+              Add detailed notes or feedback for why this candidate was rejected.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4">
+            <textarea
+              value={currentReason}
+              onChange={(e) => setCurrentReason(e.target.value)}
+              placeholder="Type detailed rejection feedback, client remarks, or notes here…"
+              className="w-full h-36 rounded-lg border border-border bg-surface-hover/50 p-3 text-xs text-fg placeholder:text-fg-subtle outline-none resize-none focus:ring-1 focus:ring-primary/40 leading-relaxed"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                handleSaveReason(currentReason);
+                setShowModal(false);
+                toast.success("Rejection reason updated");
+              }}
+            >
+              Save Note
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function NotInterestedDetailsCard({
+  candidate,
+  onSave,
+}: {
+  candidate: Candidate;
+  onSave: (patch: Partial<CandidateInput>) => void;
+}) {
+  const [reason, setReason] = useState(candidate.rejection_reason ?? "");
+  const [showModal, setShowModal] = useState(false);
+
+  useEffect(() => {
+    setReason(candidate.rejection_reason ?? "");
+  }, [candidate.rejection_reason]);
+
+  const handleSave = (val: string) => {
+    const trimmed = val.trim();
+    onSave({ rejection_reason: trimmed || null });
+  };
+
+  return (
+    <div className="space-y-1.5 rounded-lg border border-border bg-surface-hover/50 p-1.5 text-xs">
+      <div className="flex items-center gap-1 min-w-0">
+        <Input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          onBlur={() => handleSave(reason)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") handleSave(reason);
+          }}
+          placeholder="Reason candidate is not interested…"
+          className="h-6.5 text-[11px] flex-1 px-2"
+        />
+        <button
+          type="button"
+          onClick={() => setShowModal(true)}
+          className="flex h-6.5 w-6.5 items-center justify-center rounded border border-border bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover shrink-0 cursor-pointer transition-colors"
+          title="Open full reason modal"
+        >
+          <ArrowsOutSimple className="h-3 w-3" />
+        </button>
+      </div>
+
+      {/* Small Not Interested Modal Dialog */}
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Candidate Not Interested Reason</DialogTitle>
+            <DialogDescription>
+              Provide additional details on why the candidate declined or is not interested.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="p-4">
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason / notes on why candidate withdrew or declined…"
+              className="w-full h-32 rounded-lg border border-border bg-surface-hover/50 p-3 text-xs text-fg placeholder:text-fg-subtle outline-none resize-none focus:ring-1 focus:ring-primary/40 leading-relaxed"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowModal(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => {
+                handleSave(reason);
+                setShowModal(false);
+                toast.success("Reason updated");
+              }}
+            >
+              Save Reason
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

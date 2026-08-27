@@ -85,19 +85,19 @@ export function PlacedDatePicker({ value, onChange, className }: Props) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-surface-hover/80 px-2.5 text-[12.5px] text-fg transition-all hover:bg-surface-hover hover:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 cursor-pointer",
+          "flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-border bg-surface-hover/80 px-2 text-[11.5px] text-fg transition-all hover:bg-surface-hover hover:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 cursor-pointer",
           open && "ring-1 ring-emerald-500/50 border-emerald-500/50",
         )}
       >
         <span className="flex items-center gap-1.5 min-w-0 truncate">
-          <CheckCircle className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
-          <span className={cn("truncate font-medium text-[12px]", !hasValue && "text-fg-muted font-normal")}>
+          <CheckCircle className="h-3 w-3 shrink-0 text-emerald-500" />
+          <span className={cn("truncate font-medium text-[11px]", !hasValue && "text-fg-muted font-normal")}>
             {hasValue ? formatDateDisplay(value) : "Select placement date…"}
           </span>
         </span>
 
         {hasValue && (
-          <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
+          <span className="shrink-0 rounded bg-emerald-500/15 px-1 py-0.2 text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-wider">
             Placed
           </span>
         )}

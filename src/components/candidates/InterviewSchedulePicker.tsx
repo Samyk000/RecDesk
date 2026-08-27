@@ -167,25 +167,25 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-1.5 rounded-lg border border-border bg-surface-hover/80 px-2.5 text-[12.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
+          "flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-border bg-surface-hover/80 px-2 text-[11.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
           open && "ring-1 ring-primary/50 border-primary/50",
         )}
       >
         <span className="flex items-center gap-1.5 min-w-0 truncate">
-          <Clock className="h-3.5 w-3.5 shrink-0 text-primary" />
+          <Clock className="h-3 w-3 shrink-0 text-primary" />
           {value ? (
-            <span className="truncate font-medium text-[12px] flex items-center gap-1">
+            <span className="truncate font-medium text-[11px] flex items-center gap-1">
               <span>{display.dateStr}</span>
               <span className="text-fg-subtle">·</span>
               <span>{display.timeStr}</span>
             </span>
           ) : (
-            <span className="text-fg-muted font-normal text-[12px]">Schedule interview…</span>
+            <span className="text-fg-muted font-normal text-[11px]">Schedule interview…</span>
           )}
         </span>
 
         {value && (
-          <span className="shrink-0 rounded bg-primary/15 px-1.5 py-0.2 text-[10px] font-bold text-primary tracking-wide">
+          <span className="shrink-0 rounded bg-primary/15 px-1 py-0.2 text-[9.5px] font-bold text-primary tracking-wide">
             {display.tz}
           </span>
         )}

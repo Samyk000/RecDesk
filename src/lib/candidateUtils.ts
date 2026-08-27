@@ -1,4 +1,11 @@
-import type { Candidate, CandidateInput, CandidateWithJob } from "../types";
+import type {
+  Candidate,
+  CandidateInput,
+  CandidateWithJob,
+  InterviewRound,
+  RejectionDetail,
+  SubmissionType,
+} from "../types";
 
 export function toCandidateInput(
   candidate: Candidate | CandidateWithJob,
@@ -196,5 +203,150 @@ export function syncCandidateFieldsToSubmissionDetails(
     return existingSubmissionDetailsJson;
   }
 }
+
+/**
+ * Parses interview rounds from candidate.interview_status or builds initial round
+ */
+export function parseInterviewRounds(
+  raw?: string | null,
+  fallbackInterviewAt?: string | null,
+): InterviewRound[] {
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed as InterviewRound[];
+      }
+      if (typeof raw === "string" && !raw.startsWith("{") && !raw.startsWith("[")) {
+        return [
+          {
+            id: "round_1",
+            round_number: 1,
+            round_name: raw.trim() || "Round 1: Screening Call",
+            scheduled_at: fallbackInterviewAt ?? null,
+            status: "scheduled",
+          },
+        ];
+      }
+    } catch {
+      return [
+        {
+          id: "round_1",
+          round_number: 1,
+          round_name: raw.trim() || "Round 1: Screening Call",
+          scheduled_at: fallbackInterviewAt ?? null,
+          status: "scheduled",
+        },
+      ];
+    }
+  }
+
+  return [
+    {
+      id: "round_1",
+      round_number: 1,
+      round_name: "Round 1: Screening Call",
+      scheduled_at: fallbackInterviewAt ?? null,
+      status: "scheduled",
+    },
+  ];
+}
+
+/**
+ * Serializes interview rounds array to JSON string for interview_status column
+ */
+export function serializeInterviewRounds(rounds: InterviewRound[]): string {
+  return JSON.stringify(rounds);
+}
+
+/**
+ * Returns the most relevant active/upcoming interview date from rounds
+ */
+export function getActiveInterviewSchedule(rounds: InterviewRound[]): string | null {
+  if (!rounds || rounds.length === 0) return null;
+  for (let i = rounds.length - 1; i >= 0; i--) {
+    if (rounds[i]?.scheduled_at) {
+      return rounds[i].scheduled_at ?? null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Parses rejection details from candidate.rejection_reason JSON string
+ */
+export function parseRejectionDetail(raw?: string | null): RejectionDetail {
+  if (!raw) {
+    return {
+      origin: "general",
+      category: null,
+      reason: null,
+      rejected_at: null,
+    };
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (typeof parsed === "object" && parsed !== null && parsed.origin) {
+      return parsed as RejectionDetail;
+    }
+  } catch {
+    // If raw was a plain string reason
+  }
+
+  return {
+    origin: "general",
+    category: null,
+    reason: raw,
+    rejected_at: null,
+  };
+}
+
+/**
+ * Serializes rejection detail object to JSON string for rejection_reason column
+ */
+export function serializeRejectionDetail(detail: RejectionDetail): string {
+  return JSON.stringify(detail);
+}
+
+/**
+ * Extracts submission type (internal vs client) from candidate
+ */
+export function getSubmissionType(candidate: Candidate | CandidateWithJob): SubmissionType {
+  if (candidate.client_feedback === "internal") return "internal";
+  return "client"; // default to client submission
+}
+
+/**
+ * Returns a human-readable sub-stage badge label for table rows and status badges
+ */
+export function getCandidateSubStageLabel(
+  candidate: Candidate | CandidateWithJob,
+): string | null {
+  const status = candidate.submission_status;
+
+  if (status === "submitted") {
+    return candidate.client_feedback === "internal" ? "Internal" : "External";
+  }
+
+  if (status === "interview") {
+    const rounds = parseInterviewRounds(candidate.interview_status, candidate.interview_at);
+    return `Round ${rounds.length}`;
+  }
+
+  if (status === "rejected") {
+    const detail = parseRejectionDetail(candidate.rejection_reason);
+    if (detail.origin === "internal") return "Internal";
+    if (detail.origin === "client_screening") return "External";
+    if (detail.origin === "interview") {
+      return detail.round_number ? `Round ${detail.round_number}` : "Interview";
+    }
+    return null;
+  }
+
+  return null;
+}
+
+
 
 
