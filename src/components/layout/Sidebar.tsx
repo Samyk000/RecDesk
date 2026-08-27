@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { Building, Briefcase, IdentificationCard, SquaresFour, Gear } from "@phosphor-icons/react";
+import { Building, Briefcase, CalendarBlank, IdentificationCard, SquaresFour, Gear } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 import { SidebarInterviews } from "./SidebarInterviews";
 import { SidebarSubmissions } from "./SidebarSubmissions";
@@ -9,6 +9,7 @@ const navItems = [
   { to: "/jobs", label: "Jobs", icon: Briefcase },
   { to: "/candidates", label: "Candidates", icon: IdentificationCard },
   { to: "/clients", label: "Clients", icon: Building },
+  { to: "/calendar", label: "Calendar", icon: CalendarBlank },
 ];
 
 export function Sidebar() {

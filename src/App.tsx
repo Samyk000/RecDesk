@@ -6,6 +6,7 @@ import { JobDetail } from "./pages/JobDetail";
 import { Clients } from "./pages/Clients";
 import { ClientDetail } from "./pages/ClientDetail";
 import { Candidates } from "./pages/Candidates";
+import { Calendar } from "./pages/Calendar";
 import { Settings } from "./pages/Settings";
 
 function App() {
@@ -18,6 +19,7 @@ function App() {
         <Route path="/clients" element={<Clients />} />
         <Route path="/clients/:id" element={<ClientDetail />} />
         <Route path="/candidates" element={<Candidates />} />
+        <Route path="/calendar" element={<Calendar />} />
         <Route path="/settings" element={<Settings />} />
       </Route>
     </Routes>

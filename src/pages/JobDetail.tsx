@@ -54,7 +54,7 @@ export function JobDetail() {
     try {
       await deleteJob.mutateAsync(currentJob.id);
       toast.success("Job deleted");
-      navigate(currentJob.client_id ? `/clients/${currentJob.client_id}` : "/jobs");
+      navigate("/jobs");
     } catch {
       toast.error("Failed to delete job");
     }
@@ -62,17 +62,31 @@ export function JobDetail() {
 
   return (
     <div className="flex h-full flex-col px-6 pt-4">
-      <div className="mb-4 flex items-center gap-2">
+      <div className="mb-4 flex items-center justify-between">
         <button
-          onClick={() => (job.client_id ? navigate(`/clients/${job.client_id}`) : navigate("/jobs"))}
+          onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/jobs"))}
           className="inline-flex cursor-pointer items-center gap-1.5 rounded-md px-1 py-0.5 text-[13px] font-medium text-fg-muted transition-colors hover:text-fg"
         >
           <ArrowLeft className="h-4 w-4" />
-          {job.client_name}
+          Jobs
         </button>
-        <span className="text-[13px] text-fg-muted">
-          Created: <span className="tabular-nums">{formatDateAbbr(job.created_at)}</span>
-        </span>
+        <div className="flex items-center gap-2 text-[13px] text-fg-muted">
+          {job.client_name && (
+            <>
+              <button
+                type="button"
+                onClick={() => job.client_id && navigate(`/clients/${job.client_id}`)}
+                className="hover:text-primary transition-colors cursor-pointer font-medium"
+              >
+                {job.client_name}
+              </button>
+              <span>·</span>
+            </>
+          )}
+          <span>
+            Created: <span className="tabular-nums font-medium text-fg">{formatDateAbbr(job.created_at)}</span>
+          </span>
+        </div>
       </div>
 
       <div className="mb-5 flex items-center justify-between gap-4">
