@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ArrowCounterClockwise,
   CaretDown,
@@ -20,8 +20,17 @@ import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Spinner } from "../common/Spinner";
 import { errorMessage } from "../../lib/utils";
-import { toCandidateInput } from "../../lib/candidateUtils";
-import type { Candidate } from "../../types";
+import {
+  toCandidateInput,
+  isLegalNameRow,
+  isEmailRow,
+  isPhoneRow,
+  isLocationRow,
+  isLinkedinRow,
+  isCurrentTitleRow,
+  isCurrentCompanyRow,
+} from "../../lib/candidateUtils";
+import type { Candidate, CandidateInput } from "../../types";
 
 interface Props {
   candidateId: string;
@@ -198,11 +207,22 @@ export function SubmissionDetailsDialog({ candidateId, open, onOpenChange }: Pro
             <Spinner />
           </div>
         ) : (
-          <SubmissionDetailsBody candidate={candidate} />
+          <SubmissionDetailsBody key={candidate.id} candidate={candidate} />
         )}
       </DialogContent>
     </Dialog>
   );
+}
+
+function getCandidateFallback(key: string, label: string, candidate: Candidate): string | null {
+  if (isLegalNameRow(key, label)) return candidate.name || null;
+  if (isEmailRow(key, label)) return candidate.email || null;
+  if (isPhoneRow(key, label)) return candidate.phone || null;
+  if (isLocationRow(key, label)) return candidate.location || null;
+  if (isLinkedinRow(key, label)) return candidate.linkedin_url || null;
+  if (isCurrentTitleRow(key, label)) return candidate.current_title || null;
+  if (isCurrentCompanyRow(key, label)) return candidate.current_company || null;
+  return null;
 }
 
 function parseSubmissionRows(candidate: Candidate): SubmissionRowItem[] {
@@ -212,13 +232,22 @@ function parseSubmissionRows(candidate: Candidate): SubmissionRowItem[] {
 
       // New array format
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item: any, idx: number) => ({
-          id: item.id || `row_${idx}_${Date.now()}`,
-          key: item.key || `custom_${idx}`,
-          label: item.label || "",
-          value: item.value || "",
-          type: item.type || (item.label && item.label.length > 60 ? "textarea" : "text"),
-        }));
+        return parsed.map((item: any, idx: number) => {
+          const key = item.key || `custom_${idx}`;
+          const label = item.label || "";
+          let value = item.value || "";
+          if (!value.trim()) {
+            const fallback = getCandidateFallback(key, label, candidate);
+            if (fallback) value = fallback;
+          }
+          return {
+            id: item.id || `row_${key}_${idx}`,
+            key,
+            label,
+            value,
+            type: item.type || (label && label.length > 60 ? "textarea" : "text"),
+          };
+        });
       }
 
       // Legacy object format -> migrate to array
@@ -276,8 +305,7 @@ function formatCurrentTimestamp(): string {
 
 function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
   const updateCandidate = useUpdateCandidate();
-  const initialRows = useMemo(() => parseSubmissionRows(candidate), [candidate.id]);
-  const [rows, setRows] = useState<SubmissionRowItem[]>(initialRows);
+  const [rows, setRows] = useState<SubmissionRowItem[]>(() => parseSubmissionRows(candidate));
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [hasCopied, setHasCopied] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
@@ -294,13 +322,52 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     const nextRaw = JSON.stringify(debouncedRows);
     if (prevRaw === nextRaw) return;
 
+    // Extract updated core candidate fields from debouncedRows
+    const fieldPatch: Partial<CandidateInput> = {
+      submission_details: nextRaw,
+    };
+
+    for (const row of debouncedRows) {
+      const key = row.key || "";
+      const label = row.label || "";
+      const val = (row.value || "").trim();
+
+      if (isLegalNameRow(key, label)) {
+        if (val && val !== (candidate.name || "")) {
+          fieldPatch.name = val;
+        }
+      } else if (isEmailRow(key, label)) {
+        if (val !== (candidate.email || "")) {
+          fieldPatch.email = val || null;
+        }
+      } else if (isPhoneRow(key, label)) {
+        if (val !== (candidate.phone || "")) {
+          fieldPatch.phone = val || null;
+        }
+      } else if (isLocationRow(key, label)) {
+        if (val !== (candidate.location || "")) {
+          fieldPatch.location = val || null;
+        }
+      } else if (isLinkedinRow(key, label)) {
+        if (val !== (candidate.linkedin_url || "")) {
+          fieldPatch.linkedin_url = val || null;
+        }
+      } else if (isCurrentTitleRow(key, label)) {
+        if (val !== (candidate.current_title || "")) {
+          fieldPatch.current_title = val || null;
+        }
+      } else if (isCurrentCompanyRow(key, label)) {
+        if (val !== (candidate.current_company || "")) {
+          fieldPatch.current_company = val || null;
+        }
+      }
+    }
+
     setSaveState("saving");
     updateCandidate.mutate(
       {
         id: candidate.id,
-        input: toCandidateInput(candidate, {
-          submission_details: nextRaw,
-        }),
+        input: toCandidateInput(candidate, fieldPatch),
       },
       {
         onSuccess: () => {

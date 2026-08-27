@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowCounterClockwise,
@@ -49,7 +49,7 @@ import {
 import { ResumePreviewModal } from "./ResumePreviewModal";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials, titleCase, cn } from "../../lib/utils";
-import { toCandidateInput } from "../../lib/candidateUtils";
+import { toCandidateInput, syncCandidateFieldsToSubmissionDetails } from "../../lib/candidateUtils";
 import { Spinner } from "../common/Spinner";
 import type { Candidate, CandidateInput, CandidateWithJob } from "../../types";
 
@@ -127,11 +127,35 @@ function CandidatePanelBody({
       });
     }
 
+    // Two-way sync: if editing core profile fields, synchronize existing submission_details rows as well
+    let syncedSubmissionDetails = patch.submission_details;
+    if (
+      syncedSubmissionDetails === undefined &&
+      (patch.name !== undefined ||
+        patch.email !== undefined ||
+        patch.phone !== undefined ||
+        patch.location !== undefined ||
+        patch.linkedin_url !== undefined)
+    ) {
+      const updatedDetails = syncCandidateFieldsToSubmissionDetails(
+        candidate.submission_details,
+        patch,
+      );
+      if (updatedDetails && updatedDetails !== candidate.submission_details) {
+        syncedSubmissionDetails = updatedDetails;
+      }
+    }
+
+    const fullPatch: Partial<CandidateInput> = {
+      ...patch,
+      ...(syncedSubmissionDetails !== undefined ? { submission_details: syncedSubmissionDetails } : {}),
+    };
+
     setSaving(true);
     try {
       await update.mutateAsync({
         id: candidate.id,
-        input: toCandidateInput(candidate, patch),
+        input: toCandidateInput(candidate, fullPatch),
       });
       toast.success("Saved");
     } catch (err) {
@@ -460,44 +484,12 @@ function CandidatePanelBody({
             value={candidate.location ?? ""}
             onSave={(v) => saveField({ location: v || null })}
           />
-
-          <div className="min-w-0 space-y-1.5">
-            <p className="text-xs text-fg-subtle">LinkedIn</p>
-            <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
-              <LinkedinLogo className="h-3.5 w-3.5 shrink-0 text-primary" />
-              <input
-                defaultValue={candidate.linkedin_url ?? ""}
-                placeholder="https://linkedin.com/in/…"
-                className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v === (candidate.linkedin_url ?? "")) return;
-                  saveField({ linkedin_url: v || null });
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-                }}
-              />
-              {candidate.linkedin_url && (
-                <>
-                  <button
-                    onClick={openLinkedIn}
-                    title="Open link"
-                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-                  >
-                    <ArrowSquareOut className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    onClick={copyLinkedIn}
-                    title="Copy link"
-                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-                  >
-                    <Copy className="h-3.5 w-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
+          <LinkedInField
+            value={candidate.linkedin_url ?? ""}
+            onSave={(v) => saveField({ linkedin_url: v || null })}
+            onOpen={openLinkedIn}
+            onCopy={copyLinkedIn}
+          />
         </div>
 
         {/* Row 4: Resume, Status */}
@@ -728,22 +720,85 @@ function InlineField({
   value: string;
   onSave: (v: string) => void;
 }) {
-  const ref = useRef<HTMLInputElement>(null);
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
   return (
     <div className="min-w-0 space-y-1.5">
       <p className="text-xs text-fg-subtle">{label}</p>
       <Input
-        ref={ref}
-        defaultValue={value}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
         className="h-8 text-[13px]"
-        onBlur={(e) => {
-          if (e.target.value === value) return;
-          onSave(e.target.value);
+        onBlur={() => {
+          const t = draft.trim();
+          if (t === value) return;
+          onSave(t);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
       />
+    </div>
+  );
+}
+
+function LinkedInField({
+  value,
+  onSave,
+  onOpen,
+  onCopy,
+}: {
+  value: string;
+  onSave: (v: string) => void;
+  onOpen: () => void;
+  onCopy: () => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <div className="min-w-0 space-y-1.5">
+      <p className="text-xs text-fg-subtle">LinkedIn</p>
+      <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
+        <LinkedinLogo className="h-3.5 w-3.5 shrink-0 text-primary" />
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="https://linkedin.com/in/…"
+          className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
+          onBlur={() => {
+            const t = draft.trim();
+            if (t === value) return;
+            onSave(t);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+          }}
+        />
+        {value ? (
+          <>
+            <button
+              onClick={onOpen}
+              title="Open link"
+              className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+            >
+              <ArrowSquareOut className="h-3.5 w-3.5" />
+            </button>
+            <button
+              onClick={onCopy}
+              title="Copy link"
+              className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+            >
+              <Copy className="h-3.5 w-3.5" />
+            </button>
+          </>
+        ) : null}
+      </div>
     </div>
   );
 }
