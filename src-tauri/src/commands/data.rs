@@ -2,9 +2,10 @@ use rusqlite::params;
 use tauri::State;
 
 use crate::error::{AppError, AppResult};
-use crate::models::{Candidate, Client, ExportEnvelope, ImportSummary, Job};
+use crate::models::{Candidate, Client, ExportEnvelope, ImportSummary, Job, Reminder};
 use crate::rows::{
-    now, row_to_candidate, row_to_client, row_to_job, serialize_bools, serialize_questions,
+    now, row_to_candidate, row_to_client, row_to_job, row_to_reminder, serialize_bools,
+    serialize_questions,
 };
 use crate::AppState;
 
@@ -56,6 +57,20 @@ fn collect_candidates(conn: &rusqlite::Connection) -> AppResult<Vec<Candidate>> 
     Ok(rows)
 }
 
+fn collect_reminders(conn: &rusqlite::Connection) -> AppResult<Vec<Reminder>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, title, description, category, due_date, due_time,
+                timezone, remind_at, priority, notify_before_minutes,
+                status, snoozed_until, candidate_id, job_id, client_id,
+                meeting_link, created_at, updated_at
+         FROM reminders ORDER BY remind_at ASC, created_at ASC",
+    )?;
+    let rows = stmt
+        .query_map([], row_to_reminder)?
+        .collect::<Result<Vec<_>, rusqlite::Error>>()?;
+    Ok(rows)
+}
+
 pub fn export_json(conn: &rusqlite::Connection) -> AppResult<String> {
     let envelope = ExportEnvelope {
         version: 1,
@@ -63,6 +78,7 @@ pub fn export_json(conn: &rusqlite::Connection) -> AppResult<String> {
         clients: collect_clients(conn)?,
         jobs: collect_jobs(conn)?,
         candidates: collect_candidates(conn)?,
+        reminders: Some(collect_reminders(conn)?),
     };
     serde_json::to_string_pretty(&envelope).map_err(AppError::from)
 }
@@ -85,6 +101,7 @@ pub fn import_json(
     let tx = conn.transaction()?;
 
     if replace {
+        tx.execute("DELETE FROM reminders", [])?;
         tx.execute("DELETE FROM candidates", [])?;
         tx.execute("DELETE FROM jobs", [])?;
         tx.execute("DELETE FROM clients", [])?;
@@ -143,12 +160,34 @@ pub fn import_json(
         )?;
     }
 
+    let mut imported_reminders = 0;
+    if let Some(ref rems) = envelope.reminders {
+        for rem in rems {
+            tx.execute(
+                "INSERT OR IGNORE INTO reminders (
+                    id, title, description, category, due_date, due_time,
+                    timezone, remind_at, priority, notify_before_minutes,
+                    status, snoozed_until, candidate_id, job_id, client_id,
+                    meeting_link, created_at, updated_at
+                 ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18)",
+                params![
+                    rem.id, rem.title, rem.description, rem.category, rem.due_date, rem.due_time,
+                    rem.timezone, rem.remind_at, rem.priority, rem.notify_before_minutes,
+                    rem.status, rem.snoozed_until, rem.candidate_id, rem.job_id, rem.client_id,
+                    rem.meeting_link, rem.created_at, rem.updated_at
+                ],
+            )?;
+            imported_reminders += 1;
+        }
+    }
+
     tx.commit()?;
 
     Ok(ImportSummary {
         clients: envelope.clients.len(),
         jobs: envelope.jobs.len(),
         candidates: envelope.candidates.len(),
+        reminders: imported_reminders,
         replaced: replace,
     })
 }

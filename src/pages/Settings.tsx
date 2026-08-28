@@ -111,6 +111,7 @@ export function Settings() {
     qc.invalidateQueries({ queryKey: ["candidates"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    qc.invalidateQueries({ queryKey: ["reminders"] });
   }
 
   async function handleDownloadModel(modelId: string) {
@@ -241,7 +242,7 @@ export function Settings() {
         const summary = await apiData.import(json, replace);
         invalidateAllDataQueries();
         toast.success(
-          `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
+          `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates${summary.reminders ? `, ${summary.reminders} reminders` : ""}`,
         );
       }
     } catch (err) {

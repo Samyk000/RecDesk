@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { apiClients, apiCandidates, apiDashboard, apiFiles, apiJobs, apiAi } from "../lib/api";
+import { apiClients, apiCandidates, apiDashboard, apiFiles, apiJobs, apiAi, apiReminders } from "../lib/api";
 import type {
   CandidateInput,
   CandidatePatch,
   ClientInput,
   JobInput,
+  ReminderInput,
 } from "../types";
 
 // ---- Clients ----
@@ -354,4 +355,73 @@ export function useParseResume() {
   return useMutation({
     mutationFn: (text: string) => apiAi.parseResume(text),
   });
-}
+}
+
+// ---- Reminders, Tasks & Meetings ----
+export function useReminders(status?: string, category?: string) {
+  return useQuery({
+    queryKey: ["reminders", status ?? "", category ?? ""],
+    queryFn: () => apiReminders.list(status, category),
+  });
+}
+
+export function useReminder(id: string | undefined) {
+  return useQuery({
+    queryKey: ["reminder", id],
+    queryFn: () => apiReminders.get(id!),
+    enabled: !!id,
+  });
+}
+
+export function useCreateReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: ReminderInput) => apiReminders.create(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+}
+
+export function useUpdateReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: ReminderInput }) =>
+      apiReminders.update(id, input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+}
+
+export function useDeleteReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiReminders.remove(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+}
+
+export function useToggleReminderCompleted() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => apiReminders.toggleCompleted(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+}
+
+export function useSnoozeReminder() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, minutes }: { id: string; minutes: number }) =>
+      apiReminders.snooze(id, minutes),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["reminders"] });
+    },
+  });
+}
+

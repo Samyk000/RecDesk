@@ -8,8 +8,12 @@ import { ClientDetail } from "./pages/ClientDetail";
 import { Candidates } from "./pages/Candidates";
 import { Calendar } from "./pages/Calendar";
 import { Settings } from "./pages/Settings";
+import { useNotificationScheduler } from "./lib/notificationEngine";
 
 function App() {
+  // Background notification engine & scheduler
+  useNotificationScheduler();
+
   return (
     <Routes>
       <Route element={<AppLayout />}>

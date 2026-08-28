@@ -11,6 +11,8 @@ import type {
   ImportSummary,
   JobInput,
   JobWithStats,
+  ReminderInput,
+  ReminderWithContext,
   SearchResults,
 } from "../types";
 
@@ -52,6 +54,18 @@ export const apiCandidates = {
   bulkRemove: (ids: string[]) => call<number>("delete_candidates", { ids }),
   withJob: (clientId?: string, search?: string, status?: string) =>
     call<CandidateWithJob[]>("get_candidates_with_job", { clientId, search, status }),
+};
+
+// ---- Reminders, Tasks & Meetings ----
+export const apiReminders = {
+  list: (status?: string, category?: string) =>
+    call<ReminderWithContext[]>("get_reminders", { status, category }),
+  get: (id: string) => call<ReminderWithContext>("get_reminder", { id }),
+  create: (input: ReminderInput) => call<ReminderWithContext>("create_reminder", { input }),
+  update: (id: string, input: ReminderInput) => call<ReminderWithContext>("update_reminder", { id, input }),
+  remove: (id: string) => call<void>("delete_reminder", { id }),
+  toggleCompleted: (id: string) => call<ReminderWithContext>("toggle_reminder_completed", { id }),
+  snooze: (id: string, minutes: number) => call<ReminderWithContext>("snooze_reminder", { id, minutes }),
 };
 
 // ---- Dashboard / Search ----
@@ -97,4 +111,4 @@ export const apiOcr = {
   downloadModel: (modelId: string) => call<string>("download_ocr_model", { modelId }),
   cancelDownload: (modelId: string) => call<void>("cancel_ocr_download", { modelId }),
   deleteModel: (modelId: string) => call<void>("delete_ocr_model", { modelId }),
-};
+};

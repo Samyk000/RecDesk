@@ -21,6 +21,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
@@ -54,6 +55,14 @@ pub fn run() {
             commands::candidate::delete_candidates,
             commands::candidate::bulk_update_candidates,
             commands::candidate::get_candidates_with_job,
+            // reminders, tasks & meetings
+            commands::reminder::get_reminders,
+            commands::reminder::get_reminder,
+            commands::reminder::create_reminder,
+            commands::reminder::update_reminder,
+            commands::reminder::delete_reminder,
+            commands::reminder::toggle_reminder_completed,
+            commands::reminder::snooze_reminder,
             // dashboard / search
             commands::dashboard::get_dashboard_stats,
             commands::search::global_search,

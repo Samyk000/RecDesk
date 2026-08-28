@@ -15,6 +15,7 @@
       "allow": [{ "path": "$APPDATA/**" }]
     },
     "dialog:default",
+    "notification:default",
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [{ "path": "**" }]

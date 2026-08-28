@@ -36,6 +36,8 @@ pub struct ImportSummary {
     pub clients: usize,
     pub jobs: usize,
     pub candidates: usize,
+    #[serde(default)]
+    pub reminders: usize,
     pub replaced: bool,
 }
 
@@ -46,4 +48,6 @@ pub struct ExportEnvelope {
     pub clients: Vec<crate::models::client::Client>,
     pub jobs: Vec<crate::models::job::Job>,
     pub candidates: Vec<crate::models::candidate::Candidate>,
+    #[serde(default)]
+    pub reminders: Option<Vec<crate::models::reminder::Reminder>>,
 }

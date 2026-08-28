@@ -2,6 +2,7 @@ use rusqlite::Row;
 
 use crate::models::{
     BooleanString, Candidate, CandidateWithJob, Client, ClientWithStats, Job, JobWithStats,
+    Reminder, ReminderWithContext,
 };
 
 pub fn now() -> String {
@@ -134,5 +135,37 @@ pub fn row_to_candidate_with_job(row: &Row) -> rusqlite::Result<CandidateWithJob
         job_title: row.get(27)?,
         job_id_ref: row.get(28)?,
         client_name: row.get(29)?,
+    })
+}
+
+pub fn row_to_reminder(row: &Row) -> rusqlite::Result<Reminder> {
+    Ok(Reminder {
+        id: row.get(0)?,
+        title: row.get(1)?,
+        description: row.get(2)?,
+        category: row.get(3)?,
+        due_date: row.get(4)?,
+        due_time: row.get(5)?,
+        timezone: row.get(6)?,
+        remind_at: row.get(7)?,
+        priority: row.get(8)?,
+        notify_before_minutes: row.get(9)?,
+        status: row.get(10)?,
+        snoozed_until: row.get(11)?,
+        candidate_id: row.get(12)?,
+        job_id: row.get(13)?,
+        client_id: row.get(14)?,
+        meeting_link: row.get(15)?,
+        created_at: row.get(16)?,
+        updated_at: row.get(17)?,
+    })
+}
+
+pub fn row_to_reminder_with_context(row: &Row) -> rusqlite::Result<ReminderWithContext> {
+    Ok(ReminderWithContext {
+        reminder: row_to_reminder(row)?,
+        candidate_name: row.get(18)?,
+        job_title: row.get(19)?,
+        client_name: row.get(20)?,
     })
 }
