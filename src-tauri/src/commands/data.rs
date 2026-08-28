@@ -19,7 +19,7 @@ const RAW_JOB_SELECT: &str = r#"
          status, refined_jd, boolean_strings, candidate_pitch,
          screening_questions, notes, created_at, updated_at, closed_at, sort_order,
          bill_rate, pay_rate
-  FROM jobs ORDER BY sort_order, updated_at DESC
+  FROM jobs ORDER BY updated_at DESC, created_at DESC
 "#;
 
 const RAW_CANDIDATE_SELECT: &str = r#"

@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
-import { ArrowDown, ArrowUp, Briefcase, Plus } from "@phosphor-icons/react";
-import { useJobs, useMoveJob } from "../hooks/useQueries";
-import { useFlipList } from "../hooks/useFlipList";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { Briefcase, Plus } from "@phosphor-icons/react";
+import { useJobs } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
@@ -15,15 +14,19 @@ import { cn, timeAgo, titleCase } from "../lib/utils";
 import { useDebounce } from "../hooks/useDebounce";
 
 export function Jobs() {
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
-  const status = params.get("status") ?? "";
+  const statusParam = params.get("status");
+  // Default to "active" if no status query param is present
+  const status = statusParam !== null ? statusParam : "active";
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
   const [formOpen, setFormOpen] = useState(false);
-  const { data, isLoading } = useJobs(undefined, status || undefined, debounced || undefined);
-  const moveJob = useMoveJob();
-  const flipRef = useFlipList();
-  const canReorder = !status && !debounced;
+  const { data, isLoading } = useJobs(
+    undefined,
+    status === "all" ? undefined : status || undefined,
+    debounced || undefined,
+  );
 
   useEffect(() => {
     if (params.get("new")) {
@@ -63,10 +66,10 @@ export function Jobs() {
         />
         <div className="flex items-center gap-1">
           <FilterChip
-            active={status === ""}
+            active={status === "all"}
             onClick={() => setParams((p) => {
               const n = new URLSearchParams(p);
-              n.delete("status");
+              n.set("status", "all");
               return n;
             })}
             label="All"
@@ -105,75 +108,61 @@ export function Jobs() {
             }
           />
         ) : (
-          <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
-            <div ref={flipRef} className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-              <div className="divide-y divide-border">
-            {data.map((job, i) => (
-              <Link
-                key={job.id}
-                data-flip-id={job.id}
-                to={`/jobs/${job.id}`}
-                className="group flex cursor-pointer items-center gap-4 px-4 py-3 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{job.title}</p>
-                    <StatusBadge status={job.status} kind="job" className="shrink-0" />
-                  </div>
-                  <p className="mt-0.5 truncate text-xs text-fg-subtle">
-                    <span className="font-mono text-[11px]">{job.job_id}</span>
-                    <span className="mx-1.5">·</span>
-                    {job.client_name}
-                    {job.location && (
-                      <>
-                        <span className="mx-1.5">·</span>
-                        {job.location}
-                        {job.work_model && ` (${job.work_model})`}
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-5 text-right">
-                  <div>
-                    <p className="text-[13px] font-semibold tabular-nums text-fg">{job.candidate_count}</p>
-                    <p className="text-[11px] text-fg-subtle">candidates</p>
-                  </div>
-                  <div className="w-16">
-                    <p className="text-xs text-fg-muted">{timeAgo(job.updated_at)}</p>
-                    <p className="text-[11px] text-fg-subtle">updated</p>
-                  </div>
-                  <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                    <button
-                      type="button"
-                      title="Move up"
-                      disabled={!canReorder || i === 0 || moveJob.isPending}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        moveJob.mutate({ id: job.id, direction: -1 });
-                      }}
-                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
+          <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
+            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-surface text-left">
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Job Title</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted whitespace-nowrap">Job ID</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Client</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted whitespace-nowrap">Location</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-right text-xs font-semibold text-fg-muted whitespace-nowrap">Candidates</th>
+                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-right text-xs font-semibold text-fg-muted whitespace-nowrap">Updated</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {data.map((job) => (
+                    <tr
+                      key={job.id}
+                      onClick={() => navigate(`/jobs/${job.id}`)}
+                      className="group cursor-pointer transition-colors hover:bg-surface-hover"
                     >
-                      <ArrowUp className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      title="Move down"
-                      disabled={!canReorder || i === data.length - 1 || moveJob.isPending}
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        moveJob.mutate({ id: job.id, direction: 1 });
-                      }}
-                      className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-md text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <ArrowDown className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </Link>
-            ))}
-            </div>
+                      <td className="px-4 py-2.5 text-[13px] font-medium text-fg group-hover:text-primary transition-colors">
+                        <div className="truncate max-w-[280px]">
+                          {job.title}
+                        </div>
+                      </td>
+                      <td className="px-4 py-2.5 text-xs font-mono text-fg-muted whitespace-nowrap">
+                        {job.job_id}
+                      </td>
+                      <td className="px-4 py-2.5 text-[13px] text-fg-muted truncate max-w-[180px]">
+                        {job.client_name}
+                      </td>
+                      <td className="px-4 py-2.5 text-[13px] text-fg-muted whitespace-nowrap">
+                        {job.location ? (
+                          <span>
+                            {job.location}
+                            {job.work_model && <span className="text-fg-subtle"> ({job.work_model})</span>}
+                          </span>
+                        ) : (
+                          <span className="text-fg-subtle">-</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        <StatusBadge status={job.status} kind="job" />
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-[13px] font-semibold tabular-nums text-fg whitespace-nowrap">
+                        {job.candidate_count}
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-xs text-fg-muted whitespace-nowrap">
+                        {timeAgo(job.updated_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

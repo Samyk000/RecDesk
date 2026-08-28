@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
+  Copy,
   EyeSlash,
   IdentificationCard,
   Plus,
@@ -13,6 +14,7 @@ import {
   useBulkUpdateCandidates,
   useBulkDeleteCandidates,
   useCandidatesWithJob,
+  useCreateCandidate,
   useDeleteCandidate,
 } from "../hooks/useQueries";
 import { useDebounce } from "../hooks/useDebounce";
@@ -71,6 +73,7 @@ export function Candidates() {
   const [deleting, setDeleting] = useState<CandidateWithJob | null>(null);
   const bulkUpdate = useBulkUpdateCandidates();
   const bulkDelete = useBulkDeleteCandidates();
+  const createCandidate = useCreateCandidate();
   const deleteCandidate = useDeleteCandidate();
 
   const [hideRejected, setHideRejected] = useState(() => {
@@ -108,53 +111,86 @@ export function Candidates() {
     `${status}|${debounced}|${selectMode}|${hideRejected}`,
   );
 
-  async function confirmBulkDelete() {
-    try {
-      await bulkDelete.mutateAsync(Array.from(selection.selected));
-      toast.success("Candidates deleted");
-      selection.clear();
-      setBulkDeleteOpen(false);
-    } catch {
-      toast.error("Bulk delete failed");
-    }
-  }
-
-  async function bulkStatus(newStatus: string) {
-    const ids = Array.from(selection.selected);
-    if (!ids.length) return;
-    try {
-      await bulkUpdate.mutateAsync({ ids, patch: { submission_status: newStatus } });
-      toast.success(`${ids.length} candidate(s) marked ${titleCase(newStatus)}`);
-      selection.clear();
-    } catch {
-      toast.error("Bulk update failed");
-    }
-  }
-
-  async function confirmDelete() {
-    if (!deleting) return;
-    try {
-      await deleteCandidate.mutateAsync(deleting.id);
-      toast.success("Candidate deleted");
-      setDeleting(null);
-    } catch (err) {
-      toast.error(errorMessage(err));
-    }
-  }
-
-  function handleStatusChange(candidate: CandidateWithJob, value: string) {
-    if (DETAIL_STATUSES.has(value)) {
-      setStatusDialog({ candidate, status: value });
+  function handleStatusChange(candidate: CandidateWithJob, nextStatus: string) {
+    if (DETAIL_STATUSES.has(nextStatus)) {
+      setStatusDialog({ candidate, status: nextStatus });
       return;
     }
     bulkUpdate.mutate(
-      { ids: [candidate.id], patch: { submission_status: value } },
+      { ids: [candidate.id], patch: { submission_status: nextStatus } },
       {
-        onSuccess: () => toast.success(`${candidate.name} marked ${titleCase(value)}`),
+        onSuccess: () => toast.success(`${candidate.name} marked ${titleCase(nextStatus)}`),
         onError: () => toast.error("Failed to update status"),
       },
     );
   }
+
+  function handleBulkStatus(value: string) {
+    if (!selection.selected.size) return;
+    const ids = Array.from(selection.selected);
+    bulkUpdate.mutate(
+      { ids, patch: { submission_status: value } },
+      {
+        onSuccess: () => {
+          toast.success(`Updated ${ids.length} candidate(s) to ${titleCase(value)}`);
+          selection.clear();
+        },
+        onError: () => toast.error("Failed to update candidates"),
+      },
+    );
+  }
+
+  function handleBulkDelete() {
+    if (!selection.selected.size) return;
+    const ids = Array.from(selection.selected);
+    bulkDelete.mutate(ids, {
+      onSuccess: () => {
+        toast.success(`Deleted ${ids.length} candidate(s)`);
+        selection.clear();
+        setBulkDeleteOpen(false);
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+  }
+
+  function handleDelete() {
+    if (!deleting) return;
+    deleteCandidate.mutate(deleting.id, {
+      onSuccess: () => {
+        toast.success(`Deleted ${deleting.name}`);
+        setDeleting(null);
+      },
+      onError: (e) => toast.error(errorMessage(e)),
+    });
+  }
+
+  const handleDuplicate = async (e: React.MouseEvent, c: CandidateWithJob) => {
+    e.stopPropagation();
+    try {
+      const dup = await createCandidate.mutateAsync({
+        job_id: c.job_id,
+        name: c.name,
+        email: c.email ?? null,
+        phone: c.phone ?? null,
+        location: c.location ?? null,
+        current_title: c.current_title ?? null,
+        current_company: c.current_company ?? null,
+        experience_years: c.experience_years ?? null,
+        resume_path: c.resume_path ?? null,
+        linkedin_url: c.linkedin_url ?? null,
+        recruiter_notes: c.recruiter_notes ?? null,
+        match_score: c.match_score ?? null,
+        submission_status: "in_touch",
+        candidate_status: "active",
+        screening_answers: c.screening_answers ?? null,
+        submission_details: c.submission_details ?? null,
+      });
+      toast.success(`Duplicated "${c.name}" — ready for new role/client`);
+      openPanel(dup.id);
+    } catch {
+      toast.error("Failed to duplicate candidate");
+    }
+  };
 
   const filtered = status !== "all" || search.length > 0;
 
@@ -248,12 +284,12 @@ export function Candidates() {
           <Button
             size="icon"
             variant="ghost"
-            title={selectMode ? "Exit selection mode" : "Select multiple candidates"}
-            className={cn(
-              "h-8 w-8",
-              selectMode && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
-            )}
-            onClick={() => setSelectMode((m) => !m)}
+            title={selectMode ? "Exit select mode" : "Select candidates"}
+            onClick={() => {
+              setSelectMode(!selectMode);
+              if (selectMode) selection.clear();
+            }}
+            className={selectMode ? "bg-surface-active text-fg" : "text-fg-muted"}
           >
             <ListChecks className="h-4 w-4" />
           </Button>
@@ -261,18 +297,20 @@ export function Candidates() {
       </div>
 
       {selectMode && selection.selected.size > 0 && (
-        <div className="mb-3 flex items-center gap-3 rounded-lg border border-primary/30 bg-primary/5 px-4 py-2.5 animate-slide-up">
-          <span className="text-[13px] font-medium text-fg">
-            {selection.selected.size} selected
-          </span>
-          <Select value="" onValueChange={bulkStatus}>
-            <SelectTrigger className="h-8 w-44 text-[13px]">
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-surface px-4 py-2 text-xs">
+          <span className="font-medium text-fg">{selection.selected.size} selected</span>
+          <div className="mx-2 h-4 w-px bg-border" />
+          <Select onValueChange={handleBulkStatus}>
+            <SelectTrigger className="h-7 w-36 text-xs">
               <SelectValue placeholder="Set status…" />
             </SelectTrigger>
             <SelectContent>
               {BULK_STATUSES.map((s) => (
                 <SelectItem key={s} value={s}>
-                  {titleCase(s)}
+                  <span className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: submissionPalette(s).dot }} />
+                    {titleCase(s)}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -321,8 +359,8 @@ export function Candidates() {
                     />
                   </th>
                 )}
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
+                <th className="sticky top-0 z-10 w-[240px] max-w-[260px] bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
+                <th className="sticky top-0 z-10 max-w-[180px] bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("job_title")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -330,7 +368,7 @@ export function Candidates() {
                     Job <SortIcon active={sortKey === "job_title"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
+                <th className="sticky top-0 z-10 max-w-[140px] bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("client_name")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -338,8 +376,8 @@ export function Candidates() {
                     Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
+                <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
+                <th className="sticky top-0 z-10 min-w-[150px] whitespace-nowrap bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("location")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -347,7 +385,7 @@ export function Candidates() {
                     Location <SortIcon active={sortKey === "location"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
+                <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("date_added")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -355,7 +393,7 @@ export function Candidates() {
                     Added <SortIcon active={sortKey === "date_added"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="sticky top-0 z-10 bg-surface px-4 py-2.5">
+                <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2.5">
                   <button
                     onClick={() => toggleSort("last_updated")}
                     className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -363,7 +401,7 @@ export function Candidates() {
                     Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
                   </button>
                 </th>
-                <th className="sticky top-0 z-10 w-20 bg-surface px-4 py-2.5" />
+                <th className="sticky top-0 z-10 w-20 bg-surface px-3 py-2.5" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -386,7 +424,7 @@ export function Candidates() {
                       />
                     </td>
                   )}
-                  <td className="px-4 py-2.5">
+                  <td className="w-[240px] max-w-[260px] px-4 py-2.5">
                     <div className="flex items-center gap-2.5">
                       <span
                         className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
@@ -397,7 +435,7 @@ export function Candidates() {
                       >
                         {nameInitials(c.name)}
                       </span>
-                      <div className="min-w-0">
+                      <div className="min-w-0 max-w-[190px]">
                         <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{c.name}</p>
                         <p className="truncate text-[11px] text-fg-subtle">
                           {c.current_title ? `${c.current_title}${c.email ? ` · ${c.email}` : ""}` : c.email || ""}
@@ -405,13 +443,13 @@ export function Candidates() {
                       </div>
                     </div>
                   </td>
-                  <td className="max-w-[200px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.job_title}>
+                  <td className="max-w-[180px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.job_title}>
                     <p className="truncate">{c.job_title}</p>
                   </td>
-                  <td className="max-w-[160px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.client_name}>
+                  <td className="max-w-[140px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.client_name}>
                     <p className="truncate">{c.client_name}</p>
                   </td>
-                  <td className="px-4 py-2.5">
+                  <td className="whitespace-nowrap px-4 py-2.5">
                     <div className="flex flex-col gap-1">
                       <SubmissionStatusSelect
                         value={c.submission_status}
@@ -428,22 +466,41 @@ export function Candidates() {
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{formatDateShort(c.date_added)}</td>
-                  <td className="px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="h-6 w-6 text-fg-subtle hover:text-red-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleting(c);
-                        }}
-                      >
-                        <Trash className="h-3.5 w-3.5" />
-                      </Button>
+                  <td className="min-w-[150px] whitespace-nowrap px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-fg-muted">{formatDateShort(c.date_added)}</td>
+                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
+                  <td className="w-20 px-3 py-2.5">
+                    <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-fg-subtle hover:text-primary hover:bg-primary/10 cursor-pointer"
+                            onClick={(e) => handleDuplicate(e, c)}
+                          >
+                            <Copy className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Duplicate Candidate</TooltipContent>
+                      </Tooltip>
+
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-6 w-6 text-fg-subtle hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleting(c);
+                            }}
+                          >
+                            <Trash className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Delete</TooltipContent>
+                      </Tooltip>
                     </div>
                   </td>
                 </tr>
@@ -456,6 +513,7 @@ export function Candidates() {
           </div>
         </div>
       )}
+      </div>
 
       <CandidateForm open={formOpen} onOpenChange={setFormOpen} />
       {params.get("candidate") && (
@@ -470,25 +528,26 @@ export function Candidates() {
           onClose={() => setStatusDialog(null)}
         />
       )}
-      <ConfirmDialog
-        open={!!deleting}
-        onOpenChange={(o) => !o && setDeleting(null)}
-        title="Delete candidate?"
-        description={`This will permanently delete "${deleting?.name}". This cannot be undone.`}
-        confirmLabel="Delete"
-        onConfirm={confirmDelete}
-      />
-      <ConfirmDialog
-        open={bulkDeleteOpen}
-        onOpenChange={(o) => !o && setBulkDeleteOpen(false)}
-        title="Delete candidates?"
-        description={`This will permanently delete ${selection.selected.size} candidate(s). This cannot be undone.`}
-        confirmLabel="Delete"
-        destructive
-        loading={bulkDelete.isPending}
-        onConfirm={confirmBulkDelete}
-      />
-    </div>
+      {deleting && (
+        <ConfirmDialog
+          open={!!deleting}
+          onOpenChange={(open) => !open && setDeleting(null)}
+          title="Delete candidate"
+          description={`Are you sure you want to delete ${deleting.name}? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={handleDelete}
+        />
+      )}
+      {bulkDeleteOpen && (
+        <ConfirmDialog
+          open={bulkDeleteOpen}
+          onOpenChange={setBulkDeleteOpen}
+          title="Delete candidates"
+          description={`Are you sure you want to delete ${selection.selected.size} candidate(s)? This action cannot be undone.`}
+          confirmLabel="Delete"
+          onConfirm={handleBulkDelete}
+        />
+      )}
     </div>
   );
 }

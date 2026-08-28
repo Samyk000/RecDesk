@@ -62,7 +62,7 @@ pub fn get_jobs(
         sql.push_str(" WHERE ");
         sql.push_str(&conditions.join(" AND "));
     }
-    sql.push_str(" ORDER BY j.sort_order, j.updated_at DESC");
+    sql.push_str(" ORDER BY j.updated_at DESC, j.created_at DESC");
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt
