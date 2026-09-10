@@ -80,11 +80,12 @@ pub fn create_reminder_inner(
     let status = input.status.unwrap_or_else(|| "pending".to_string());
     let notify_before = input.notify_before_minutes.unwrap_or(0);
     let remind_at = input.remind_at.unwrap_or_else(|| {
-        if let Some(ref time) = input.due_time {
-            format!("{}T{}:00Z", input.due_date, time)
-        } else {
-            format!("{}T09:00:00Z", input.due_date)
-        }
+        let time_part = match &input.due_time {
+            Some(t) if t.split(':').count() == 2 => format!("{t}:00"),
+            Some(t) => t.clone(),
+            None => "09:00:00".to_string(),
+        };
+        format!("{}T{}Z", input.due_date, time_part)
     });
 
     conn.execute(

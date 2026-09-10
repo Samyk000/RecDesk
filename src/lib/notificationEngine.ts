@@ -12,26 +12,29 @@ import type { ReminderWithContext } from "../types";
 import { titleCase } from "./utils";
 import { getTimezoneShort } from "./timezoneUtils";
 
-const FIRED_REMINDERS_KEY = "recdesk_fired_reminders_v1";
+const FIRED_REMINDERS_KEY = "recdesk_fired_reminders";
+const firedSet = new Set<string>();
 
-function getFiredSet(): Set<string> {
-  try {
-    const raw = sessionStorage.getItem(FIRED_REMINDERS_KEY);
-    if (raw) {
-      const arr = JSON.parse(raw);
-      if (Array.isArray(arr)) return new Set(arr);
+try {
+  const raw = sessionStorage.getItem(FIRED_REMINDERS_KEY);
+  if (raw) {
+    const list = JSON.parse(raw);
+    if (Array.isArray(list)) {
+      list.forEach((id: string) => firedSet.add(id));
     }
-  } catch {
-    // Ignore storage parse error
   }
-  return new Set();
+} catch {
+  // Ignore storage read error
+}
+
+function isFired(id: string): boolean {
+  return firedSet.has(id);
 }
 
 function markFired(id: string): void {
+  firedSet.add(id);
   try {
-    const set = getFiredSet();
-    set.add(id);
-    sessionStorage.setItem(FIRED_REMINDERS_KEY, JSON.stringify(Array.from(set)));
+    sessionStorage.setItem(FIRED_REMINDERS_KEY, JSON.stringify(Array.from(firedSet)));
   } catch {
     // Ignore storage write error
   }
@@ -269,10 +272,9 @@ export function useNotificationScheduler(): void {
         );
 
         const now = Date.now();
-        const firedSet = getFiredSet();
 
         for (const rem of pendingOrSnoozed) {
-          if (firedSet.has(rem.id)) continue;
+          if (isFired(rem.id)) continue;
 
           // Target trigger time in timestamp milliseconds
           const targetIso =
@@ -302,8 +304,8 @@ export function useNotificationScheduler(): void {
     // Immediate check on mount
     checkReminders();
 
-    // Fast, responsive interval: every 6 seconds
-    const interval = setInterval(checkReminders, 6000);
+    // Balanced interval: checks every 15 seconds without overloading SQLite IPC
+    const interval = setInterval(checkReminders, 15000);
 
     return () => clearInterval(interval);
   }, [queryClient]);

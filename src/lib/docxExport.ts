@@ -59,7 +59,7 @@ function parseHexColor(colorStr?: string): string | undefined {
   return undefined;
 }
 
-export async function convertHtmlToDocxBytes(htmlContent: string): Promise<number[]> {
+export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8Array> {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlContent, "text/html");
   const paragraphs: Paragraph[] = [];
@@ -150,13 +150,13 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
     return runs.length > 0
       ? runs
       : [
-          new TextRun({
-            text: element.textContent || "",
-            font: baseFmt.font || "Times New Roman",
-            size: baseFmt.size ?? 20,
-            bold: baseFmt.bold,
-          }),
-        ];
+        new TextRun({
+          text: element.textContent || "",
+          font: baseFmt.font || "Times New Roman",
+          size: baseFmt.size ?? 20,
+          bold: baseFmt.bold,
+        }),
+      ];
   }
 
   function processNode(node: Node, parentAlign?: (typeof AlignmentType)[keyof typeof AlignmentType]) {
@@ -282,5 +282,5 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<numbe
 
   const blob = await Packer.toBlob(docxDocument);
   const arrayBuffer = await blob.arrayBuffer();
-  return Array.from(new Uint8Array(arrayBuffer));
+  return new Uint8Array(arrayBuffer);
 }

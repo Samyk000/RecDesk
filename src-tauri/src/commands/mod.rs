@@ -1,4 +1,5 @@
 pub mod ai;
+pub mod ai_chat;
 pub mod candidate;
 pub mod client;
 pub mod dashboard;

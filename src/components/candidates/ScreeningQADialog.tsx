@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowCounterClockwise,
   ChatCircleText,
   Check,
   CircleNotch,
@@ -142,11 +143,35 @@ function ScreeningQABody({
     }
   };
 
+  const handleClearAll = () => {
+    setAnswers({});
+    setSaveState("saving");
+    updateCandidate.mutate(
+      {
+        id: candidate.id,
+        input: toCandidateInput(candidate, {
+          screening_answers: "{}",
+        }),
+      },
+      {
+        onSuccess: () => {
+          setSaveState("saved");
+          toast.success("Screening answers cleared");
+          setTimeout(() => setSaveState("idle"), 1800);
+        },
+        onError: (err) => {
+          setSaveState("idle");
+          toast.error(errorMessage(err));
+        },
+      },
+    );
+  };
+
   const answeredCount = Object.values(answers).filter((a) => a && a.trim().length > 0).length;
 
   return (
     <>
-      {/* Header bar - with Copy button positioned left of close icon */}
+      {/* Header bar - with Copy & Clear buttons positioned left of close icon */}
       <div className="flex items-center justify-between border-b border-border bg-surface px-5 py-3 pr-11">
         <div className="flex items-center gap-2.5 min-w-0">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -166,7 +191,7 @@ function ScreeningQABody({
           </div>
         </div>
 
-        {/* Action Controls: Autosave Badge + Copy Button */}
+        {/* Action Controls: Autosave Badge + Clear + Copy Button */}
         <div className="flex items-center gap-2 shrink-0">
           {saveState === "saving" && (
             <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
@@ -179,6 +204,19 @@ function ScreeningQABody({
               <Check className="h-3 w-3" />
               Saved
             </span>
+          )}
+
+          {answeredCount > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleClearAll}
+              className="h-7 gap-1 px-2.5 text-xs text-fg-subtle hover:text-red-500 hover:border-red-500/30 transition-colors cursor-pointer"
+              title="Clear all screening answers"
+            >
+              <ArrowCounterClockwise className="h-3 w-3" />
+              Clear
+            </Button>
           )}
 
           {questions.length > 0 && (

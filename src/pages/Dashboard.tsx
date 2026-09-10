@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
   Briefcase,
@@ -27,11 +27,29 @@ import { CandidateForm } from "../components/candidates/CandidateForm";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
 import { ClientForm } from "../components/clients/ClientForm";
 import { QuickScreenDialog } from "../components/candidates/QuickScreenDialog";
+import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
+import { DetailDrawer } from "../components/common/DetailDrawer";
 
 export function Dashboard() {
   const { data, isLoading } = useDashboardStats();
   const navigate = useNavigate();
   const { name } = useProfile();
+  const [params, setParams] = useSearchParams();
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const activeCandidateId = selectedCandidateId ?? params.get("candidate");
+
+  const handleOpenCandidate = (id: string) => {
+    setSelectedCandidateId(id);
+  };
+
+  const handleCloseCandidate = () => {
+    setSelectedCandidateId(null);
+    if (params.has("candidate")) {
+      const next = new URLSearchParams(params);
+      next.delete("candidate");
+      setParams(next, { replace: true });
+    }
+  };
 
   const [candidateFormOpen, setCandidateFormOpen] = useState(false);
   const [jobFormOpen, setJobFormOpen] = useState(false);
@@ -74,35 +92,36 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="px-6 pt-4 pb-6">
-      <PageHeader
-        title={greetingLine(name)}
-        subtitle={isEmpty ? "Start by creating your first job." : undefined}
-        actions={<ZoneClock />}
-        className="mb-4"
-      />
+    <div className="flex h-full flex-col justify-between overflow-hidden px-6 pt-3 pb-3">
+      <div>
+        <PageHeader
+          title={greetingLine(name)}
+          subtitle={isEmpty ? "Start by creating your first job." : undefined}
+          actions={<ZoneClock />}
+          className="mb-2.5"
+        />
 
-      {/* Top 4 Stats Cards */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        {stats.map((s, i) => (
-          <Link
-            key={s.label}
-            to={s.to}
-            style={{ animationDelay: `${i * 40}ms` }}
-            className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-3.5 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
-          >
-            <span className="flex h-8.5 w-8.5 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
-              <s.icon className={cn("h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
-            </span>
-            <div className="min-w-0">
-              <p className="font-display text-[20px] font-bold tabular-nums leading-tight tracking-tight text-fg transition-colors duration-150 group-hover:text-primary">
-                {s.value}
-              </p>
-              <p className="truncate text-xs text-fg-muted">{s.label}</p>
-            </div>
-          </Link>
-        ))}
-      </div>
+        {/* Top 4 Stats Cards */}
+        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+          {stats.map((s, i) => (
+            <Link
+              key={s.label}
+              to={s.to}
+              style={{ animationDelay: `${i * 40}ms` }}
+              className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-2.5 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
+                <s.icon className={cn("h-[17px] w-[17px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
+              </span>
+              <div className="min-w-0">
+                <p className="font-display text-[19px] font-bold tabular-nums leading-tight tracking-tight text-fg transition-colors duration-150 group-hover:text-primary">
+                  {s.value}
+                </p>
+                <p className="truncate text-[11px] text-fg-muted">{s.label}</p>
+              </div>
+            </Link>
+          ))}
+        </div>
 
       {isEmpty ? (
         <div className="mt-6">
@@ -124,14 +143,14 @@ export function Dashboard() {
       ) : (
         <>
           {/* Recent Jobs & Recent Candidates (2 Columns) */}
-          <div className="mt-4 grid grid-cols-2 gap-4">
+          <div className="mt-2.5 grid grid-cols-2 gap-3">
             <Section
               title="Recent jobs"
               to="/jobs"
-              empty={<p className="text-[13px] text-fg-subtle">No active jobs yet.</p>}
+              empty={<p className="text-[12px] text-fg-subtle">No active jobs yet.</p>}
             >
               {data.recent_jobs.filter((j) => j.status === "active").length === 0 ? (
-                <div className="rounded-xl border border-border bg-surface p-4 text-center text-xs text-fg-subtle">
+                <div className="rounded-xl border border-border bg-surface p-3 text-center text-xs text-fg-subtle">
                   No active jobs
                 </div>
               ) : (
@@ -143,13 +162,13 @@ export function Dashboard() {
                       <Link
                         key={job.id}
                         to={`/jobs/${job.id}`}
-                        className="flex items-center gap-3 px-3.5 py-2 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                        className="flex items-center gap-2.5 px-3 py-1.5 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
                       >
                         <span
-                          className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-md transition-transform duration-150 group-hover:scale-105"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md transition-transform duration-150 group-hover:scale-105"
                           style={{ background: `${jobPalette(job.status).dot}1a`, color: jobPalette(job.status).dot }}
                         >
-                          <Briefcase className="h-4 w-4" />
+                          <Briefcase className="h-3.5 w-3.5" />
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[13px] font-medium text-fg">{job.title}</span>
@@ -168,12 +187,12 @@ export function Dashboard() {
             <Section
               title="Recent candidates"
               to="/candidates"
-              empty={<p className="text-[13px] text-fg-subtle">No active candidates yet.</p>}
+              empty={<p className="text-[12px] text-fg-subtle">No active candidates yet.</p>}
             >
               {data.recent_candidates.filter(
                 (c) => c.submission_status !== "not_interested" && c.submission_status !== "rejected",
               ).length === 0 ? (
-                <div className="rounded-xl border border-border bg-surface p-4 text-center text-xs text-fg-subtle">
+                <div className="rounded-xl border border-border bg-surface p-3 text-center text-xs text-fg-subtle">
                   No active candidates
                 </div>
               ) : (
@@ -186,13 +205,14 @@ export function Dashboard() {
                     )
                     .slice(0, 5)
                     .map((cand) => (
-                      <Link
+                      <button
+                        type="button"
                         key={cand.id}
-                        to={`/candidates?candidate=${cand.id}`}
-                        className="flex items-center gap-3 px-3.5 py-2 transition-all duration-150 hover:bg-surface-hover active:bg-surface-active"
+                        onClick={() => handleOpenCandidate(cand.id)}
+                        className="group flex w-full items-center gap-2.5 px-3 py-1.5 text-left transition-all duration-150 hover:bg-surface-hover active:bg-surface-active cursor-pointer"
                       >
                         <span
-                          className="flex h-7.5 w-7.5 shrink-0 items-center justify-center rounded-lg text-xs font-semibold"
+                          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
                           style={{
                             background: `${submissionPalette(cand.submission_status).dot}1a`,
                             color: submissionPalette(cand.submission_status).dot,
@@ -201,7 +221,7 @@ export function Dashboard() {
                           {nameInitials(cand.name)}
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-[13px] font-medium text-fg">{cand.name}</span>
+                          <span className="block truncate text-[13px] font-medium text-fg group-hover:text-primary transition-colors">{cand.name}</span>
                           <span className="block truncate text-xs text-fg-subtle">
                             {cand.current_title ? `${cand.current_title} · ` : ""}
                             {cand.current_company ?? "-"}
@@ -212,7 +232,7 @@ export function Dashboard() {
                           subStage={getCandidateSubStageLabel(cand)}
                           className="shrink-0"
                         />
-                      </Link>
+                      </button>
                     ))}
                 </div>
               )}
@@ -220,11 +240,11 @@ export function Dashboard() {
           </div>
 
           {/* Full-Width Candidate Pipeline Widget */}
-          <div className="mt-4">
+          <div className="mt-2.5">
             <Section title="Pipeline" to="/candidates">
-              <div className="rounded-xl border border-border bg-surface p-3.5 shadow-2xs">
+              <div className="rounded-xl border border-border bg-surface p-3 shadow-2xs">
                 {/* Thin, refined distribution bar */}
-                <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-active shadow-inner">
+                <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-active/60 shadow-inner">
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
                     const pct = data.total_candidates ? (s.count / data.total_candidates) * 100 : 0;
@@ -232,7 +252,7 @@ export function Dashboard() {
                     return (
                       <div
                         key={s.status}
-                        className="h-full transition-all duration-500 hover:opacity-90 cursor-pointer"
+                        className="h-full transition-all duration-500 hover:opacity-85 cursor-pointer first:rounded-l-full last:rounded-r-full"
                         style={{ width: `${pct}%`, background: p.dot }}
                         title={`${titleCase(s.status)}: ${s.count} (${pct.toFixed(0)}%)`}
                         onClick={() => navigate(`/candidates?status=${s.status}`)}
@@ -241,8 +261,8 @@ export function Dashboard() {
                   })}
                 </div>
 
-                {/* Clean, horizontal stage breakdown pills */}
-                <div className="mt-2.5 flex flex-wrap items-center justify-between gap-1.5 pt-2 border-t border-border/50">
+                {/* Clean, centered status chips */}
+                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 pt-2 border-t border-border/50">
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
                     const pct = data.total_candidates
@@ -252,14 +272,14 @@ export function Dashboard() {
                       <Link
                         key={s.status}
                         to={`/candidates?status=${s.status}`}
-                        className="group flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-fg-muted transition-all hover:bg-surface-hover hover:text-fg cursor-pointer"
+                        className="group inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-surface/80 px-2 py-1 text-[11px] text-fg-muted transition-all duration-150 hover:border-primary/40 hover:bg-surface-hover hover:text-fg shadow-2xs cursor-pointer active:scale-98"
                       >
-                        <span className="h-2 w-2 rounded-full shrink-0" style={{ background: p.dot }} />
-                        <span className="font-medium">{titleCase(s.status)}</span>
-                        <span className="font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
+                        <span className="h-1.5 w-1.5 rounded-full shrink-0 ring-2 ring-surface shadow-xs" style={{ background: p.dot }} />
+                        <span className="font-medium text-fg-subtle group-hover:text-fg transition-colors">{titleCase(s.status)}</span>
+                        <span className="rounded-md bg-surface-active px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
                           {s.count}
                         </span>
-                        <span className="text-[10px] text-fg-subtle">({pct}%)</span>
+                        <span className="text-[9.5px] text-fg-subtle">({pct}%)</span>
                       </Link>
                     );
                   })}
@@ -269,29 +289,29 @@ export function Dashboard() {
           </div>
 
           {/* Quick Actions Bento Cards Section */}
-          <div className="mt-4">
-            <div className="mb-2 flex items-center justify-between px-1">
-              <h2 className="font-display text-[14px] font-semibold tracking-tight text-fg flex items-center gap-1.5">
-                <Lightning className="h-4 w-4 text-amber-500" weight="fill" />
+          <div className="mt-2.5 mb-1">
+            <div className="mb-1.5 flex items-center justify-between px-1">
+              <h2 className="font-display text-[13.5px] font-semibold tracking-tight text-fg flex items-center gap-1.5">
+                <Lightning className="h-3.5 w-3.5 text-amber-500" weight="fill" />
                 <span>Quick Actions</span>
               </h2>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
               {/* 1. Add Candidate */}
               <button
                 type="button"
                 onClick={() => setCandidateFormOpen(true)}
-                className="group flex flex-col items-start rounded-xl border border-border bg-surface p-3.5 text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-violet-500/40 active:scale-[0.99]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-violet-500/50 hover:bg-violet-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white transition-all duration-200">
-                  <UserPlus className="h-4 w-4" />
+                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-violet-500/25 transition-all duration-200 shadow-2xs">
+                  <UserPlus className="h-4.5 w-4.5" />
                 </div>
-                <p className="mt-2.5 font-display text-[13.5px] font-semibold text-fg group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                   Add Candidate
                 </p>
-                <p className="mt-0.5 text-xs text-fg-muted line-clamp-1">
-                  Profile & auto-resume extract
+                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                  Profile & resume extract
                 </p>
               </button>
 
@@ -299,16 +319,16 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setJobFormOpen(true)}
-                className="group flex flex-col items-start rounded-xl border border-border bg-surface p-3.5 text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-blue-500/40 active:scale-[0.99]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-blue-500/50 hover:bg-blue-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white transition-all duration-200">
-                  <Briefcase className="h-4 w-4" />
+                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-blue-500/25 transition-all duration-200 shadow-2xs">
+                  <Briefcase className="h-4.5 w-4.5" />
                 </div>
-                <p className="mt-2.5 font-display text-[13.5px] font-semibold text-fg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   Add Job
                 </p>
-                <p className="mt-0.5 text-xs text-fg-muted line-clamp-1">
-                  New client job requisition
+                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                  New job requisition
                 </p>
               </button>
 
@@ -316,16 +336,16 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setClientFormOpen(true)}
-                className="group flex flex-col items-start rounded-xl border border-border bg-surface p-3.5 text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-amber-500/40 active:scale-[0.99]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white transition-all duration-200">
-                  <Building className="h-4 w-4" />
+                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-amber-500/25 transition-all duration-200 shadow-2xs">
+                  <Building className="h-4.5 w-4.5" />
                 </div>
-                <p className="mt-2.5 font-display text-[13.5px] font-semibold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                   Add Client
                 </p>
-                <p className="mt-0.5 text-xs text-fg-muted line-clamp-1">
-                  Register client organization
+                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                  Register client org
                 </p>
               </button>
 
@@ -333,22 +353,23 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setQuickScreenOpen(true)}
-                className="group flex flex-col items-start rounded-xl border border-border bg-surface p-3.5 text-left transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-emerald-500/40 active:scale-[0.99]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-200">
-                  <ListChecks className="h-4 w-4" />
+                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/25 transition-all duration-200 shadow-2xs">
+                  <ListChecks className="h-4.5 w-4.5" />
                 </div>
-                <p className="mt-2.5 font-display text-[13.5px] font-semibold text-fg group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                   Quick Screen
                 </p>
-                <p className="mt-0.5 text-xs text-fg-muted line-clamp-1">
-                  Live screening script & questions
+                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                  Screening script & questions
                 </p>
               </button>
             </div>
           </div>
         </>
       )}
+      </div>
 
       {/* Dialogs for Quick Actions */}
       <CandidateForm
@@ -367,6 +388,16 @@ export function Dashboard() {
         open={quickScreenOpen}
         onOpenChange={setQuickScreenOpen}
       />
+
+      {/* Candidate Detail Overlay Drawer */}
+      {activeCandidateId && (
+        <DetailDrawer onClose={handleCloseCandidate}>
+          <CandidateDetailPanel
+            candidateId={activeCandidateId}
+            onClose={handleCloseCandidate}
+          />
+        </DetailDrawer>
+      )}
     </div>
   );
 }
@@ -416,11 +447,11 @@ function Section({
 }) {
   return (
     <div>
-      <div className="mb-2 flex items-center justify-between px-1">
-        <h2 className="font-display text-[14px] font-semibold tracking-tight text-fg">{title}</h2>
+      <div className="mb-1 flex items-center justify-between px-1">
+        <h2 className="font-display text-[13px] font-semibold tracking-tight text-fg">{title}</h2>
         <Link
           to={to}
-          className="flex items-center gap-1 text-xs font-medium text-fg-muted transition-colors hover:text-primary"
+          className="flex items-center gap-1 text-[11px] font-medium text-fg-muted transition-colors hover:text-primary"
         >
           View all <ArrowRight className="h-3 w-3" />
         </Link>

@@ -205,7 +205,7 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
         [],
     )?;
     conn.execute(
-        "UPDATE candidates SET submission_status = 'sourced' WHERE submission_status = 'hired'",
+        "UPDATE candidates SET submission_status = 'placed' WHERE submission_status = 'hired'",
         [],
     )?;
 

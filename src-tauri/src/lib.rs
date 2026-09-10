@@ -81,6 +81,10 @@ pub fn run() {
             commands::ai::cancel_ai_download,
             commands::ai::delete_ai_model,
             commands::ai::parse_resume_text,
+            // ai assistant chat & context retrieval
+            commands::ai_chat::get_ai_chat_context,
+            commands::ai_chat::get_candidate_ai_dossier,
+            commands::ai_chat::get_workspace_ai_overview,
             // ocr engine model manager
             commands::ocr::get_ocr_model_status,
             commands::ocr::download_ocr_model,

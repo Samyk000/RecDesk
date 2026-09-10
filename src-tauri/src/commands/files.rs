@@ -81,7 +81,16 @@ pub fn remove_resume(state: State<'_, AppState>, candidate_id: String) -> AppRes
         params![crate::rows::now(), candidate_id],
     )?;
     if let Some(p) = path {
-        let _ = std::fs::remove_file(p);
+        let other_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM candidates WHERE resume_path = ?1 AND id != ?2",
+                params![&p, &candidate_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if other_count == 0 {
+            let _ = std::fs::remove_file(p);
+        }
     }
     let cand = conn.query_row(
         &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
@@ -159,9 +168,45 @@ pub fn rename_resume(
     Ok(cand)
 }
 
+fn validate_safe_path(path: &std::path::Path, is_write: bool) -> AppResult<()> {
+    if !path.is_absolute() {
+        return Err("File path must be an absolute path".into());
+    }
+
+    let ext = path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase())
+        .unwrap_or_default();
+
+    // Block executable and script extensions
+    let blocked_extensions = [
+        "exe", "dll", "bat", "cmd", "ps1", "vbs", "msi", "sys", "com", "scr", "pif", "reg",
+    ];
+    if blocked_extensions.contains(&ext.as_str()) {
+        return Err(format!("Access to .{ext} files is prohibited for security reasons").into());
+    }
+
+    if is_write {
+        let allowed_write = [
+            "docx", "doc", "pdf", "txt", "rtf", "json", "html", "htm", "xlsx", "csv",
+        ];
+        if !allowed_write.contains(&ext.as_str()) {
+            return Err(format!(
+                "Cannot write file type '.{ext}'. Allowed document formats: {}",
+                allowed_write.join(", ")
+            )
+            .into());
+        }
+    }
+
+    Ok(())
+}
+
 #[tauri::command]
 pub fn read_resume_bytes(file_path: String) -> AppResult<Vec<u8>> {
     let path = PathBuf::from(&file_path);
+    validate_safe_path(&path, false)?;
     if !path.exists() {
         return Err(format!("File does not exist: {file_path}").into());
     }
@@ -173,6 +218,7 @@ pub fn read_resume_bytes(file_path: String) -> AppResult<Vec<u8>> {
 #[tauri::command]
 pub fn write_resume_bytes(file_path: String, bytes: Vec<u8>) -> AppResult<()> {
     let path = PathBuf::from(&file_path);
+    validate_safe_path(&path, true)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

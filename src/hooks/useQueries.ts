@@ -198,9 +198,9 @@ export function useUpdateCandidate() {
     mutationFn: ({ id, input }: { id: string; input: CandidateInput }) =>
       apiCandidates.update(id, input),
     onSuccess: (cand) => {
+      qc.setQueryData(["candidate", cand.id], cand);
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
-      qc.invalidateQueries({ queryKey: ["candidate", cand.id] });
       qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -283,6 +283,7 @@ export function useBulkUpdateCandidates() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+      qc.invalidateQueries({ queryKey: ["candidate"] });
       qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["globalSearch"] });
@@ -400,6 +401,7 @@ export function useDeleteReminder() {
     mutationFn: (id: string) => apiReminders.remove(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -410,6 +412,7 @@ export function useToggleReminderCompleted() {
     mutationFn: (id: string) => apiReminders.toggleCompleted(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["reminders"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
     },
   });
 }
@@ -424,4 +427,4 @@ export function useSnoozeReminder() {
     },
   });
 }
-
+

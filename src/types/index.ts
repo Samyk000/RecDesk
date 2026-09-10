@@ -251,14 +251,6 @@ export interface RejectionDetail {
   rejected_at?: string | null;
 }
 
-export interface StatusHistoryEntry {
-  from_status: string;
-  to_status: string;
-  timestamp: string;
-  sub_stage?: string | null;
-  notes?: string | null;
-}
-
 export interface ImportSummary {
   clients: number;
   jobs: number;
@@ -378,4 +370,76 @@ export interface ReminderWithContext extends Reminder {
   job_title?: string | null;
   client_name?: string | null;
 }
-
+
+export interface AiChatSource {
+  id: string;
+  entity_type: "candidate" | "job" | "client" | "reminder" | "system";
+  title: string;
+  subtitle?: string | null;
+  metadata?: string | null;
+}
+
+export type AiActionType =
+  | "create_candidate"
+  | "update_candidate_status"
+  | "create_reminder"
+  | "create_job";
+
+export interface AiProposedAction {
+  id: string;
+  action_type: AiActionType;
+  title: string;
+  description: string;
+  payload_json: string;
+  status?: "pending" | "executing" | "completed" | "cancelled" | "failed";
+  result_message?: string;
+}
+
+export interface AiChatContextPayload {
+  query: string;
+  intent_type:
+    | "casual"
+    | "ai_model_info"
+    | "action_proposal"
+    | "list_jobs"
+    | "list_candidates"
+    | "list_reminders"
+    | "list_clients"
+    | "entity_lookup"
+    | "filter_query"
+    | "general_recruiting"
+    | "workspace_summary";
+  context_markdown: string;
+  matched_entity_count: number;
+  sources: AiChatSource[];
+  suggested_followups: string[];
+  proposed_action?: AiProposedAction | null;
+}
+
+export interface CandidateDossier {
+  candidate_id: string;
+  name: string;
+  markdown_dossier: string;
+  source: AiChatSource;
+}
+
+export interface WorkspaceOverview {
+  total_candidates: number;
+  active_jobs_count: number;
+  pending_reminders_count: number;
+  upcoming_interviews_count: number;
+  markdown_summary: string;
+}
+
+export interface AiChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  timestamp: number;
+  sources?: AiChatSource[];
+  isStreaming?: boolean;
+  suggestedFollowups?: string[];
+  proposedAction?: AiProposedAction | null;
+}
+
+export type ChatLoadingStep = "analyzing" | "retrieving" | "generating" | "idle";

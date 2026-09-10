@@ -46,10 +46,35 @@ export function DocxViewer({ data, scale }: Props) {
         try {
           const raw = new TextDecoder().decode(buffer);
           if (raw.includes("<p>") || raw.includes("<h1>") || raw.includes("<div>") || raw.includes("<ul>")) {
-            // Render HTML directly inside Word page style
+            // Safely parse and sanitize HTML to eliminate stored XSS risks
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(raw, "text/html");
+
+            // Strip executable or dangerous elements
+            const dangerousTags = doc.querySelectorAll("script, iframe, object, embed, base, form, link, meta, style");
+            dangerousTags.forEach((el) => el.remove());
+
+            // Strip all inline event handlers (on*) and javascript: links
+            const allElements = doc.querySelectorAll("*");
+            allElements.forEach((el) => {
+              for (const attr of Array.from(el.attributes)) {
+                if (
+                  attr.name.toLowerCase().startsWith("on") ||
+                  attr.value.toLowerCase().trim().startsWith("javascript:") ||
+                  attr.value.toLowerCase().trim().startsWith("data:text/html")
+                ) {
+                  el.removeAttribute(attr.name);
+                }
+              }
+            });
+
             const section = document.createElement("section");
             section.className = "docx p-12 sm:p-16 max-w-[850px] min-h-[1050px] bg-white text-slate-900 shadow-2xl rounded-xs mx-auto text-[14.5px] leading-relaxed font-['Times_New_Roman',serif]";
-            section.innerHTML = raw;
+
+            // Safely append sanitized child nodes without innerHTML
+            while (doc.body.firstChild) {
+              section.appendChild(doc.body.firstChild);
+            }
             target.appendChild(section);
             setLoading(false);
             return;

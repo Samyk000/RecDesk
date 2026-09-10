@@ -224,6 +224,17 @@ pub fn update_candidate(
     if affected == 0 {
         return Err("Candidate not found".into());
     }
+
+    // Keep pending reminders in sync with the candidate's active job
+    let _ = conn.execute(
+        "UPDATE reminders 
+         SET job_id = ?1, 
+             client_id = (SELECT client_id FROM jobs WHERE id = ?1),
+             updated_at = ?2
+         WHERE candidate_id = ?3 AND status = 'pending'",
+        params![&job_id_trimmed, now(), &id],
+    );
+
     let cand = conn.query_row(
         &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&id],

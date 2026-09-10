@@ -5,11 +5,14 @@ import { Header } from "./Header";
 import { GlobalSearch } from "../common/GlobalSearch";
 import { JobFormDialog } from "../jobs/JobFormDialog";
 import { TooltipProvider } from "../ui/tooltip";
+import { AiChatDrawer } from "../ai/AiChatDrawer";
+import { cn } from "../../lib/utils";
 
 export function AppLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [jobFormOpen, setJobFormOpen] = useState(false);
   const location = useLocation();
+  const isDashboard = location.pathname === "/";
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -32,7 +35,12 @@ export function AppLayout() {
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <Header onSearch={() => setSearchOpen(true)} />
-          <main className="min-h-0 flex-1 overflow-y-auto pl-1 scrollbar-thin">
+          <main
+            className={cn(
+              "min-h-0 flex-1 pl-1",
+              isDashboard ? "overflow-hidden" : "overflow-y-auto scrollbar-thin"
+            )}
+          >
             <div key={location.pathname} className="h-full animate-fade-in">
               <Outlet />
             </div>
@@ -41,6 +49,7 @@ export function AppLayout() {
       </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <JobFormDialog open={jobFormOpen} onOpenChange={setJobFormOpen} />
+      <AiChatDrawer />
     </TooltipProvider>
   );
 }

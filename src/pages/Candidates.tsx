@@ -106,6 +106,19 @@ export function Candidates() {
     );
   }, [sorted, hideRejected]);
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 50;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debounced, status, hideRejected]);
+
+  const totalPages = Math.max(1, Math.ceil(displayedCandidates.length / PAGE_SIZE));
+  const paginatedCandidates = useMemo(() => {
+    const start = (currentPage - 1) * PAGE_SIZE;
+    return displayedCandidates.slice(start, start + PAGE_SIZE);
+  }, [displayedCandidates, currentPage]);
+
   const selection = useSelection(
     displayedCandidates.map((c) => c.id),
     `${status}|${debounced}|${selectMode}|${hideRejected}`,
@@ -405,7 +418,7 @@ export function Candidates() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {displayedCandidates.map((c) => (
+              {paginatedCandidates.map((c) => (
                 <tr
                   key={c.id}
                   className={cn(
@@ -508,8 +521,37 @@ export function Candidates() {
             </tbody>
           </table>
           </div>
-          <div className="border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
-            {sorted.length} candidate{sorted.length !== 1 ? "s" : ""}
+          <div className="flex items-center justify-between border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
+            <div>
+              {displayedCandidates.length === 0
+                ? "0 candidates"
+                : `Showing ${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, displayedCandidates.length)} of ${displayedCandidates.length} candidate${displayedCandidates.length !== 1 ? "s" : ""}`}
+            </div>
+            {totalPages > 1 && (
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage <= 1}
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  className="h-6 px-2 text-xs font-normal"
+                >
+                  Previous
+                </Button>
+                <span className="text-xs text-fg-muted">
+                  Page {currentPage} of {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={currentPage >= totalPages}
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  className="h-6 px-2 text-xs font-normal"
+                >
+                  Next
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}

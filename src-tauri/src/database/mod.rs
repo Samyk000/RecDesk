@@ -60,6 +60,9 @@ pub fn init_db(path: &Path) -> AppResult<Connection> {
     perform_rolling_backup(path);
     let conn = Connection::open(path)?;
     conn.pragma_update(None, "journal_mode", "WAL")?;
+    conn.pragma_update(None, "synchronous", "NORMAL")?;
+    conn.pragma_update(None, "temp_store", "MEMORY")?;
+    conn.pragma_update(None, "cache_size", "-4000")?;
     conn.pragma_update(None, "foreign_keys", "ON")?;
     conn.pragma_update(None, "busy_timeout", "5000")?;
     schema::create_schema(&conn)?;

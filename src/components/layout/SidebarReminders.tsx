@@ -184,7 +184,7 @@ export function SidebarReminders() {
                   <div
                     key={rem.id}
                     onClick={() => handleOpenModal(rem.category)}
-                    className="group relative flex w-full flex-col justify-center rounded-lg border border-border bg-surface px-2.5 py-2 text-left transition-all duration-150 hover:border-primary/50 hover:bg-surface-hover hover:shadow-xs cursor-pointer shadow-2xs"
+                    className="group relative flex w-full flex-col justify-center rounded-lg border border-border bg-surface px-2.5 py-2 text-left interactive-hover-lift hover:border-primary/50 hover:bg-surface-hover hover:shadow-sm cursor-pointer shadow-2xs active:scale-[0.99]"
                   >
                     {/* Line 1: Title & Check button */}
                     <div className="flex w-full items-center justify-between gap-1.5">
@@ -200,10 +200,10 @@ export function SidebarReminders() {
                           playCompletionChime();
                           toast.success(`Completed: ${rem.title}`);
                         }}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity text-fg-subtle hover:text-emerald-500 p-0.5 cursor-pointer shrink-0"
+                        className="opacity-0 group-hover:opacity-100 transition-all duration-150 active:scale-75 hover:scale-110 text-fg-subtle hover:text-emerald-500 p-0.5 cursor-pointer shrink-0"
                         title="Mark as completed"
                       >
-                        <CheckCircle className="h-3.5 w-3.5" />
+                        <CheckCircle className="h-3.5 w-3.5 transition-transform" />
                       </button>
                     </div>
 

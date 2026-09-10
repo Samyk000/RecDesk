@@ -91,8 +91,11 @@ export const apiFiles = {
   renameResume: (candidateId: string, newFilename: string) =>
     call<Candidate>("rename_resume", { candidateId, newFilename }),
   readResumeBytes: (filePath: string) => call<number[]>("read_resume_bytes", { filePath }),
-  writeResumeBytes: (filePath: string, bytes: number[]) =>
-    call<void>("write_resume_bytes", { filePath, bytes }),
+  writeResumeBytes: (filePath: string, bytes: number[] | Uint8Array) =>
+    call<void>("write_resume_bytes", {
+      filePath,
+      bytes: bytes instanceof Uint8Array ? Array.from(bytes) : bytes,
+    }),
 };
 
 // ---- AI & Model Manager ----
@@ -103,6 +106,16 @@ export const apiAi = {
   deleteModel: (modelId: string) => call<boolean>("delete_ai_model", { modelId }),
   parseResume: (text: string) =>
     call<import("../types").ExtractedCandidateProfile>("parse_resume_text", { text }),
+};
+
+// ---- AI Assistant Chat & Context ----
+export const apiAiChat = {
+  getContext: (query: string) =>
+    call<import("../types").AiChatContextPayload>("get_ai_chat_context", { query }),
+  getCandidateDossier: (candidateId: string) =>
+    call<import("../types").CandidateDossier>("get_candidate_ai_dossier", { candidateId }),
+  getWorkspaceOverview: () =>
+    call<import("../types").WorkspaceOverview>("get_workspace_ai_overview"),
 };
 
 // ---- OCR Model Manager ----

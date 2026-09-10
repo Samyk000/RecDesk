@@ -696,3 +696,4 @@ Skills: Agile, Scrum, Figma, SQL, UI/UX
 }
 
 
+

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ArrowCounterClockwise,
   ArrowSquareOut,
+  ArrowsLeftRight,
   ArrowsOutSimple,
   Briefcase,
   Building,
@@ -34,6 +35,7 @@ import {
   useRenameResume,
   useUpdateCandidate,
 } from "../../hooks/useQueries";
+import { useChatStore } from "../../store/chatStore";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import {
@@ -56,6 +58,13 @@ import {
   hasInterviewFeedback,
 } from "./InterviewFeedbackDialog";
 import { ResumePreviewModal } from "./ResumePreviewModal";
+import { ChangeJobDialog } from "./ChangeJobDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../ui/dropdown";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials, titleCase, cn } from "../../lib/utils";
 import {
@@ -113,6 +122,7 @@ function CandidatePanelBody({
   const { data: client } = useClient(job?.client_id);
   const clientName = client?.name || (candidate as CandidateWithJob).client_name || "";
   const navigate = useNavigate();
+  const { askAboutCandidate } = useChatStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showScreeningQA, setShowScreeningQA] = useState(false);
   const [showSubmissionDetails, setShowSubmissionDetails] = useState(false);
@@ -120,6 +130,7 @@ function CandidatePanelBody({
   const [showResumePreview, setShowResumePreview] = useState(false);
   const [isRenamingResume, setIsRenamingResume] = useState(false);
   const [resumeNewName, setResumeNewName] = useState("");
+  const [changeJobOpen, setChangeJobOpen] = useState(false);
   const [previousStatusSnapshot, setPreviousStatusSnapshot] = useState<{
     submission_status: string;
     submitted_at: string | null;
@@ -421,21 +432,54 @@ function CandidatePanelBody({
             </TooltipTrigger>
             <TooltipContent>Screening Q&A</TooltipContent>
           </Tooltip>
-          {!embedded && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8 text-primary hover:bg-primary/10"
+                onClick={() => askAboutCandidate(candidate.id, candidate.name)}
+              >
+                <Sparkle className="h-4 w-4" weight="fill" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Ask AI about this candidate</TooltipContent>
+          </Tooltip>
+          <DropdownMenu>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8"
-                  onClick={() => navigate(`/jobs/${candidate.job_id}`)}
-                >
-                  <Briefcase className="h-3.5 w-3.5" />
-                </Button>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-fg-subtle hover:text-fg hover:bg-surface-hover cursor-pointer"
+                  >
+                    <Briefcase className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
               </TooltipTrigger>
-              <TooltipContent>View job</TooltipContent>
+              <TooltipContent>Job options</TooltipContent>
             </Tooltip>
-          )}
+
+            <DropdownMenuContent align="end" sideOffset={6} className="w-36">
+              {!embedded && (
+                <DropdownMenuItem
+                  onClick={() => navigate(`/jobs/${candidate.job_id}`)}
+                  className="flex items-center gap-2 cursor-pointer text-xs"
+                >
+                  <ArrowSquareOut className="h-3.5 w-3.5 text-fg-muted" />
+                  <span>View job</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => setChangeJobOpen(true)}
+                className="flex items-center gap-2 cursor-pointer text-xs"
+              >
+                <ArrowsLeftRight className="h-3.5 w-3.5 text-primary" />
+                <span>Change job…</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {confirmDelete ? (
             <div className="flex items-center gap-1">
               <Button size="sm" variant="ghost" className="text-xs" onClick={() => setConfirmDelete(false)}>
@@ -647,69 +691,69 @@ function CandidatePanelBody({
               status === "placed" ||
               status === "rejected" ||
               status === "not_interested") && (
-              <div className="animate-[fade-up_0.25s_ease-out] pt-1">
-                {status === "submitted" && (
-                  <SubmissionSubStageSection
-                    candidate={candidate}
-                    onSave={saveField}
-                  />
-                )}
-                {status === "interview" && (
-                  <InterviewRoundsManager
-                    rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
-                    onChange={(newRounds) => {
-                      saveField({
-                        interview_status: serializeInterviewRounds(newRounds),
-                        interview_at: getActiveInterviewSchedule(newRounds),
-                      });
-                    }}
-                    onSelectAndPlace={() => {
-                      saveField({
-                        submission_status: "placed",
-                        placed_at: new Date().toISOString(),
-                      });
-                      toast.success("Candidate marked as Placed!");
-                    }}
-                    onRejectRound={(rNum) => {
-                      const detail: RejectionDetail = {
-                        origin: "interview",
-                        round_number: rNum,
-                        category: "Interview feedback",
-                        reason: null,
-                        rejected_at: new Date().toISOString(),
-                      };
-                      saveField({
-                        submission_status: "rejected",
-                        rejection_reason: serializeRejectionDetail(detail),
-                      });
-                      toast.success(`Candidate marked as Rejected after Round ${rNum}`);
-                    }}
-                  />
-                )}
-                {status === "placed" && (
-                  <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
-                    <PlacedDatePicker
-                      value={candidate.placed_at}
-                      onChange={(val) => saveField({ placed_at: val })}
+                <div className="animate-[fade-up_0.25s_ease-out] pt-1">
+                  {status === "submitted" && (
+                    <SubmissionSubStageSection
+                      candidate={candidate}
+                      onSave={saveField}
                     />
-                    {clientName && (
-                      <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
-                        <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span className="truncate">
-                          Client: <strong className="font-semibold">{clientName}</strong>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {status === "rejected" && (
-                  <RejectionDetailsCard candidate={candidate} onSave={saveField} />
-                )}
-                {status === "not_interested" && (
-                  <NotInterestedDetailsCard candidate={candidate} onSave={saveField} />
-                )}
-              </div>
-            )}
+                  )}
+                  {status === "interview" && (
+                    <InterviewRoundsManager
+                      rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
+                      onChange={(newRounds) => {
+                        saveField({
+                          interview_status: serializeInterviewRounds(newRounds),
+                          interview_at: getActiveInterviewSchedule(newRounds),
+                        });
+                      }}
+                      onSelectAndPlace={() => {
+                        saveField({
+                          submission_status: "placed",
+                          placed_at: new Date().toISOString(),
+                        });
+                        toast.success("Candidate marked as Placed!");
+                      }}
+                      onRejectRound={(rNum) => {
+                        const detail: RejectionDetail = {
+                          origin: "interview",
+                          round_number: rNum,
+                          category: "Interview feedback",
+                          reason: null,
+                          rejected_at: new Date().toISOString(),
+                        };
+                        saveField({
+                          submission_status: "rejected",
+                          rejection_reason: serializeRejectionDetail(detail),
+                        });
+                        toast.success(`Candidate marked as Rejected after Round ${rNum}`);
+                      }}
+                    />
+                  )}
+                  {status === "placed" && (
+                    <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
+                      <PlacedDatePicker
+                        value={candidate.placed_at}
+                        onChange={(val) => saveField({ placed_at: val })}
+                      />
+                      {clientName && (
+                        <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
+                          <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                          <span className="truncate">
+                            Client: <strong className="font-semibold">{clientName}</strong>
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  {status === "rejected" && (
+                    <RejectionDetailsCard candidate={candidate} onSave={saveField} />
+                  )}
+                  {status === "not_interested" && (
+                    <NotInterestedDetailsCard candidate={candidate} onSave={saveField} />
+                  )}
+                </div>
+              )}
           </div>
         </div>
 
@@ -741,6 +785,17 @@ function CandidatePanelBody({
         candidateId={candidate.id}
         open={showSubmissionDetails}
         onOpenChange={setShowSubmissionDetails}
+      />
+
+      <ChangeJobDialog
+        candidate={candidate}
+        open={changeJobOpen}
+        onOpenChange={setChangeJobOpen}
+        onSuccess={(_jobId, action) => {
+          if (action === "move" && embedded) {
+            onClose();
+          }
+        }}
       />
 
       {candidate.resume_path && (
