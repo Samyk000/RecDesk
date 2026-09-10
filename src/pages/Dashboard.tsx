@@ -19,7 +19,7 @@ import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
-import { jobPalette, submissionPalette } from "../lib/constants";
+import { jobPalette, submissionPalette, submissionIcon } from "../lib/constants";
 import { getCandidateSubStageLabel } from "../lib/candidateUtils";
 import { cn, formatZoneTime, greetingLine, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import { useProfile } from "../store/profile";
@@ -92,39 +92,41 @@ export function Dashboard() {
   ];
 
   return (
-    <div className="flex h-full flex-col justify-between overflow-hidden px-6 pt-3 pb-3">
-      <div>
+    <div className="flex h-full flex-col overflow-hidden px-6 pt-3 pb-3 gap-2.5">
+      {/* 1. Header & KPI Stats */}
+      <div className="shrink-0">
         <PageHeader
           title={greetingLine(name)}
           subtitle={isEmpty ? "Start by creating your first job." : undefined}
           actions={<ZoneClock />}
-          className="mb-2.5"
+          className="mb-0"
         />
 
         {/* Top 4 Stats Cards */}
-        <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {stats.map((s, i) => (
             <Link
               key={s.label}
               to={s.to}
               style={{ animationDelay: `${i * 40}ms` }}
-              className="group flex items-center gap-3 rounded-xl border border-border bg-surface p-2.5 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
+              className="group flex items-center justify-center gap-3.5 rounded-xl border border-border bg-surface py-3.5 px-4 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
             >
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
-                <s.icon className={cn("h-[17px] w-[17px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
+                <s.icon className={cn("h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
               </span>
               <div className="min-w-0">
-                <p className="font-display text-[19px] font-bold tabular-nums leading-tight tracking-tight text-fg transition-colors duration-150 group-hover:text-primary">
+                <p className="font-display text-[20px] font-bold tabular-nums leading-tight tracking-tight text-fg transition-colors duration-150 group-hover:text-primary">
                   {s.value}
                 </p>
-                <p className="truncate text-[11px] text-fg-muted">{s.label}</p>
+                <p className="truncate text-[11.5px] text-fg-muted">{s.label}</p>
               </div>
             </Link>
           ))}
         </div>
+      </div>
 
       {isEmpty ? (
-        <div className="mt-6">
+        <div className="my-auto">
           <EmptyState
             icon={<Briefcase className="h-5 w-5" />}
             title="No jobs yet"
@@ -244,7 +246,7 @@ export function Dashboard() {
             <Section title="Pipeline" to="/candidates">
               <div className="rounded-xl border border-border bg-surface p-3 shadow-2xs">
                 {/* Thin, refined distribution bar */}
-                <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-active/60 shadow-inner">
+                <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-active/60 shadow-inner">
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
                     const pct = data.total_candidates ? (s.count / data.total_candidates) * 100 : 0;
@@ -261,10 +263,11 @@ export function Dashboard() {
                   })}
                 </div>
 
-                {/* Clean, centered status chips */}
-                <div className="mt-2.5 flex flex-wrap items-center justify-center gap-2 pt-2 border-t border-border/50">
+                {/* Clean, spread-out status chips with stage icons */}
+                <div className="mt-2.5 flex flex-wrap items-center gap-2 pt-2.5 border-t border-border/50">
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
+                    const IconComp = submissionIcon(s.status);
                     const pct = data.total_candidates
                       ? ((s.count / data.total_candidates) * 100).toFixed(0)
                       : "0";
@@ -272,14 +275,18 @@ export function Dashboard() {
                       <Link
                         key={s.status}
                         to={`/candidates?status=${s.status}`}
-                        className="group inline-flex items-center gap-1.5 rounded-lg border border-border/60 bg-surface/80 px-2 py-1 text-[11px] text-fg-muted transition-all duration-150 hover:border-primary/40 hover:bg-surface-hover hover:text-fg shadow-2xs cursor-pointer active:scale-98"
+                        className="group flex-1 min-w-[125px] flex items-center justify-between gap-1.5 rounded-lg border border-border/60 bg-surface/80 px-2.5 py-1.5 text-[11px] text-fg-muted transition-all duration-150 hover:border-primary/40 hover:bg-surface-hover hover:text-fg shadow-2xs cursor-pointer active:scale-98"
                       >
-                        <span className="h-1.5 w-1.5 rounded-full shrink-0 ring-2 ring-surface shadow-xs" style={{ background: p.dot }} />
-                        <span className="font-medium text-fg-subtle group-hover:text-fg transition-colors">{titleCase(s.status)}</span>
-                        <span className="rounded-md bg-surface-active px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
-                          {s.count}
-                        </span>
-                        <span className="text-[9.5px] text-fg-subtle">({pct}%)</span>
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <IconComp className="h-3.5 w-3.5 shrink-0" style={{ color: p.dot }} />
+                          <span className="truncate font-medium text-fg-subtle group-hover:text-fg transition-colors">{titleCase(s.status)}</span>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span className="rounded-md bg-surface-active px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
+                            {s.count}
+                          </span>
+                          <span className="text-[9.5px] text-fg-subtle">({pct}%)</span>
+                        </div>
                       </Link>
                     );
                   })}
@@ -302,15 +309,15 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setCandidateFormOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-violet-500/50 hover:bg-violet-500/5 active:scale-[0.98]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-violet-500/50 hover:bg-violet-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-violet-500/25 transition-all duration-200 shadow-2xs">
-                  <UserPlus className="h-4.5 w-4.5" />
+                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-violet-500/25 transition-all duration-200 shadow-2xs">
+                  <UserPlus className="h-5 w-5" />
                 </div>
-                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
+                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
                   Add Candidate
                 </p>
-                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
                   Profile & resume extract
                 </p>
               </button>
@@ -319,15 +326,15 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setJobFormOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-blue-500/50 hover:bg-blue-500/5 active:scale-[0.98]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-blue-500/50 hover:bg-blue-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-blue-500/25 transition-all duration-200 shadow-2xs">
-                  <Briefcase className="h-4.5 w-4.5" />
+                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-blue-500/25 transition-all duration-200 shadow-2xs">
+                  <Briefcase className="h-5 w-5" />
                 </div>
-                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                   Add Job
                 </p>
-                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
                   New job requisition
                 </p>
               </button>
@@ -336,15 +343,15 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setClientFormOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-amber-500/25 transition-all duration-200 shadow-2xs">
-                  <Building className="h-4.5 w-4.5" />
+                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-amber-500/25 transition-all duration-200 shadow-2xs">
+                  <Building className="h-5 w-5" />
                 </div>
-                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
                   Add Client
                 </p>
-                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
                   Register client org
                 </p>
               </button>
@@ -353,15 +360,15 @@ export function Dashboard() {
               <button
                 type="button"
                 onClick={() => setQuickScreenOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface p-2.5 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.98]"
+                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.98]"
               >
-                <div className="flex h-8.5 w-8.5 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/25 transition-all duration-200 shadow-2xs">
-                  <ListChecks className="h-4.5 w-4.5" />
+                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/25 transition-all duration-200 shadow-2xs">
+                  <ListChecks className="h-5 w-5" />
                 </div>
-                <p className="mt-2 font-display text-[13px] font-bold text-fg group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                   Quick Screen
                 </p>
-                <p className="mt-0.5 text-[10.5px] text-fg-muted line-clamp-1">
+                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
                   Screening script & questions
                 </p>
               </button>
@@ -369,7 +376,6 @@ export function Dashboard() {
           </div>
         </>
       )}
-      </div>
 
       {/* Dialogs for Quick Actions */}
       <CandidateForm
@@ -423,9 +429,9 @@ function ZoneClock() {
 
   if (timeZones.length === 0) return null;
   return (
-    <div className="flex items-center rounded-lg border border-border/80 bg-surface/80 px-1 py-0.5 text-xs font-medium tabular-nums text-fg-muted shadow-2xs divide-x divide-border/70">
+    <div className="flex items-center rounded-lg border border-border/80 bg-surface/80 px-1.5 py-1.5 text-xs font-medium tabular-nums text-fg-muted shadow-2xs divide-x divide-border/70">
       {timeZones.map((zone) => (
-        <span key={zone} className="flex items-center gap-1.5 px-2.5">
+        <span key={zone} className="flex items-center gap-1.5 px-2.5 py-0.5">
           <Clock className="h-3.5 w-3.5 shrink-0 text-primary" />
           <span>{formatZoneTime(zone)}</span>
         </span>
