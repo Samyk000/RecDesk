@@ -5,199 +5,178 @@
 <h1 align="center">RecDesk</h1>
 
 <p align="center">
-  <strong>Fast, Local-First Desktop Command Center for Technical & Agency Recruiters</strong>
+  <strong>The fast, local-first desktop workspace built for high-performing recruiters.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/version-v0.1.3-blue.svg" alt="Version 0.1.3" />
+  <a href="https://github.com/Samyk000/RecDesk/releases/latest">
+    <img src="https://img.shields.io/badge/version-v0.1.4-blue.svg" alt="Version 0.1.4" />
+  </a>
   <img src="https://img.shields.io/badge/platform-Windows%20x64-informational.svg" alt="Platform Windows" />
-  <img src="https://img.shields.io/badge/storage-Local%20SQLite-success.svg" alt="Local SQLite" />
-  <img src="https://img.shields.io/badge/AI%20Engine-Local%20GGUF%20%2B%20OpenRouter-purple.svg" alt="AI Engine" />
-  <img src="https://img.shields.io/badge/privacy-100%25%20Offline%20Ready-green.svg" alt="100% Privacy" />
+  <img src="https://img.shields.io/badge/privacy-100%25%20Offline%20Local-emerald.svg" alt="100% Offline Local" />
+  <img src="https://img.shields.io/badge/database-Embedded%20SQLite-purple.svg" alt="Local SQLite" />
+  <img src="https://img.shields.io/badge/AI%20Copilot-OpenRouter%20%2B%20On--Device-amber.svg" alt="AI Copilot" />
 </p>
-
----
-
-## 🚀 What is RecDesk?
-
-**RecDesk** is a **fast, local-first desktop command center and candidate management workspace** designed specifically for technical recruiters, headhunters, sourcers, and agency talent acquisition specialists.
-
-Unlike traditional cloud ATS (Applicant Tracking Systems) that are often slow, bloated, complex, and tied to expensive recurring monthly subscriptions, RecDesk is built for **speed, simplicity, complete data ownership, and automated client submission formatting**. It lives directly on your computer with a high-performance native desktop architecture (built on **Tauri v2 + Rust + SQLite** on the backend and **React 19 + TypeScript + Tailwind CSS** on the frontend).
-
----
-
-## 🤖 RecDesk Formatter & Cognitive AI Engine
-
-RecDesk features an intelligent **Resume Formatter & Cognitive Engine** that transforms raw PDF/Word candidate resumes into clean, standardized client submissions in seconds.
-
-### 🌟 Key AI & Formatting Capabilities:
-- **🧠 Cognitive Block-ID Indexing**: Rather than letting an LLM hallucinate or summarize, RecDesk breaks the document into integer-indexed text blocks. The AI maps block coordinates into structured sections, guaranteeing **100% verbatim text retention** with zero lost bullet points.
-- **🛡️ Automated PII Stripping**: Automatically detects and redacts personal contact information (emails, phone numbers, personal addresses, LinkedIn URLs, GitHub links) to protect candidate privacy and agency ownership.
-- **⚡ Dual AI Engine Support**:
-  - **Local On-Device Models**: Run Qwen 2.5 (0.5B, 1.5B, 3B) locally and offline with zero cloud dependency and 0% background idle CPU.
-  - **OpenRouter Cloud Engine**: Multi-key rotation and automatic 429 rate-limit fallback across free models (`llama-3.3-70b`, `gemini-2.0-flash-exp`, `qwen-2.5-72b`, `mistral-small-24b`).
-- **📄 Word "Narrow" Margins (0.5 in / 720 dxa)**: Pre-calibrated 0.5-inch page margins with right-aligned tab stops for dates and locations.
-- **📐 Universal Client Submission Layout**:
-  - `CANDIDATE NAME`: Centered, 11pt Bold, Times New Roman.
-  - `PROFESSIONAL SUMMARY:`: 11pt Bold with sentence-level bullet points (`• `).
-  - `SKILLS:`: 11pt Bold with inline category grouping (**Category:** item1, item2...).
-  - `EDUCATION & CREDENTIALS:`: 11pt Bold with split Institution/Dates header and bulleted awards/medals.
-  - `WORK EXPERIENCE:`: 11pt Bold with 10pt Bold Company/Role headers, generous blank line enter spacing between projects, and verbatim accomplishment bullets.
-- **✏️ Live Side-by-Side Comparison & WYSIWYG Editing**: TipTap rich text editing ribbon with instant preview, zoom controls (60%–150%), and 1-click `.docx` download.
-
----
-
-## 🎯 The Core Motive & Philosophy
-
-- **⚡ Zero Latency & Blazing Speed**: Everything is stored in a local SQLite database on your machine. Searching candidates, clicking into jobs, and scheduling interviews happens with zero network lag or loading spinners.
-- **🔒 100% Data Privacy & Ownership**: Your candidate dossiers, notes, rates, and client contacts never touch a third-party server or get mined for data. Everything is backed up and restorable with 1-click JSON exports.
-- **🛠️ Built for Real Recruiter Workflows**: Rather than generic CRM fields, RecDesk has dedicated tools for the exact daily tasks recruiters perform:
-  - Live call screening with autosaving Q&A.
-  - 1-click client submission formatting with Right-to-Represent (RTR) timestamps.
-  - Multi-timezone tracking to prevent scheduling errors.
-  - Boolean search string libraries for every role.
-
----
-
-## 🧭 Key Features & App Showcase
-
-### 1. 📊 Centralized Dashboard & Multi-Timezone Command Center
-- **Prioritized Workflow Cards**: High-level metrics in active pipeline order:
-  $$\text{Total Candidates} \longrightarrow \text{Active Jobs} \longrightarrow \text{Interviews} \longrightarrow \text{Placed}$$
-- **Direct Click-to-Filter**: Clicking any metric card instantly navigates to and pre-filters your pipeline.
-- **Live World Clocks**: Configurable timezone bar in the header (EST, CST, MST, PST, GMT, IST) so you always know your hiring manager's and candidate's local time.
-- **Recent Pipeline Feeds**: Real-time snapshot of newly added jobs and active candidate stages.
 
 <p align="center">
-  <img src="public/(1)Dashboard.png" alt="RecDesk Dashboard" width="100%" />
+  <a href="#-the-headline-features">Key Features</a> •
+  <a href="#-why-recdesk">Why RecDesk</a> •
+  <a href="#-quick-download--install">Download</a> •
+  <a href="#-app-showcase">Walkthrough</a>
 </p>
 
 ---
 
-### 2. 👥 Candidate Management & Screening Pipeline
-- **Lifecycle Tracking**: Dedicated statuses: `Sourced`, `In Touch`, `Submitted`, `Interview`, `Placed` (with emerald accent), `Not Interested`, and `Rejected`.
-- **Minimal "Hide Rejected" Mode**: 1-click toggle to keep your active pipeline clean and distraction-free.
-- **Bulk Pipeline Actions**: Multi-select candidates for batch status updates or removals.
+## 💡 What is RecDesk?
 
+Most recruitment tools are clunky web apps designed for HR administrators, not headhunters who need to move fast. They load slowly, lock your data behind monthly subscriptions, and force you to format candidate resumes by hand in Microsoft Word.
+
+**RecDesk is different.** It is a lightning-fast native desktop application that lives entirely on your computer. With instant candidate search, an automated AI resume formatter, built-in phone screening checklists, boolean search generators, and native desktop notifications, RecDesk handles the tedious parts of recruiting so you can focus on making placements.
+
+---
+
+## 🌟 The Headline Features
+
+### 1. 🪄 AI Resume Formatter & Instant Word Export
+Turn messy, inconsistent candidate resumes into immaculate, client-ready Word documents in seconds.
+
+- **Verbatim Text Retention**: Standardizes fonts, margins, headers, and bullet alignment without letting AI rewrite or lose critical technical details.
+- **Automatic PII Redaction**: Strips emails, phone numbers, home addresses, LinkedIn handles, and personal links in 1 click to safeguard your agency's ownership.
+- **Side-by-Side Live Editor**: Real-time rich text editor with live preview, zoom controls, and instant `.docx` download formatted with recruiter-standard 0.5" margins.
+
+<!-- SCREENSHOT: Resume Formatter -->
+<p align="center">
+  <img src="public/(3)Candidate_Details.png" alt="RecDesk Resume Formatter & Candidate Details" width="100%" />
+</p>
+
+---
+
+### 2. 🤖 Integrated AI Copilot & Model Picker
+Get an intelligent recruiting assistant built directly into your desktop sidebar.
+
+- **OpenRouter Model Catalog**: Pick and switch between cutting-edge models (including free models like Llama 3.3, Gemini Flash, and Qwen) with live search and token pricing indicators.
+- **Context-Aware Assistance**: Ask your assistant to draft candidate pitches, extract technical strengths, compare resumes against job descriptions, or polish screening questions.
+- **Markdown & Code Ready**: Clean typography with 1-click copy for email templates and message drafts.
+
+---
+
+### 3. 📞 Live Phone Screening & Instant Q&A Notes
+Conduct structured candidate phone screens without fumbling between multiple tabs or legal pads.
+
+- **One-Key Screen Launcher**: Pop open a live screening dialog instantly with `Ctrl+K`.
+- **Auto-Saving Questions**: Job-specific questionnaires save your notes as you type so you never lose interview context.
+- **1-Click Email Summary**: Hit **Copy Q&A Summary** to get a clean, beautifully formatted bulleted list ready to paste directly into your client submission email.
+- **Fresh Slate Reset**: Clear questions with a single click when refreshing screening rounds or re-evaluating talent.
+
+---
+
+### 4. 👥 Candidate Management & Smart Job Transfer
+Track talent through every stage of your pipeline: `Sourced`, `In Touch`, `Submitted`, `Interview`, `Placed`, and `Archived`.
+
+- **Move vs. Copy Roles**: Seamlessly transfer a candidate to a new requisition, or clone their profile across multiple client searches without duplicating resume files on disk.
+- **Duplicate Warnings**: Live `ALREADY IN ROLE` badges keep you from accidentally submitting the same candidate twice.
+- **Safety Undo**: Built-in 1-click Undo toast lets you revert accidental transfers instantly.
+- **In-Place Drawer**: Inspect candidate dossiers, notes, attachments, and Right-to-Represent (RTR) timestamps directly from the dashboard without navigating away.
+
+<!-- SCREENSHOT: Candidates Pipeline -->
 <p align="center">
   <img src="public/(2)Candidates.png" alt="Candidate Pipeline" width="100%" />
 </p>
 
 ---
 
-### 3. 📋 Candidate Dossier, Notes & Screening Q&A
-- **Comprehensive Profile Panel**: Contact info, experience years, current company/title, and 1-click LinkedIn launcher.
-- **Resume Attachment Manager**: Attach local PDF/Word resumes and open them instantly from the app.
-- **Status Change Dialogs**: Dedicated popovers for submission tagging (Internal/External), interview scheduling with timezones, and placed date tracking.
+### 5. 🔔 Desktop Reminders & Recruiter Timezone Sync
+Never miss an interview, a candidate follow-up, or a client submission deadline again.
 
+- **Windows Desktop Alerts**: Native desktop notifications slide in when tasks and meetings are due.
+- **Gentle 528 Hz Harmonic Chime**: Soothing, non-jarring audio alert designed for busy call environments.
+- **Quick Action Bar**: Mark tasks done or snooze for 10 minutes directly from the notification banner.
+- **Multi-Timezone Conversion**: Live clock tracker converting EDT, CDT, MDT, and PDT to your local system time so you never do mental timezone math before a call.
+
+<!-- SCREENSHOT: Dashboard & Command Center -->
 <p align="center">
-  <img src="public/(3)Candidate_Details.png" alt="Candidate Details & Screening" width="100%" />
+  <img src="public/(1)Dashboard.png" alt="RecDesk Command Center Dashboard" width="100%" />
 </p>
 
 ---
 
-### 4. 💼 Job & Requisition Cockpit
-- **Role Details**: Work model (Remote, Hybrid, On-site), engagement types (W2, C2C, Contract-to-Hire, Direct Hire), bill rates, pay rates, and active candidate counts.
-- **Requisition Filters**: Instant search and status filtering across active and archived requisitions.
+### 6. 💼 Requisition Cockpit & Boolean Search Builder
+Keep every requisition organized with dedicated spaces for bill rates, pay margins, job specs, and talent pools.
 
-<p align="center">
-  <img src="public/(4)Jobs.png" alt="Job Cockpit" width="100%" />
-</p>
+- **Boolean String Generator**: Instant access to Tight, Normal, and Broad search strings calibrated for LinkedIn Recruiter, Indeed, and Google X-ray search.
+- **Pre-Written Elevator Pitches**: Save your candidate outreach pitches right inside the job workspace for quick reading during cold calls.
+- **Dedicated Candidate Pools**: View everyone submitted, interviewed, or shortlisted for that specific requisition at a glance.
 
----
-
-### 5. 🔍 Requisition Workspace & Boolean Search Builder
-- **Three-Tab Requisition Workspace**:
-  1. **Overview**: Refined job description and recruiter internal notes.
-  2. **Pitch & Screening**:
-     - *Candidate Pitch*: Pre-written elevator pitch ready to read or message.
-     - *Screening Questions*: Role-specific qualifying questions.
-     - *Boolean Strings*: Built-in library of Tight, Normal, and Broad search strings.
-  3. **Candidates Tab**: View all candidates associated with that specific requisition.
-
+<!-- SCREENSHOT: Job Workspace & Boolean Builder -->
 <p align="center">
   <img src="public/(5)Job_Details.png" alt="Job Details & Boolean Search Builder" width="100%" />
 </p>
 
 ---
 
-### 6. 🏢 Client & Account Directory
-- Store client company details, hiring manager contacts, direct phone/email, address, and recruiter account notes.
-- Instant overview of active open requisitions and total candidate count per client.
-- Custom drag-and-drop sort ordering.
+### 7. 🏢 Client & Account Directory
+Manage client organizations, account managers, and hiring manager contacts in one structured rolodex.
 
+- Direct email, phone, location, and internal fee/rate agreement notes.
+- Instant counters displaying total open requisitions and active candidate submissions per client.
+- Drag-and-drop prioritization to keep your most active accounts front and center.
+
+<!-- SCREENSHOT: Client Directory -->
 <p align="center">
   <img src="public/(6)Clients.png" alt="Client Directory" width="100%" />
 </p>
 
 ---
 
-### 7. 🎨 Customization, Theming & Data Portability
-- **Theming System**: Light Mode, Dark Mode, System Match with 9 curated color palettes (*Blue, Teal, Emerald, Forest, Amber, Sunset, Rose, Violet, Slate*).
-- **Timezone Customization**: Enable/disable world clocks matching your territory coverage.
-- **Backup & Restore**: 1-click full JSON backup export and import for instant machine migration.
+### 8. 🎨 Native Personalization & 1-Click Backups
+Your workspace, tailored to how you work.
 
+- **Curated Themes**: Choose between crisp Light Mode, deep Dark Mode, or system match, paired with 9 calibrated color palettes (*Blue, Teal, Emerald, Forest, Amber, Sunset, Rose, Violet, Slate*).
+- **Custom World Clocks**: Configure the timezones displayed in your header bar to match your client territories.
+- **Complete Data Portability**: 1-click full JSON export and import makes migrating to a new laptop painless.
+
+<!-- SCREENSHOT: Settings & Personalization -->
 <p align="center">
   <img src="public/(7)Settings.png" alt="Settings & Theming" width="100%" />
 </p>
 
 ---
 
-## ⚡ Specialized Recruiting Superpowers
+## ⚡ Why RecDesk?
 
-- **📞 Quick Live Screening (`⌘K` / Header Button)**: Start a candidate phone screen in 1-click without creating a full profile first. Features an interactive Q&A interface with real-time autosave and a **"Copy Q&A Summary"** button to paste directly into client emails.
-- **📑 Submission Details & RTR Generator**: Candidate submission dossier tracking RTR timestamp, work authorization, last 4 of SIN/SSN, rate/salary expectations, and background check consent with a 1-click **"Copy Formatted Submission"** button.
-- **🗓️ Sidebar Interview & Submission Trackers**:
-  - **Upcoming Submissions**: Collapsible list of submitted candidates with internal/external badge indicators.
-  - **Upcoming Interviews**: Relative time cards (*Today*, *Tomorrow*, formatted time, timezone badge) with auto-fit zero-scroll design.
-- **🔎 Global Fuzzy Search (`⌘K` / `Ctrl+K`)**: Instant keyboard-first search across all clients, jobs, and candidates simultaneously.
+| Traditional Cloud ATS | RecDesk Desktop |
+| :--- | :--- |
+| 🐌 Spinning loaders and sluggish network requests | ⚡ **Zero latency** — sub-millisecond local SQLite queries |
+| 💸 Expensive recurring monthly seat subscriptions | 💎 **Free & private** — lives entirely on your computer |
+| ☁️ Your client notes and candidate data mined in cloud databases | 🔒 **100% data privacy** — nothing leaves your machine unless you call AI |
+| 📄 20 minutes spent fixing resume margins in Word | 🪄 **10-second automated export** to standardized `.docx` |
+| 🌐 Tab clutter and lost screening notes | 🎯 **In-app phone screening notes** with 1-click email paste |
 
 ---
 
-## 📌 Current State of the App
+## 📦 Quick Download & Install
 
-| Aspect | Current Status |
-| :--- | :--- |
-| **Version** | `v0.1.2` (Latest Release) |
-| **Installers** | Windows Setup (`.exe`), Windows Installer (`.msi`), Standalone Binary |
-| **Database** | Embedded SQLite (WAL mode, foreign-key integrity, ACID compliant) |
-| **Health & Stability** | 100% Rust backend test pass rate + strict TypeScript compilation |
-| **Performance** | Native desktop execution, sub-second startup, zero cloud latency |
+Get the latest release directly from [GitHub Releases](https://github.com/Samyk000/RecDesk/releases/latest):
+
+- **Standard Windows Setup**: `RecDesk_0.1.4_x64-setup.exe` (Recommended installer)
+- **Enterprise MSI Package**: `RecDesk_0.1.4_x64_en-US.msi`
+- **Portable Binary**: `recdesk.exe` (No installation required)
+
+> Compatible with **Windows 10** and **Windows 11** (64-bit).
 
 ---
 
-## 💻 Technical Architecture & Development
+## 🛠️ Tech Architecture
 
-RecDesk is built as a native desktop application using [Tauri v2](https://tauri.app/).
+Built with a modern, high-performance desktop foundation:
 
-### Tech Stack
-
-| Layer | Technology |
-| :--- | :--- |
-| **Shell & Native Backend** | Tauri v2, Rust |
-| **Database & Storage** | Embedded SQLite (via `rusqlite` with WAL mode) |
-| **Frontend Framework** | React 19, TypeScript, Vite, Tailwind CSS |
-| **State Management** | TanStack Query (React Query), Zustand |
-| **Icons & UI** | Phosphor Icons, Radix UI primitives |
-
-### Local Development
-
-```bash
-# 1. Install dependencies
-pnpm install
-
-# 2. Run in development mode
-pnpm tauri dev
-
-# 3. Run backend unit tests
-cargo test --manifest-path src-tauri/Cargo.toml
-
-# 4. Build production installer
-pnpm tauri build
-```
+- **Core & Native Shell**: [Tauri v2](https://tauri.app/) + [Rust](https://www.rust-lang.org/)
+- **Local Storage Engine**: Embedded [SQLite](https://www.sqlite.org/) (WAL mode with memory caching)
+- **User Interface**: [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/)
+- **Document Engine**: Custom TipTap WYSIWYG editor & `docx` generation pipeline
 
 ---
 
 ## 📄 License
 
-Private project. All rights reserved.
+Private project. Built with precision for modern recruiters.
