@@ -446,25 +446,26 @@ function CandidatePanelBody({
             <TooltipContent>Ask AI about this candidate</TooltipContent>
           </Tooltip>
           <DropdownMenu>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-8 w-8 text-fg-subtle hover:text-fg hover:bg-surface-hover cursor-pointer"
-                  >
-                    <Briefcase className="h-3.5 w-3.5" />
-                  </Button>
-                </DropdownMenuTrigger>
-              </TooltipTrigger>
-              <TooltipContent>Job options</TooltipContent>
-            </Tooltip>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                title="Job options"
+                className="h-8 w-8 text-fg-subtle hover:text-fg hover:bg-surface-hover cursor-pointer"
+              >
+                <Briefcase className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end" sideOffset={6} className="w-36">
               {!embedded && (
                 <DropdownMenuItem
-                  onClick={() => navigate(`/jobs/${candidate.job_id}`)}
+                  onSelect={() => {
+                    onClose();
+                    setTimeout(() => {
+                      navigate(`/jobs/${candidate.job_id}`);
+                    }, 0);
+                  }}
                   className="flex items-center gap-2 cursor-pointer text-xs"
                 >
                   <ArrowSquareOut className="h-3.5 w-3.5 text-fg-muted" />
@@ -472,7 +473,7 @@ function CandidatePanelBody({
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
-                onClick={() => setChangeJobOpen(true)}
+                onSelect={() => setChangeJobOpen(true)}
                 className="flex items-center gap-2 cursor-pointer text-xs"
               >
                 <ArrowsLeftRight className="h-3.5 w-3.5 text-primary" />
@@ -761,6 +762,7 @@ function CandidatePanelBody({
         <div className="mt-2 space-y-1.5 border-t border-border pt-6">
           <p className="text-xs text-fg-subtle">Comments</p>
           <RichTextEditor
+            key={candidate.id}
             value={candidate.recruiter_notes ?? ""}
             onChange={(html) => saveField({ recruiter_notes: html || null })}
             placeholder="Notes about this candidate…"

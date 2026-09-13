@@ -52,8 +52,8 @@ export const apiCandidates = {
   bulkUpdate: (ids: string[], patch: CandidatePatch) =>
     call<number>("bulk_update_candidates", { ids, patch }),
   bulkRemove: (ids: string[]) => call<number>("delete_candidates", { ids }),
-  withJob: (clientId?: string, search?: string, status?: string) =>
-    call<CandidateWithJob[]>("get_candidates_with_job", { clientId, search, status }),
+  withJob: (clientId?: string, search?: string, status?: string, limit?: number, offset?: number) =>
+    call<CandidateWithJob[]>("get_candidates_with_job", { clientId, search, status, limit, offset }),
 };
 
 // ---- Reminders, Tasks & Meetings ----

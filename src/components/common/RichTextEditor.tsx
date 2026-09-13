@@ -51,13 +51,22 @@ export function RichTextEditor({
       attributes: { class: cn("tiptap-content", mono && "font-mono") },
     },
     onBlur: ({ editor: ed }) => {
-      if (!onChange || ed.isDestroyed) return;
-      const html = ed.isEmpty ? "" : ed.getHTML();
-      if (html === valueRef.current) return;
-      onChange(html);
+      if (!onChange || !ed || ed.isDestroyed) return;
+      try {
+        const html = ed.isEmpty ? "" : ed.getHTML();
+        if (html === valueRef.current) return;
+        onChange(html);
+      } catch {
+        // Safe guard during teardown
+      }
     },
     onUpdate: ({ editor: ed }) => {
-      if (onUpdate) onUpdate(ed.isEmpty ? "" : ed.getHTML());
+      if (!onUpdate || !ed || ed.isDestroyed) return;
+      try {
+        onUpdate(ed.isEmpty ? "" : ed.getHTML());
+      } catch {
+        // Safe guard during teardown
+      }
     },
   });
 
@@ -67,23 +76,31 @@ export function RichTextEditor({
   useEffect(() => {
     return () => {
       if (editor && !editor.isDestroyed && onChangeRef.current) {
-        const html = editor.isEmpty ? "" : editor.getHTML();
-        if (html !== valueRef.current) {
-          onChangeRef.current(html);
+        try {
+          const html = editor.isEmpty ? "" : editor.getHTML();
+          if (html !== valueRef.current) {
+            onChangeRef.current(html);
+          }
+        } catch {
+          // Safe guard during teardown
         }
       }
     };
   }, [editor]);
 
   useEffect(() => {
-    if (!editor) return;
-    const current = editor.isEmpty ? "" : editor.getHTML();
-    if (value !== current) {
-      editor.commands.setContent(value || "", { emitUpdate: false });
+    if (!editor || editor.isDestroyed) return;
+    try {
+      const current = editor.isEmpty ? "" : editor.getHTML();
+      if (value !== current) {
+        editor.commands.setContent(value || "", { emitUpdate: false });
+      }
+    } catch {
+      // Safe guard during teardown
     }
   }, [value, editor]);
 
-  if (!editor) return null;
+  if (!editor || editor.isDestroyed) return null;
 
   const showToolbar = !collapsibleToolbar || toolbarOpen;
 

@@ -156,15 +156,28 @@ function WindowControls() {
 
   useEffect(() => {
     const appWindow = getCurrentWindow();
+    let isMounted = true;
     let unlisten: (() => void) | undefined;
     const setup = async () => {
-      setMaximized(await appWindow.isMaximized());
-      unlisten = await appWindow.onResized(() => {
-        appWindow.isMaximized().then(setMaximized);
+      const isMax = await appWindow.isMaximized();
+      if (!isMounted) return;
+      setMaximized(isMax);
+      const fn = await appWindow.onResized(() => {
+        if (isMounted) {
+          appWindow.isMaximized().then(setMaximized);
+        }
       });
+      if (isMounted) {
+        unlisten = fn;
+      } else {
+        fn();
+      }
     };
     setup();
-    return () => unlisten?.();
+    return () => {
+      isMounted = false;
+      unlisten?.();
+    };
   }, []);
 
   const appWindow = getCurrentWindow();

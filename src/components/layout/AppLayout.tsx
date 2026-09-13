@@ -6,6 +6,7 @@ import { GlobalSearch } from "../common/GlobalSearch";
 import { JobFormDialog } from "../jobs/JobFormDialog";
 import { TooltipProvider } from "../ui/tooltip";
 import { AiChatDrawer } from "../ai/AiChatDrawer";
+import { ErrorBoundary } from "../common/ErrorBoundary";
 import { cn } from "../../lib/utils";
 
 export function AppLayout() {
@@ -42,7 +43,9 @@ export function AppLayout() {
             )}
           >
             <div key={location.pathname} className="h-full animate-fade-in">
-              <Outlet />
+              <ErrorBoundary key={location.pathname} fallbackTitle="Error loading this page">
+                <Outlet />
+              </ErrorBoundary>
             </div>
           </main>
         </div>

@@ -14,7 +14,7 @@ export function useJobAutosave<T>(
   equals: (a: T, b: T) => boolean,
   debounceMs = 600,
 ) {
-  const update = useUpdateJob();
+  const update = useUpdateJob({ scoped: true });
   const [value, setValue] = useState<T>(job[field] as T);
   const [state, setState] = useState<AutosaveState>("idle");
   const debounced = useDebounce(value, debounceMs);

@@ -13,10 +13,11 @@ import { toast } from "sonner";
 import {
   useBulkUpdateCandidates,
   useBulkDeleteCandidates,
-  useCandidatesWithJob,
+  useInfiniteCandidatesWithJob,
   useCreateCandidate,
   useDeleteCandidate,
 } from "../hooks/useQueries";
+import { InfiniteScrollTrigger } from "../components/common/InfiniteScrollTrigger";
 import { useDebounce } from "../hooks/useDebounce";
 import { useSelection } from "../hooks/useSelection";
 import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
@@ -91,12 +92,22 @@ export function Candidates() {
     }
   }, [params]);
 
-  const { data, isLoading } = useCandidatesWithJob(
+  const {
+    data,
+    isLoading,
+    isFetchingNextPage,
+    hasNextPage,
+    fetchNextPage,
+  } = useInfiniteCandidatesWithJob(
     debounced || undefined,
     status === "all" ? undefined : status,
   );
 
-  const sorted = useSortedRows(data, sortKey, sortDir, COMPARE);
+  const allLoadedCandidates = useMemo(() => {
+    return data?.pages.flatMap((page) => page) ?? [];
+  }, [data]);
+
+  const sorted = useSortedRows(allLoadedCandidates, sortKey, sortDir, COMPARE);
 
   const displayedCandidates = useMemo(() => {
     if (!sorted) return [];
@@ -105,19 +116,6 @@ export function Candidates() {
       (c) => c.submission_status !== "rejected" && c.submission_status !== "not_interested",
     );
   }, [sorted, hideRejected]);
-
-  const [currentPage, setCurrentPage] = useState(1);
-  const PAGE_SIZE = 50;
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [debounced, status, hideRejected]);
-
-  const totalPages = Math.max(1, Math.ceil(displayedCandidates.length / PAGE_SIZE));
-  const paginatedCandidates = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return displayedCandidates.slice(start, start + PAGE_SIZE);
-  }, [displayedCandidates, currentPage]);
 
   const selection = useSelection(
     displayedCandidates.map((c) => c.id),
@@ -418,7 +416,7 @@ export function Candidates() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {paginatedCandidates.map((c) => (
+              {displayedCandidates.map((c) => (
                 <tr
                   key={c.id}
                   className={cn(
@@ -520,37 +518,28 @@ export function Candidates() {
               ))}
             </tbody>
           </table>
+          <InfiniteScrollTrigger
+            onIntersect={() => fetchNextPage()}
+            hasNextPage={hasNextPage}
+            isFetchingNextPage={isFetchingNextPage}
+          />
           </div>
           <div className="flex items-center justify-between border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
             <div>
               {displayedCandidates.length === 0
                 ? "0 candidates"
-                : `Showing ${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, displayedCandidates.length)} of ${displayedCandidates.length} candidate${displayedCandidates.length !== 1 ? "s" : ""}`}
+                : `Showing ${displayedCandidates.length} candidate${displayedCandidates.length !== 1 ? "s" : ""}${hasNextPage ? " · Scroll down for more" : " · All loaded"}`}
             </div>
-            {totalPages > 1 && (
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage <= 1}
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  className="h-6 px-2 text-xs font-normal"
-                >
-                  Previous
-                </Button>
-                <span className="text-xs text-fg-muted">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={currentPage >= totalPages}
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  className="h-6 px-2 text-xs font-normal"
-                >
-                  Next
-                </Button>
-              </div>
+            {hasNextPage && (
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={isFetchingNextPage}
+                onClick={() => fetchNextPage()}
+                className="h-6 px-2 text-xs font-normal"
+              >
+                {isFetchingNextPage ? "Streaming..." : "Load More"}
+              </Button>
             )}
           </div>
         </div>

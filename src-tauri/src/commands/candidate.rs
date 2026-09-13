@@ -22,8 +22,8 @@ pub const CANDIDATE_SELECT_JOIN: &str = r#"
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
-         c.date_added, c.last_updated, c.linkedin_url, c.screening_answers, c.submission_details,
-         c.placed_at, c.status_history, c.interview_feedback,
+         c.date_added, c.last_updated, c.linkedin_url, NULL, NULL,
+         c.placed_at, NULL, NULL,
          j.title, j.job_id, cl.name
   FROM candidates c
   JOIN jobs j ON j.id = c.job_id
@@ -374,6 +374,8 @@ pub fn get_candidates_with_job(
     client_id: Option<String>,
     status: Option<String>,
     search: Option<String>,
+    limit: Option<i64>,
+    offset: Option<i64>,
 ) -> AppResult<Vec<CandidateWithJob>> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let mut conditions: Vec<String> = Vec::new();
@@ -404,6 +406,15 @@ pub fn get_candidates_with_job(
         sql.push_str(&conditions.join(" AND "));
     }
     sql.push_str(" ORDER BY c.last_updated DESC");
+
+    if let Some(lim) = limit {
+        sql.push_str(" LIMIT ?");
+        params.push(Box::new(lim));
+        if let Some(off) = offset {
+            sql.push_str(" OFFSET ?");
+            params.push(Box::new(off));
+        }
+    }
 
     let mut stmt = conn.prepare(&sql)?;
     let rows = stmt

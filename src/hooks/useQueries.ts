@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiClients, apiCandidates, apiDashboard, apiFiles, apiJobs, apiAi, apiReminders } from "../lib/api";
 import type {
   CandidateInput,
@@ -109,18 +109,20 @@ export function useCreateJob() {
   });
 }
 
-export function useUpdateJob() {
+export function useUpdateJob(options?: { scoped?: boolean }) {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: JobInput }) =>
       apiJobs.update(id, input),
     onSuccess: (job) => {
-      qc.invalidateQueries({ queryKey: ["jobs"] });
       qc.invalidateQueries({ queryKey: ["job", job.id] });
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+      if (!options?.scoped) {
+        qc.invalidateQueries({ queryKey: ["jobs"] });
+        qc.invalidateQueries({ queryKey: ["clients"] });
+        qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+        qc.invalidateQueries({ queryKey: ["globalSearch"] });
+      }
     },
   });
 }
@@ -166,6 +168,24 @@ export function useCandidatesWithJob(search?: string, status?: string) {
   return useQuery({
     queryKey: ["candidatesWithJob", search ?? "", status ?? ""],
     queryFn: () => apiCandidates.withJob(undefined, search, status),
+  });
+}
+
+export function useInfiniteCandidatesWithJob(
+  search?: string,
+  status?: string,
+  clientId?: string,
+  pageSize = 50,
+) {
+  return useInfiniteQuery({
+    queryKey: ["candidatesWithJob", "infinite", search ?? "", status ?? "", clientId ?? ""],
+    queryFn: ({ pageParam = 0 }) =>
+      apiCandidates.withJob(clientId, search, status, pageSize, pageParam as number),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, _allPages, lastPageParam) => {
+      if (!lastPage || lastPage.length < pageSize) return undefined;
+      return (lastPageParam as number) + pageSize;
+    },
   });
 }
 

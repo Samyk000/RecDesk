@@ -197,7 +197,7 @@ export function AiChatDrawer() {
     } else if (source.entity_type === "job") {
       navigate(`/jobs/${source.id}`);
     } else if (source.entity_type === "reminder") {
-      navigate("/reminders");
+      navigate("/calendar");
     }
   }
 
