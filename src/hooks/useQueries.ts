@@ -334,44 +334,7 @@ export function useDashboardStats() {
   });
 }
 
-// ---- AI Model Management & Resume Parsing ----
-export function useAiModels() {
-  return useQuery({
-    queryKey: ["aiModels"],
-    queryFn: () => apiAi.getModels(),
-  });
-}
-
-export function useDownloadAiModel() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (modelId: string) => apiAi.downloadModel(modelId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["aiModels"] });
-    },
-  });
-}
-
-export function useCancelAiDownload() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (modelId: string) => apiAi.cancelDownloadModel(modelId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["aiModels"] });
-    },
-  });
-}
-
-export function useDeleteAiModel() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (modelId: string) => apiAi.deleteModel(modelId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["aiModels"] });
-    },
-  });
-}
-
+// ---- AI Resume Parsing ----
 export function useParseResume() {
   return useMutation({
     mutationFn: (text: string) => apiAi.parseResume(text),

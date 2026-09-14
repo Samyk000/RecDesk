@@ -232,3 +232,50 @@ function escapeHtml(str: string): string {
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
 }
+
+export async function ocrScannedPdf(
+  data: Uint8Array,
+  onProgress?: (page: number, total: number) => void,
+): Promise<string> {
+  const { createWorker } = await import("tesseract.js");
+  const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+  const loadingTask = pdfjs.getDocument({ data: safeBuffer, verbosity: 0 });
+  const pdf = await loadingTask.promise;
+  const pageCount = pdf.numPages;
+
+  const worker = await createWorker("eng");
+  const pageHtmls: string[] = [];
+
+  try {
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      if (onProgress) onProgress(pageNum, pageCount);
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 2.0 });
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) continue;
+
+      await (page.render as any)({ canvasContext: ctx, viewport, canvas }).promise;
+
+      const ret = await worker.recognize(canvas);
+      const rawText = ret.data.text || "";
+
+      const paragraphs = rawText
+        .split("\n\n")
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0)
+        .map((p) => `<p>${escapeHtml(p.replace(/\n/g, " "))}</p>`);
+
+      pageHtmls.push(paragraphs.length > 0 ? paragraphs.join("") : "<p>No text detected on page</p>");
+    }
+  } finally {
+    await worker.terminate();
+  }
+
+  return pageHtmls.join("<hr/><br/>");
+}
+

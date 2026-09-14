@@ -5,7 +5,6 @@ import { Header } from "./Header";
 import { GlobalSearch } from "../common/GlobalSearch";
 import { JobFormDialog } from "../jobs/JobFormDialog";
 import { TooltipProvider } from "../ui/tooltip";
-import { AiChatDrawer } from "../ai/AiChatDrawer";
 import { ErrorBoundary } from "../common/ErrorBoundary";
 import { cn } from "../../lib/utils";
 
@@ -52,7 +51,6 @@ export function AppLayout() {
       </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       <JobFormDialog open={jobFormOpen} onOpenChange={setJobFormOpen} />
-      <AiChatDrawer />
     </TooltipProvider>
   );
 }

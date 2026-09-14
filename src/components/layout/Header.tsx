@@ -1,9 +1,8 @@
-import { useEffect, useState } from "react";
-import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X, ListChecks, FileDoc, CircleNotch, Sparkle } from "@phosphor-icons/react";
+import { useState, useEffect } from "react";
+import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X, ListChecks, FileDoc, CircleNotch } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme } from "../../store/theme";
 import { useResumeFormatterStore } from "../../store/resumeFormatterStore";
-import { useChatStore } from "../../store/chatStore";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { QuickScreenDialog } from "../candidates/QuickScreenDialog";
@@ -18,19 +17,6 @@ export function Header({ onSearch }: Props) {
   const isDark = resolved === "dark";
   const [quickScreenOpen, setQuickScreenOpen] = useState(false);
   const { isOpen, isProcessing, openModal, closeModal } = useResumeFormatterStore();
-  const { toggleChat } = useChatStore();
-
-  // Global Ctrl+J / Cmd+J shortcut to toggle AI Chat
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "j") {
-        e.preventDefault();
-        toggleChat();
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [toggleChat]);
 
   return (
     <>
@@ -51,24 +37,6 @@ export function Header({ onSearch }: Props) {
         </button>
 
         <div className="ml-auto flex items-center gap-1.5">
-          {/* AI Assistant Chat Launcher */}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={toggleChat}
-                className="h-8 gap-1.5 text-xs bg-surface border-primary/30 text-primary font-medium hover:bg-primary/10 hover:border-primary transition-all duration-150 shadow-2xs"
-              >
-                <Sparkle className="h-3.5 w-3.5" weight="fill" />
-                <span>AI Chat</span>
-                <kbd className="hidden sm:inline rounded bg-primary/10 px-1 py-0.2 font-mono text-[9.5px] text-primary">
-                  ⌘J
-                </kbd>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Open AI Copilot Chat (⌘J)</TooltipContent>
-          </Tooltip>
 
           <Tooltip>
             <TooltipTrigger asChild>

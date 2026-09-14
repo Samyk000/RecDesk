@@ -1,11 +1,9 @@
 pub mod ai;
-pub mod ai_chat;
 pub mod candidate;
 pub mod client;
 pub mod dashboard;
 pub mod data;
 pub mod files;
 pub mod job;
-pub mod ocr;
 pub mod reminder;
 pub mod search;

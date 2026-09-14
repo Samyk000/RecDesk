@@ -1,39 +1,24 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
-  Check,
-  CircleNotch,
-  Cpu,
   Database,
   DownloadSimple,
   FileXls,
   Info,
-  Lightning,
   Monitor,
   Moon,
   ShieldCheck,
   Sparkle,
   Sun,
-  Trash,
   UploadSimple,
-  X,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { readFile, readTextFile, writeFile, writeTextFile } from "@tauri-apps/plugin-fs";
-import { listen } from "@tauri-apps/api/event";
 import { useQueryClient } from "@tanstack/react-query";
 import { useTheme } from "../store/theme";
 import { useProfile } from "../store/profile";
-import { useAiStore } from "../store/ai";
-import { useOpenRouterStore } from "../store/openRouterStore";
 import { US_TIME_ZONES } from "../lib/constants";
 import { apiClients, apiData, apiJobs } from "../lib/api";
-import {
-  useAiModels,
-  useDownloadAiModel,
-  useCancelAiDownload,
-  useDeleteAiModel,
-} from "../hooks/useQueries";
 import { PageHeader } from "../components/common/PageHeader";
 import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
@@ -43,7 +28,7 @@ import { generateExcelWorkbook, generateSampleExcelTemplate } from "../lib/excel
 import { parseExcelImport, type ExcelImportValidation } from "../lib/excelImport";
 import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
 import { OpenRouterSettings } from "../components/settings/OpenRouterSettings";
-import type { DownloadProgressPayload, ExportEnvelope, ThemeMode, ThemeName } from "../types";
+import type { ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
   { value: "light", label: "Light", icon: Sun },
@@ -63,47 +48,14 @@ const colorThemes: { value: ThemeName; label: string; primary: string; bg: strin
   { value: "slate", label: "Slate", primary: "#0284c7", bg: "#edf2f7", darkBg: "#080c14" },
 ];
 
-function formatModelSize(mb: number): string {
-  if (mb >= 1000) {
-    return `${(mb / 1000).toFixed(2)} GB`;
-  }
-  return `${mb} MB`;
-}
-
 export function Settings() {
   const qc = useQueryClient();
   const { mode, theme, setMode, setTheme } = useTheme();
   const { name, setName, timeZones, setTimeZones } = useProfile();
-  const { selectedModelId, setSelectedModelId } = useAiStore();
-  const { activeProvider, setActiveProvider } = useOpenRouterStore();
-
-  const { data: aiModels, refetch: refetchModels } = useAiModels();
-  const downloadAiMutation = useDownloadAiModel();
-  const cancelAiMutation = useCancelAiDownload();
-  const deleteAiMutation = useDeleteAiModel();
-
-  const [downloadProgress, setDownloadProgress] = useState<DownloadProgressPayload | null>(null);
-  const [downloadingModelId, setDownloadingModelId] = useState<string | null>(null);
 
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [excelValidation, setExcelValidation] = useState<ExcelImportValidation | null>(null);
-
-  useEffect(() => {
-    const unlisten = listen<DownloadProgressPayload>("ai-download-progress", (event) => {
-      setDownloadProgress(event.payload);
-      if (event.payload.is_complete) {
-        setDownloadingModelId(null);
-        setDownloadProgress(null);
-        refetchModels();
-        toast.success("AI model downloaded and ready for offline use!");
-      }
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [refetchModels]);
 
   function invalidateAllDataQueries() {
     qc.invalidateQueries({ queryKey: ["clients"] });
@@ -112,44 +64,6 @@ export function Settings() {
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["globalSearch"] });
     qc.invalidateQueries({ queryKey: ["reminders"] });
-  }
-
-  async function handleDownloadModel(modelId: string) {
-    setDownloadingModelId(modelId);
-    setDownloadProgress(null);
-    try {
-      await downloadAiMutation.mutateAsync(modelId);
-      refetchModels();
-    } catch (err) {
-      setDownloadingModelId(null);
-      setDownloadProgress(null);
-      const msg = errorMessage(err);
-      if (!msg.includes("cancelled")) {
-        toast.error(`Download failed: ${msg}`);
-      }
-    }
-  }
-
-  async function handleCancelDownload(modelId: string) {
-    try {
-      await cancelAiMutation.mutateAsync(modelId);
-      setDownloadingModelId(null);
-      setDownloadProgress(null);
-      refetchModels();
-      toast.info("Model download cancelled");
-    } catch (err) {
-      toast.error(`Cancel failed: ${errorMessage(err)}`);
-    }
-  }
-
-  async function handleDeleteModel(modelId: string) {
-    try {
-      await deleteAiMutation.mutateAsync(modelId);
-      refetchModels();
-      toast.success("AI model removed from local disk");
-    } catch (err) {
-      toast.error(`Delete failed: ${errorMessage(err)}`);
-    }
   }
 
   async function exportJsonData() {
@@ -393,178 +307,19 @@ export function Settings() {
 
         {/* Right Column: AI & Data Management */}
         <div className="space-y-4 lg:col-span-2">
-          {/* Unified AI Models Card */}
+          {/* AI Resume Formatter Settings */}
           <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">
-              <div>
-                <h2 className="font-display flex items-center gap-2 text-[14.5px] font-semibold tracking-tight text-fg">
-                  <Sparkle className="h-4 w-4 text-primary" />
-                  AI Models
-                </h2>
-                <p className="mt-0.5 text-xs text-fg-subtle">
-                  Choose between local on-device models or cloud OpenRouter for AI features.
-                </p>
-              </div>
-
-              {/* Segmented Pill Tabs */}
-              <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-hover/50 p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setActiveProvider("local")}
-                  className={cn(
-                    "cursor-pointer flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-150 active:scale-[0.97]",
-                    activeProvider === "local"
-                      ? "bg-primary text-white font-semibold shadow-raise"
-                      : "text-fg-muted hover:text-fg"
-                  )}
-                >
-                  <Cpu className="h-3.5 w-3.5" />
-                  Local AI
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveProvider("openrouter")}
-                  className={cn(
-                    "cursor-pointer flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-all duration-150 active:scale-[0.97]",
-                    activeProvider === "openrouter"
-                      ? "bg-primary text-white font-semibold shadow-raise"
-                      : "text-fg-muted hover:text-fg"
-                  )}
-                >
-                  <Lightning className="h-3.5 w-3.5" />
-                  OpenRouter
-                </button>
-              </div>
+            <div className="border-b border-border/70 pb-2.5">
+              <h2 className="font-display flex items-center gap-2 text-[14.5px] font-semibold tracking-tight text-fg">
+                <Sparkle className="h-4 w-4 text-primary" />
+                AI Resume Formatter
+              </h2>
+              <p className="mt-0.5 text-xs text-fg-subtle">
+                Configure OpenRouter API keys and cloud models for intelligent resume parsing.
+              </p>
             </div>
 
-            {/* Tab 1: Local AI */}
-            {activeProvider === "local" && (
-              <div className="space-y-2.5 animate-fade-in">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-                  {(aiModels || []).map((model) => {
-                    const isSelected = selectedModelId === model.id;
-                    const isDownloading = downloadingModelId === model.id;
-
-                    return (
-                      <div
-                        key={model.id}
-                        onClick={() => setSelectedModelId(model.id)}
-                        className={cn(
-                          "flex flex-col justify-between rounded-lg border p-3 space-y-2 cursor-pointer transition-all duration-150",
-                          isSelected
-                            ? "border-primary/60 bg-primary/5 shadow-raise"
-                            : "border-border/70 bg-surface-hover/30 hover:border-border hover:bg-surface-hover/60",
-                        )}
-                      >
-                        <div>
-                          <div className="flex items-center justify-between gap-1">
-                            <span className="text-[12.5px] font-semibold text-fg truncate">{model.name}</span>
-                            {model.tier === "balanced" && (
-                              <span className="rounded bg-primary/15 px-1.5 py-0.2 text-[9.5px] font-medium text-primary shrink-0">
-                                Recommended
-                              </span>
-                            )}
-                          </div>
-                          <p className="mt-1 text-[11px] text-fg-subtle leading-relaxed line-clamp-2">
-                            {model.description}
-                          </p>
-                        </div>
-
-                        <div className="pt-1.5 border-t border-border/40 flex items-center justify-between text-xs">
-                          <span className="text-[11px] font-medium text-fg-muted">
-                            {formatModelSize(model.size_mb)}
-                          </span>
-                          {model.is_downloaded ? (
-                            <div className="flex items-center gap-1">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 dark:text-emerald-400">
-                                <Check className="h-3 w-3" /> Ready
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleDeleteModel(model.id);
-                                }}
-                                className="ml-1 text-fg-subtle hover:text-red-500 p-0.5 cursor-pointer"
-                                title="Delete model file from disk"
-                              >
-                                <Trash className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ) : isDownloading ? (
-                            <div className="flex items-center gap-1.5">
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-primary">
-                                <CircleNotch className="h-3 w-3 animate-spin" />
-                                {downloadProgress ? `${Math.round(downloadProgress.percentage)}%` : "Starting…"}
-                              </span>
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleCancelDownload(model.id);
-                                }}
-                                className="rounded p-0.5 text-fg-subtle hover:bg-surface-hover hover:text-red-500 cursor-pointer"
-                                title="Cancel download"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 text-[11px] cursor-pointer"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDownloadModel(model.id);
-                              }}
-                            >
-                              Download
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-
-                {/* Download progress bar with Cancel button */}
-                {downloadProgress && downloadingModelId && (
-                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-2.5 space-y-1.5 animate-fade-in">
-                    <div className="flex items-center justify-between text-xs font-medium">
-                      <span className="text-primary flex items-center gap-1.5 truncate">
-                        <CircleNotch className="h-3.5 w-3.5 animate-spin shrink-0" />
-                        Downloading model to AppData…
-                      </span>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-fg-subtle text-[11px]">
-                          {(downloadProgress.downloaded_bytes / (1024 * 1024)).toFixed(0)} MB /{" "}
-                          {(downloadProgress.total_bytes / (1024 * 1024)).toFixed(0)} MB (
-                          {Math.round(downloadProgress.percentage)}%)
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-5 px-1.5 text-[10.5px] text-red-500 hover:bg-red-500/10 cursor-pointer"
-                          onClick={() => handleCancelDownload(downloadingModelId)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/60">
-                      <div
-                        className="h-full bg-primary transition-all duration-200"
-                        style={{ width: `${downloadProgress.percentage}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Tab 2: OpenRouter */}
-            {activeProvider === "openrouter" && <OpenRouterSettings />}
+            <OpenRouterSettings />
           </section>
 
           {/* Data Management Section */}

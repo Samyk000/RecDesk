@@ -14,14 +14,13 @@ import {
   PencilSimple,
 } from "@phosphor-icons/react";
 import { openPath } from "@tauri-apps/plugin-opener";
-import { apiFiles, apiOcr } from "../../lib/api";
+import { apiFiles } from "../../lib/api";
 import { Spinner } from "../common/Spinner";
 import { PdfViewer } from "./viewers/PdfViewer";
 import { DocxViewer } from "./viewers/DocxViewer";
 import { TextViewer } from "./viewers/TextViewer";
 import { ResumeEditor } from "./editor/ResumeEditor";
-import { OcrDownloadModal } from "./OcrDownloadModal";
-import { extractPdfToHtml } from "../../lib/pdfExtractor";
+import { extractPdfToHtml, ocrScannedPdf } from "../../lib/pdfExtractor";
 import { toast } from "sonner";
 import { errorMessage } from "../../lib/utils";
 
@@ -53,7 +52,6 @@ export function ResumePreviewModal({
   const [convertedHtml, setConvertedHtml] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionStep, setConversionStep] = useState("Analyzing document…");
-  const [showOcrDownload, setShowOcrDownload] = useState(false);
 
   const filename = currentFilePath.split(/[\\/]/).pop() ?? "Resume";
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
@@ -84,13 +82,12 @@ export function ResumePreviewModal({
     setIsEditing(false);
     setConvertedHtml(null);
     setIsConverting(false);
-    setShowOcrDownload(false);
     loadFileBytes(filePath);
   }, [open, filePath, loadFileBytes]);
 
   // Handle ESC key to close
   useEffect(() => {
-    if (!open || isEditing || isConverting || showOcrDownload) return;
+    if (!open || isEditing || isConverting) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         onClose();
@@ -98,7 +95,7 @@ export function ResumePreviewModal({
     };
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, isEditing, isConverting, showOcrDownload, onClose]);
+  }, [open, isEditing, isConverting, onClose]);
 
   if (!open) return null;
 
@@ -143,22 +140,13 @@ export function ResumePreviewModal({
         const result = await extractPdfToHtml(data);
 
         if (result.isScanned) {
-          // Scanned image PDF without selectable text stream
-          setConversionStep("Checking local OCR engine…");
-          const ocrStatus = await apiOcr.getStatus();
-
-          if (!ocrStatus.is_downloaded) {
-            setIsConverting(false);
-            setShowOcrDownload(true);
-            return;
-          }
-
-          // Model is downloaded: run local OCR conversion
-          setConversionStep("Reconstructing document layout via PP-OCR engine…");
-          toast.info("Scanned document detected. Converting via local OCR engine…");
-          setConvertedHtml(
-            `<p><strong>${candidateName || "Candidate"}</strong></p><p>Document extracted via Local OCR Engine</p>`
-          );
+          // Scanned image PDF without selectable text stream: run real in-browser OCR
+          setConversionStep("Scanned document detected. Initializing OCR engine…");
+          toast.info("Scanned document detected. Recognizing text via OCR…");
+          const ocrHtml = await ocrScannedPdf(data, (page, total) => {
+            setConversionStep(`Recognizing text via OCR (Page ${page} of ${total})…`);
+          });
+          setConvertedHtml(ocrHtml);
           setIsEditing(true);
         } else {
           // Fast instant vector stream extraction
@@ -232,17 +220,6 @@ export function ResumePreviewModal({
             <p className="text-xs text-zinc-400 font-mono">{conversionStep}</p>
           </div>
         </div>
-      )}
-
-      {/* On-Demand OCR Model Download Modal */}
-      {showOcrDownload && (
-        <OcrDownloadModal
-          onClose={() => setShowOcrDownload(false)}
-          onDownloaded={() => {
-            setShowOcrDownload(false);
-            handleEditClick();
-          }}
-        />
       )}
 
       {/* Top Navigation Bar */}

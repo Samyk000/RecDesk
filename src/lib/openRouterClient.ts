@@ -59,21 +59,20 @@ export async function fetchOpenRouterModels(): Promise<OpenRouterModel[]> {
 
     useOpenRouterStore.getState().setModelsCache(mapped);
     return mapped;
-  } catch (err) {
-    console.error("OpenRouter model fetch error:", err);
-    // Return cached list if available
-    const cached = useOpenRouterStore.getState().modelsCache;
-    if (cached.length > 0) return cached;
+  } catch (err: any) {
+    console.error("Failed to fetch OpenRouter models:", err);
     throw err;
   }
 }
 
 /**
- * Validates an API key with OpenRouter
+ * Validates an OpenRouter API key by making a lightweight request.
  */
 export async function testOpenRouterConnection(apiKey: string): Promise<boolean> {
   const cleanKey = apiKey.trim();
-  if (!cleanKey) throw new Error("Please enter an OpenRouter API key.");
+  if (!cleanKey) {
+    throw new Error("API key cannot be empty.");
+  }
 
   const res = await fetch("https://openrouter.ai/api/v1/auth/key", {
     headers: {
@@ -104,7 +103,7 @@ const FREE_MODEL_FALLBACKS = [
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Sends chat completion to OpenRouter with automatic multi-key rotation and multi-model fallback on 429 rate limits.
+ * Sends chat completion to OpenRouter with automatic key rotation and model fallbacks.
  */
 export async function completeOpenRouterChat(
   messages: ChatMessage[],
@@ -121,7 +120,6 @@ export async function completeOpenRouterChat(
 
   const primaryModel = options.model || store.selectedModel || DEFAULT_FREE_MODEL;
 
-  // Candidate models to try in order: primary model first, then fallback free models
   const candidateModels = [
     primaryModel,
     ...FREE_MODEL_FALLBACKS.filter((m) => m !== primaryModel),
@@ -130,7 +128,6 @@ export async function completeOpenRouterChat(
   let lastError: Error | null = null;
 
   for (const modelToTry of candidateModels) {
-    // Try across all configured keys for this model
     for (let attempt = 0; attempt < keys.length; attempt++) {
       const currentKey = store.getActiveApiKey() || keys[attempt];
 
@@ -138,7 +135,7 @@ export async function completeOpenRouterChat(
         const payload: any = {
           model: modelToTry,
           messages,
-          temperature: options.temperature ?? 0.05,
+          temperature: options.temperature ?? 0.1,
         };
 
         if (options.max_tokens) {
@@ -173,7 +170,6 @@ export async function completeOpenRouterChat(
         const errorMsg =
           errorPayload?.error?.message || `OpenRouter error HTTP ${res.status}`;
 
-        // If rate-limited (429) or unauthorized (401), rotate key and pause briefly
         if (res.status === 429 || res.status === 401) {
           console.warn(`Model ${modelToTry} rate-limited on key. Rotating key...`);
           if (keys.length > 1) {

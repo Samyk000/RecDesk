@@ -17,7 +17,6 @@ interface OpenRouterState {
   apiKeyInput: string;
   apiKeys: string[];
   selectedModel: string;
-  activeProvider: "openrouter" | "local";
   freeOnlyFilter: boolean;
   modelsCache: OpenRouterModel[];
   lastFetched: number | null;
@@ -26,7 +25,6 @@ interface OpenRouterState {
 
   setApiKeyInput: (input: string) => void;
   setSelectedModel: (modelId: string) => void;
-  setActiveProvider: (provider: "openrouter" | "local") => void;
   setFreeOnlyFilter: (freeOnly: boolean) => void;
   setModelsCache: (models: OpenRouterModel[]) => void;
   setConnectionStatus: (status: "untested" | "checking" | "connected" | "error", error?: string | null) => void;
@@ -42,7 +40,6 @@ export const useOpenRouterStore = create<OpenRouterState>()(
       apiKeyInput: "",
       apiKeys: [],
       selectedModel: DEFAULT_FREE_MODEL,
-      activeProvider: "openrouter",
       freeOnlyFilter: true,
       modelsCache: [],
       lastFetched: null,
@@ -63,7 +60,6 @@ export const useOpenRouterStore = create<OpenRouterState>()(
       },
 
       setSelectedModel: (modelId: string) => set({ selectedModel: modelId }),
-      setActiveProvider: (provider: "openrouter" | "local") => set({ activeProvider: provider }),
       setFreeOnlyFilter: (freeOnly: boolean) => set({ freeOnlyFilter: freeOnly }),
       setModelsCache: (models: OpenRouterModel[]) =>
         set({ modelsCache: models, lastFetched: Date.now() }),
@@ -95,7 +91,6 @@ export const useOpenRouterStore = create<OpenRouterState>()(
         apiKeyInput: state.apiKeyInput,
         apiKeys: state.apiKeys,
         selectedModel: state.selectedModel,
-        activeProvider: state.activeProvider,
         freeOnlyFilter: state.freeOnlyFilter,
         modelsCache: state.modelsCache,
         lastFetched: state.lastFetched,

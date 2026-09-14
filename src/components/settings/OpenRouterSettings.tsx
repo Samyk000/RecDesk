@@ -13,7 +13,6 @@ import {
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useOpenRouterStore } from "../../store/openRouterStore";
-import { useChatStore } from "../../store/chatStore";
 import { fetchOpenRouterModels, testOpenRouterConnection } from "../../lib/openRouterClient";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -229,7 +228,6 @@ export function OpenRouterSettings() {
                 key={model.id}
                 onClick={() => {
                   setSelectedModel(model.id);
-                  useChatStore.getState().setSelectedOpenRouterModel(model.id);
                 }}
                 className={cn(
                   "cursor-pointer flex items-center justify-between gap-2 rounded px-2 py-1 text-xs transition-all duration-150",

@@ -98,30 +98,8 @@ export const apiFiles = {
     }),
 };
 
-// ---- AI & Model Manager ----
+// ---- AI Resume Auto-Fill ----
 export const apiAi = {
-  getModels: () => call<import("../types").AiModelInfo[]>("get_ai_models_status"),
-  downloadModel: (modelId: string) => call<string>("download_ai_model", { modelId }),
-  cancelDownloadModel: (modelId: string) => call<boolean>("cancel_ai_download", { modelId }),
-  deleteModel: (modelId: string) => call<boolean>("delete_ai_model", { modelId }),
   parseResume: (text: string) =>
     call<import("../types").ExtractedCandidateProfile>("parse_resume_text", { text }),
-};
-
-// ---- AI Assistant Chat & Context ----
-export const apiAiChat = {
-  getContext: (query: string) =>
-    call<import("../types").AiChatContextPayload>("get_ai_chat_context", { query }),
-  getCandidateDossier: (candidateId: string) =>
-    call<import("../types").CandidateDossier>("get_candidate_ai_dossier", { candidateId }),
-  getWorkspaceOverview: () =>
-    call<import("../types").WorkspaceOverview>("get_workspace_ai_overview"),
-};
-
-// ---- OCR Model Manager ----
-export const apiOcr = {
-  getStatus: () => call<import("../types").OcrModelInfo>("get_ocr_model_status"),
-  downloadModel: (modelId: string) => call<string>("download_ocr_model", { modelId }),
-  cancelDownload: (modelId: string) => call<void>("cancel_ocr_download", { modelId }),
-  deleteModel: (modelId: string) => call<void>("delete_ocr_model", { modelId }),
 };

@@ -35,7 +35,6 @@ import {
   useRenameResume,
   useUpdateCandidate,
 } from "../../hooks/useQueries";
-import { useChatStore } from "../../store/chatStore";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import {
@@ -122,7 +121,6 @@ function CandidatePanelBody({
   const { data: client } = useClient(job?.client_id);
   const clientName = client?.name || (candidate as CandidateWithJob).client_name || "";
   const navigate = useNavigate();
-  const { askAboutCandidate } = useChatStore();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showScreeningQA, setShowScreeningQA] = useState(false);
   const [showSubmissionDetails, setShowSubmissionDetails] = useState(false);
@@ -431,19 +429,6 @@ function CandidatePanelBody({
               </Button>
             </TooltipTrigger>
             <TooltipContent>Screening Q&A</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-primary hover:bg-primary/10"
-                onClick={() => askAboutCandidate(candidate.id, candidate.name)}
-              >
-                <Sparkle className="h-4 w-4" weight="fill" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Ask AI about this candidate</TooltipContent>
           </Tooltip>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

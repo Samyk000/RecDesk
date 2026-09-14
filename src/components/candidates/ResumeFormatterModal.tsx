@@ -20,7 +20,6 @@ import {
   Columns,
   Minus,
   Plus,
-  Lightning,
   Sparkle,
 } from "@phosphor-icons/react";
 import { open as openDialog, save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -43,10 +42,8 @@ import {
 } from "../../lib/blockIdResumeParser";
 import { convertHtmlToDocxBytes } from "../../lib/docxExport";
 import { fetchOpenRouterModels } from "../../lib/openRouterClient";
-import { useAiModels } from "../../hooks/useQueries";
 import { useOpenRouterStore } from "../../store/openRouterStore";
 import { useResumeFormatterStore } from "../../store/resumeFormatterStore";
-import { useAiStore } from "../../store/ai";
 import { errorMessage } from "../../lib/utils";
 import mammoth from "mammoth";
 
@@ -86,25 +83,15 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
     apiKeys,
     selectedModel,
     modelsCache,
-    activeProvider,
-    setActiveProvider,
     setSelectedModel,
   } = useOpenRouterStore();
 
-  const { selectedModelId, setSelectedModelId } = useAiStore();
-  const { data: aiModels } = useAiModels();
-  const isModelDownloaded = useCallback(
-    (id: string) => aiModels?.some((m) => m.id === id && m.is_downloaded) ?? false,
-    [aiModels]
-  );
-  const currentLocalModelDownloaded = isModelDownloaded(selectedModelId);
-
-  // Auto-fetch OpenRouter models if cache is empty when provider is openrouter
+  // Auto-fetch OpenRouter models if cache is empty
   useEffect(() => {
-    if (activeProvider === "openrouter" && modelsCache.length === 0) {
+    if (open && modelsCache.length === 0) {
       fetchOpenRouterModels().catch(() => {});
     }
-  }, [activeProvider, modelsCache.length]);
+  }, [open, modelsCache.length]);
 
   const FALLBACK_FREE_MODELS = useMemo(
     () => [
@@ -211,19 +198,14 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
   }, [editor, formattedHtml, selectedFont]);
 
   const activeModelDisplay = useMemo(() => {
-    if (activeProvider === "local") {
-      const localNames: Record<string, string> = {
-        "qwen-0.5b": "Local AI (Qwen 0.5B)",
-        "qwen-1.5b": "Local AI (Qwen 1.5B)",
-        "qwen-3b": "Local AI (Qwen 3B)",
-      };
-      return localNames[selectedModelId] || "Local AI Engine";
+    if (apiKeys.length === 0) {
+      return "Built-in Formatter";
     }
     const found = modelsCache.find((m) => m.id === selectedModel);
     let name = found ? found.name : selectedModel.split("/").pop() || selectedModel;
     name = name.replace(/\(free\)/i, "").replace(/:free$/i, "").trim();
     return name;
-  }, [activeProvider, selectedModelId, selectedModel, modelsCache]);
+  }, [apiKeys.length, selectedModel, modelsCache]);
 
   const handleReset = useCallback(() => {
     resetFormatter();
@@ -302,13 +284,12 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
         let finalFormattedHtml = "";
         let candidateName = "Candidate";
 
-        // Step 2: Use AI Block-ID Cognitive Engine based on selected provider
+        // Step 2: Use AI Block-ID Cognitive Engine based on OpenRouter key availability
         const openRouterState = useOpenRouterStore.getState();
-        const provider = openRouterState.activeProvider;
         const effectiveKeys = openRouterState.apiKeys;
         const effectiveModel = selectedModel || openRouterState.selectedModel;
 
-        if (provider === "openrouter" && effectiveKeys.length > 0) {
+        if (effectiveKeys.length > 0) {
           setProcessing(true, `AI analyzing structure (${activeModelDisplay})…`);
           try {
             const { structure, rawBlocks } = await parseResumeWithBlockIdAI(
@@ -318,20 +299,20 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
             candidateName = structure.candidate_name || "Candidate";
             finalFormattedHtml = reassembleHtmlFromBlocks(structure, rawBlocks);
           } catch (aiErr: any) {
-            console.warn("OpenRouter AI parsing failed, seamlessly falling back to Local AI Engine:", aiErr);
+            console.warn("OpenRouter AI parsing failed, falling back to built-in engine:", aiErr);
             toast.warning(
               aiErr.message?.includes("429") || aiErr.message?.includes("credit")
-                ? "OpenRouter credits/rate limit reached. Seamlessly formatted with Local Engine."
-                : `AI Note: ${aiErr.message || "Using Local Engine fallback."}`
+                ? "OpenRouter credits/rate limit reached. Formatted with built-in engine."
+                : `AI note: ${aiErr.message || "Using built-in engine fallback."}`
             );
-            setProcessing(true, "Formatting with Local AI Engine…");
+            setProcessing(true, "Formatting with built-in engine…");
             const structure = parseResumeWithLocalEngine(blocks, textLines);
             candidateName = structure.candidate_name || "Candidate";
             finalFormattedHtml = reassembleHtmlFromBlocks(structure, blocks);
           }
         } else {
-          // Local AI Engine is active (Offline, zero credits needed, 100% private)
-          setProcessing(true, `Formatting with ${activeModelDisplay}…`);
+          // Built-in rule engine (Offline, zero credits needed, 100% private)
+          setProcessing(true, "Formatting with built-in engine…");
           const structure = parseResumeWithLocalEngine(blocks, textLines);
           candidateName = structure.candidate_name || "Candidate";
           finalFormattedHtml = reassembleHtmlFromBlocks(structure, blocks);
@@ -446,9 +427,8 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
       }}
     >
       <div
-        className={`relative flex flex-col w-full ${
-          showOriginal ? "max-w-6xl" : "max-w-4xl"
-        } h-[88vh] max-h-[900px] rounded-xl border border-border bg-surface shadow-2xl overflow-hidden transition-all duration-200`}
+        className={`relative flex flex-col w-full ${showOriginal ? "max-w-6xl" : "max-w-4xl"
+          } h-[88vh] max-h-[900px] rounded-xl border border-border bg-surface shadow-2xl overflow-hidden transition-all duration-200`}
       >
         {/* ─── Top Header Bar ────────────────────────────────────────────── */}
         <div className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-surface px-3">
@@ -458,16 +438,11 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
 
             {/* Interactive AI Engine Selector */}
             <ModelSelectorDropdown
-              activeProvider={activeProvider}
-              setActiveProvider={setActiveProvider}
-              selectedModelId={selectedModelId}
-              setSelectedModelId={setSelectedModelId}
               selectedModel={selectedModel}
               setSelectedModel={setSelectedModel}
               activeModelDisplay={activeModelDisplay}
               freeCloudModels={freeCloudModels}
               apiKeys={apiKeys}
-              aiModelsData={aiModels}
               onCloseModal={onClose}
             />
 
@@ -506,11 +481,10 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
                 {/* Show Original Toggle */}
                 <button
                   onClick={() => setShowOriginal((s) => !s)}
-                  className={`cursor-pointer inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium border transition-colors ${
-                    showOriginal
+                  className={`cursor-pointer inline-flex h-6 items-center gap-1 rounded px-2 text-[11px] font-medium border transition-colors ${showOriginal
                       ? "border-primary bg-primary/15 text-primary"
                       : "border-border bg-surface hover:bg-surface-hover text-fg-muted hover:text-fg"
-                  }`}
+                    }`}
                   title="Toggle side-by-side comparison"
                 >
                   <Columns className="h-3 w-3" />
@@ -569,83 +543,26 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
           {step === "upload" && (
             <div className="flex flex-1 flex-col items-center justify-center p-6 sm:p-8 bg-surface-hover/20">
               <div className="flex flex-col items-center gap-4 max-w-md w-full">
-                {/* Compact AI Provider Switcher Bar */}
-                <div className="flex flex-col gap-2 w-full">
-                  <div className="flex items-center justify-center gap-1 rounded-xl border border-border bg-surface-hover/50 p-1 w-full shadow-xs">
-                    <button
-                      type="button"
-                      onClick={() => setActiveProvider("local")}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 px-3 text-xs font-semibold transition-all cursor-pointer ${
-                        activeProvider === "local"
-                          ? "bg-surface text-amber-300 shadow-xs border border-amber-500/20"
-                          : "text-fg-muted hover:text-fg hover:bg-surface/50"
-                      }`}
-                    >
-                      <Lightning className="h-3.5 w-3.5 text-amber-400" weight="fill" />
-                      <span>Local AI</span>
-                      <span className="text-[10px] text-fg-subtle font-normal">
-                        ({selectedModelId === "qwen-0.5b" ? "0.5B" : selectedModelId === "qwen-3b" ? "3B" : "1.5B"})
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveProvider("openrouter")}
-                      className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 px-3 text-xs font-semibold transition-all cursor-pointer ${
-                        activeProvider === "openrouter"
-                          ? "bg-surface text-primary shadow-xs border border-primary/20"
-                          : "text-fg-muted hover:text-fg hover:bg-surface/50"
-                      }`}
-                    >
-                      <Sparkle className="h-3.5 w-3.5 text-primary" weight="fill" />
-                      <span>OpenRouter</span>
-                      <span className="text-[10px] text-fg-subtle font-normal">(Cloud)</span>
-                    </button>
+                {/* Clean AI Info / Configuration Strip */}
+                <div className="flex items-center justify-between w-full px-3 py-2 rounded-lg border border-border bg-surface-hover/50 text-xs">
+                  <div className="flex items-center gap-2 text-fg-muted">
+                    <Sparkle className="h-3.5 w-3.5 text-primary shrink-0" weight="fill" />
+                    <span className="text-[11.5px]">
+                      {apiKeys.length > 0
+                        ? `Cloud AI: ${activeModelDisplay}`
+                        : "Built-in offline engine (100% private, zero setup)"}
+                    </span>
                   </div>
-
-                  {activeProvider === "local" ? (
-                    currentLocalModelDownloaded ? (
-                      <div className="flex items-center justify-center gap-1.5 text-[11px] text-emerald-400/90 font-medium">
-                        <span>🛡️ 100% offline & private · Zero credits required (Model Ready)</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
-                        <div className="flex items-center gap-2">
-                          <WarningCircle className="h-4 w-4 shrink-0 text-amber-400" />
-                          <span className="text-[11.5px]">
-                            <strong>{selectedModelId === "qwen-0.5b" ? "Qwen 2.5 0.5B" : selectedModelId === "qwen-3b" ? "Qwen 2.5 3B" : "Qwen 2.5 1.5B"}</strong> is not downloaded
-                          </span>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            onClose();
-                            navigate("/settings");
-                          }}
-                          className="text-[11px] font-semibold text-amber-300 underline hover:text-amber-200 shrink-0 cursor-pointer"
-                        >
-                          Download in Settings →
-                        </button>
-                      </div>
-                    )
-                  ) : (
-                    <div className="flex items-center justify-between px-1 text-[11px] text-fg-subtle">
-                      <span>
-                        {apiKeys.length > 0
-                          ? `✨ ${apiKeys.length} API key(s) active · Auto fallback`
-                          : "⚠️ No OpenRouter keys configured"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          onClose();
-                          navigate("/settings");
-                        }}
-                        className="text-primary hover:underline font-medium cursor-pointer"
-                      >
-                        {apiKeys.length === 0 ? "Add key in Settings →" : "Settings →"}
-                      </button>
-                    </div>
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onClose();
+                      navigate("/settings");
+                    }}
+                    className="text-[11px] font-medium text-primary hover:underline cursor-pointer shrink-0"
+                  >
+                    {apiKeys.length === 0 ? "Add OpenRouter Key →" : "Settings →"}
+                  </button>
                 </div>
 
                 {error && (
@@ -699,9 +616,8 @@ export function ResumeFormatterModal({ open, onClose }: Props) {
 
               {/* Right Pane (or Full Width): Document Canvas with consistent margins */}
               <div
-                className={`flex-1 overflow-y-auto bg-zinc-900/95 scrollbar-thin px-4 py-8 pb-32 ${
-                  showOriginal ? "w-1/2" : "w-full"
-                }`}
+                className={`flex-1 overflow-y-auto bg-zinc-900/95 scrollbar-thin px-4 py-8 pb-32 ${showOriginal ? "w-1/2" : "w-full"
+                  }`}
               >
                 {/* Paper Document Container — Word Narrow 0.5-inch margins */}
                 <div
