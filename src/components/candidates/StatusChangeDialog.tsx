@@ -20,8 +20,8 @@ import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
 import { BackwardStatusConfirmDialog } from "./BackwardStatusConfirmDialog";
 import { ResetStatusConfirmDialog } from "./ResetStatusConfirmDialog";
-import { isBackwardTransition } from "../../lib/candidateUtils";
-import type { CandidatePatch, CandidateWithJob } from "../../types";
+import { isBackwardTransition, parseRejectionDetail, serializeRejectionDetail } from "../../lib/candidateUtils";
+import type { CandidatePatch, CandidateWithJob, RejectionDetail } from "../../types";
 
 interface Props {
   candidate: CandidateWithJob;
@@ -79,7 +79,23 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
       patch.client_feedback = "client";
       patch.submitted_at = candidate.submitted_at || submittedAt || new Date().toISOString();
     }
-    if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
+    if (status === "rejected") {
+      const existing = parseRejectionDetail(candidate.rejection_reason);
+      const origin =
+        candidate.submission_status === "interview"
+          ? "interview"
+          : candidate.submission_status === "submitted"
+            ? (candidate.client_feedback === "internal" ? "internal" : "client_screening")
+            : existing.origin || "general";
+
+      const detail: RejectionDetail = {
+        ...existing,
+        origin,
+        reason: rejectionReason.trim() || existing.reason || null,
+        rejected_at: existing.rejected_at || new Date().toISOString(),
+      };
+      patch.rejection_reason = serializeRejectionDetail(detail);
+    }
 
     executeSave(patch);
   }

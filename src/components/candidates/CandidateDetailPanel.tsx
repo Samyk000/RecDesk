@@ -737,6 +737,25 @@ function CandidatePanelBody({
                     placed_at: candidate.placed_at || new Date().toISOString(),
                   };
                   saveField(patch);
+                } else if (v === "rejected") {
+                  const existing = parseRejectionDetail(candidate.rejection_reason);
+                  const origin =
+                    candidate.submission_status === "interview"
+                      ? "interview"
+                      : candidate.submission_status === "submitted"
+                        ? (candidate.client_feedback === "internal" ? "internal" : "client_screening")
+                        : existing.origin || "general";
+
+                  const detail: RejectionDetail = {
+                    ...existing,
+                    origin,
+                    rejected_at: existing.rejected_at || new Date().toISOString(),
+                  };
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "rejected",
+                    rejection_reason: serializeRejectionDetail(detail),
+                  };
+                  saveField(patch);
                 } else {
                   const patch: Partial<CandidateInput> = { submission_status: v };
                   saveField(patch);

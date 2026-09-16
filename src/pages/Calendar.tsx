@@ -19,6 +19,7 @@ import {
   getCalendarAnalytics,
   formatDateKey,
   type CalendarEvent,
+  type CalendarAnalyticsScope,
 } from "../lib/calendarUtils";
 import {
   toCandidateInput,
@@ -55,7 +56,7 @@ export function Calendar() {
     () => formatDateKey(new Date()) || "",
   );
   const [filterType, setFilterType] = useState<"all" | "submission" | "interview">("all");
-  const [analyticsScope, setAnalyticsScope] = useState<"month" | "week">("month");
+  const [analyticsScope, setAnalyticsScope] = useState<CalendarAnalyticsScope>("month");
   const [viewScope, setViewScope] = useState<"day" | "month">("day");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
@@ -73,8 +74,18 @@ export function Calendar() {
 
   // Compute analytics
   const analytics = useMemo(() => {
-    return getCalendarAnalytics(allEvents, currentDate, analyticsScope);
-  }, [allEvents, currentDate, analyticsScope]);
+    return getCalendarAnalytics(allEvents, currentDate, analyticsScope, candidates);
+  }, [allEvents, currentDate, analyticsScope, candidates]);
+
+  const scopeLabel = useMemo(() => {
+    if (analyticsScope === "month") {
+      return MONTH_NAMES[currentDate.getMonth()].slice(0, 3);
+    }
+    if (analyticsScope === "week") {
+      return "This Week";
+    }
+    return "Total";
+  }, [analyticsScope, currentDate]);
 
   // Month navigation
   const prevMonth = () => {
@@ -289,6 +300,18 @@ export function Calendar() {
             <div className="flex items-center rounded-lg border border-border/80 bg-surface p-0.5 text-xs shadow-2xs">
               <button
                 type="button"
+                onClick={() => setAnalyticsScope("all")}
+                className={cn(
+                  "px-2 py-0.5 rounded font-medium transition-all cursor-pointer",
+                  analyticsScope === "all"
+                    ? "bg-surface-active font-semibold text-fg"
+                    : "text-fg-subtle hover:text-fg",
+                )}
+              >
+                All Time
+              </button>
+              <button
+                type="button"
                 onClick={() => setAnalyticsScope("month")}
                 className={cn(
                   "px-2 py-0.5 rounded font-medium transition-all cursor-pointer",
@@ -318,12 +341,24 @@ export function Calendar() {
         {/* Analytics Velocity Ribbon */}
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
           {/* 1. Submissions metric */}
-          <div className="flex items-center gap-2.5 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 shadow-2xs">
+          <div
+            onClick={() => setFilterType(filterType === "submission" ? "all" : "submission")}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg border px-3 py-1.5 shadow-2xs cursor-pointer transition-all active:scale-[0.99]",
+              filterType === "submission"
+                ? "border-amber-500 bg-amber-500/15 ring-1 ring-amber-500/40"
+                : "border-amber-500/20 bg-amber-500/5 hover:border-amber-500/40 hover:bg-amber-500/10",
+            )}
+            title="Click to filter calendar submissions"
+          >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-amber-500/15 text-amber-600 dark:text-amber-400 font-bold text-xs">
               {analytics.totalSubmissions}
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-fg">Submissions</p>
+              <p className="text-[11px] font-semibold text-fg flex items-center gap-1">
+                <span>Submissions</span>
+                <span className="text-[9.5px] font-medium text-amber-600/80 dark:text-amber-400/80">({scopeLabel})</span>
+              </p>
               <p className="text-[10px] text-fg-muted truncate">
                 External client submissions
               </p>
@@ -331,12 +366,24 @@ export function Calendar() {
           </div>
 
           {/* 2. Interviews metric */}
-          <div className="flex items-center gap-2.5 rounded-lg border border-violet-500/20 bg-violet-500/5 px-3 py-1.5 shadow-2xs">
+          <div
+            onClick={() => setFilterType(filterType === "interview" ? "all" : "interview")}
+            className={cn(
+              "flex items-center gap-2.5 rounded-lg border px-3 py-1.5 shadow-2xs cursor-pointer transition-all active:scale-[0.99]",
+              filterType === "interview"
+                ? "border-violet-500 bg-violet-500/15 ring-1 ring-violet-500/40"
+                : "border-violet-500/20 bg-violet-500/5 hover:border-violet-500/40 hover:bg-violet-500/10",
+            )}
+            title="Click to filter calendar interviews"
+          >
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-violet-500/15 text-violet-600 dark:text-violet-400 font-bold text-xs">
               {analytics.totalInterviews}
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-fg">Interviews</p>
+              <p className="text-[11px] font-semibold text-fg flex items-center gap-1">
+                <span>Interviews</span>
+                <span className="text-[9.5px] font-medium text-violet-600/80 dark:text-violet-400/80">({scopeLabel})</span>
+              </p>
               <p className="text-[10px] text-fg-muted truncate">
                 R1: <strong>{analytics.round1Interviews}</strong> · R2:{" "}
                 <strong>{analytics.round2Interviews}</strong>
@@ -351,7 +398,10 @@ export function Calendar() {
               {analytics.totalPlaced}
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-fg">Placed</p>
+              <p className="text-[11px] font-semibold text-fg flex items-center gap-1">
+                <span>Placed</span>
+                <span className="text-[9.5px] font-medium text-emerald-600/80 dark:text-emerald-400/80">({scopeLabel})</span>
+              </p>
               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
                 Successful placements
               </p>
@@ -364,7 +414,10 @@ export function Calendar() {
               {analytics.totalRejected}
             </span>
             <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-fg">Rejections</p>
+              <p className="text-[11px] font-semibold text-fg flex items-center gap-1">
+                <span>Rejections</span>
+                <span className="text-[9.5px] font-medium text-red-600/80 dark:text-red-400/80">({scopeLabel})</span>
+              </p>
               <p className="text-[10px] text-fg-muted truncate">
                 Screening & interview dropoffs
               </p>

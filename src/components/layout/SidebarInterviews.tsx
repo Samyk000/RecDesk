@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { CalendarCheck, CaretDown, CalendarBlank } from "@phosphor-icons/react";
 import { useCandidatesWithJob } from "../../hooks/useQueries";
 import { cn } from "../../lib/utils";
-import { parseInterviewRounds } from "../../lib/candidateUtils";
+import { parseInterviewRounds, getInterviewTimestamp } from "../../lib/candidateUtils";
 import type { CandidateWithJob } from "../../types";
 
 function formatInterviewSchedule(iso: string | null | undefined): {
@@ -135,10 +135,12 @@ export function SidebarInterviews() {
 
     // Sort chronologically (earliest/upcoming first, TBD last)
     return list.sort((a, b) => {
-      if (!a.interview_at && !b.interview_at) return 0;
-      if (!a.interview_at) return 1;
-      if (!b.interview_at) return -1;
-      return new Date(a.interview_at).getTime() - new Date(b.interview_at).getTime();
+      const timeA = getInterviewTimestamp(a.interview_at);
+      const timeB = getInterviewTimestamp(b.interview_at);
+      if (!timeA && !timeB) return 0;
+      if (!timeA) return 1;
+      if (!timeB) return -1;
+      return timeA - timeB;
     });
   }, [candidates]);
 

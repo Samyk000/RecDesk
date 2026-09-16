@@ -271,7 +271,9 @@ export function Dashboard() {
                     const displayCount =
                       s.status === "submitted" && data.external_submissions !== undefined
                         ? data.external_submissions
-                        : s.count;
+                        : s.status === "interview" && data.interview_candidates !== undefined
+                          ? data.interview_candidates
+                          : s.count;
                     const pct = data.total_candidates
                       ? ((displayCount / data.total_candidates) * 100).toFixed(0)
                       : "0";

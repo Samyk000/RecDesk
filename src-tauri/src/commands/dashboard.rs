@@ -51,7 +51,13 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         |r| r.get(0),
     )?;
     let interview_candidates: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM candidates WHERE submission_status = 'interview'",
+        "SELECT COUNT(*) FROM candidates 
+         WHERE submission_status IN ('interview', 'placed')
+            OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
+            OR (submission_status = 'rejected' AND (
+                rejection_reason LIKE '%\"interview\"%'
+                OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
+            ))",
         [],
         |r| r.get(0),
     )?;

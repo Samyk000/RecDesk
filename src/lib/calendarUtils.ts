@@ -1,5 +1,5 @@
 import type { CandidateWithJob } from "../types";
-import { parseInterviewRounds, parseRejectionDetail } from "./candidateUtils";
+import { parseInterviewRounds, parseRejectionDetail, isExternalSubmission, getSubmissionTimestamp } from "./candidateUtils";
 
 export type CalendarEventType = "submission" | "interview" | "placement";
 
@@ -114,8 +114,9 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
       const isClientFeedback = cand.client_feedback === "client";
       const isClientRejection =
         cand.submission_status === "rejected" && rejDetail.origin === "client_screening";
+      const isExt = isExternalSubmission(cand);
 
-      if (isSubmittedStage || hasSubmissionDate || isClientFeedback || isClientRejection) {
+      if (isExt || isSubmittedStage || hasSubmissionDate || isClientFeedback || isClientRejection) {
         const rawDate = cand.submitted_at || cand.date_added || cand.last_updated;
         const dateKey = formatDateKey(rawDate);
 
@@ -229,7 +230,11 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
   }
 
   // Sort events chronologically
-  return events.sort((a, b) => new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime());
+  return events.sort((a, b) => {
+    const timeA = getSubmissionTimestamp(a.rawDate);
+    const timeB = getSubmissionTimestamp(b.rawDate);
+    return timeA - timeB;
+  });
 }
 
 /**
@@ -304,13 +309,18 @@ export function getMonthMatrix(currentDate: Date, events: CalendarEvent[]): DayC
   return matrix;
 }
 
+export type CalendarAnalyticsScope = "all" | "month" | "week";
+
 /**
- * Calculates recruitment velocity metrics for the active month or week
+ * Calculates recruitment velocity metrics across All Time, active month, or active week.
+ * De-duplicates unique candidates per metric category so counts are accurate and clean.
+ * Defaults to active month view so calendar cards show month-wise activity.
  */
 export function getCalendarAnalytics(
   events: CalendarEvent[],
   currentDate: Date,
-  scope: "month" | "week" = "month",
+  scope: CalendarAnalyticsScope = "month",
+  candidates?: CandidateWithJob[],
 ): CalendarAnalytics {
   const targetYear = currentDate.getFullYear();
   const targetMonth = currentDate.getMonth();
@@ -324,44 +334,77 @@ export function getCalendarAnalytics(
   endOfWeek.setDate(startOfWeek.getDate() + 6);
   endOfWeek.setHours(23, 59, 59, 999);
 
-  const filtered = events.filter((ev) => {
-    const evDate = new Date(ev.rawDate);
+  const isDateInScope = (dateKey: string | null | undefined): boolean => {
+    if (!dateKey) return false;
+    if (scope === "all") return true;
+    const [ey, em, ed] = dateKey.split("-").map(Number);
+    if (!ey || !em || !ed) return false;
     if (scope === "month") {
-      return evDate.getFullYear() === targetYear && evDate.getMonth() === targetMonth;
+      return ey === targetYear && (em - 1) === targetMonth;
     }
+    const evDate = new Date(ey, em - 1, ed);
     return evDate >= startOfWeek && evDate <= endOfWeek;
-  });
-
-  const analytics: CalendarAnalytics = {
-    totalSubmissions: 0,
-    totalInterviews: 0,
-    round1Interviews: 0,
-    round2Interviews: 0,
-    round3PlusInterviews: 0,
-    totalPlaced: 0,
-    totalRejected: 0,
   };
 
+  const filtered = events.filter((ev) => isDateInScope(ev.dateKey));
+
+  const submissionCandidateIds = new Set<string>();
+  const interviewCandidateIds = new Set<string>();
+  const placedCandidateIds = new Set<string>();
+  const rejectedCandidateIds = new Set<string>();
+
+  let r1Count = 0;
+  let r2Count = 0;
+  let r3PlusCount = 0;
+
   filtered.forEach((ev) => {
+    const candId = ev.candidate.id;
+
     if (ev.type === "submission") {
-      analytics.totalSubmissions++;
+      submissionCandidateIds.add(candId);
     } else if (ev.type === "interview") {
-      analytics.totalInterviews++;
+      interviewCandidateIds.add(candId);
       if (ev.roundNumber === 1) {
-        analytics.round1Interviews++;
+        r1Count++;
       } else if (ev.roundNumber === 2) {
-        analytics.round2Interviews++;
+        r2Count++;
       } else if (ev.roundNumber && ev.roundNumber >= 3) {
-        analytics.round3PlusInterviews++;
+        r3PlusCount++;
       }
     } else if (ev.type === "placement") {
-      analytics.totalPlaced++;
+      placedCandidateIds.add(candId);
     }
 
     if (ev.outcome === "rejected") {
-      analytics.totalRejected++;
+      rejectedCandidateIds.add(candId);
     }
   });
 
-  return analytics;
+  // If candidate list provided, ensure placements and rejections are accurately accounted by their action date
+  if (candidates) {
+    candidates.forEach((cand) => {
+      if (cand.submission_status === "placed") {
+        const pKey = formatDateKey(cand.placed_at || cand.last_updated);
+        if (isDateInScope(pKey)) {
+          placedCandidateIds.add(cand.id);
+        }
+      } else if (cand.submission_status === "rejected") {
+        const rejDetail = parseRejectionDetail(cand.rejection_reason);
+        const rKey = formatDateKey(rejDetail.rejected_at || cand.last_updated);
+        if (isDateInScope(rKey)) {
+          rejectedCandidateIds.add(cand.id);
+        }
+      }
+    });
+  }
+
+  return {
+    totalSubmissions: submissionCandidateIds.size,
+    totalInterviews: interviewCandidateIds.size,
+    round1Interviews: r1Count,
+    round2Interviews: r2Count,
+    round3PlusInterviews: r3PlusCount,
+    totalPlaced: placedCandidateIds.size,
+    totalRejected: rejectedCandidateIds.size,
+  };
 }

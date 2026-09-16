@@ -30,6 +30,36 @@ pub const CANDIDATE_SELECT_JOIN: &str = r#"
   JOIN clients cl ON cl.id = j.client_id
 "#;
 
+fn apply_status_condition(
+    st: &str,
+    conditions: &mut Vec<String>,
+    params: &mut Vec<Box<dyn rusqlite::types::ToSql>>,
+) {
+    if st == "interview" {
+        conditions.push(
+            "(c.submission_status IN ('interview', 'placed') 
+             OR (c.interview_at IS NOT NULL AND TRIM(c.interview_at) != '') 
+             OR (c.submission_status = 'rejected' AND (
+                 c.rejection_reason LIKE '%\"interview\"%' 
+                 OR (c.interview_at IS NOT NULL AND TRIM(c.interview_at) != '')
+             )))".to_string(),
+        );
+    } else if st == "submitted" {
+        conditions.push(
+            "((c.submission_status = 'submitted' AND (c.client_feedback IS NULL OR c.client_feedback != 'internal')) 
+             OR c.submission_status IN ('interview', 'placed') 
+             OR (c.submission_status = 'rejected' AND (
+                 c.rejection_reason LIKE '%\"client_screening\"%' 
+                 OR c.rejection_reason LIKE '%\"interview\"%' 
+                 OR (c.submitted_at IS NOT NULL AND TRIM(c.submitted_at) != '' AND (c.client_feedback IS NULL OR c.client_feedback != 'internal') AND (c.rejection_reason IS NULL OR c.rejection_reason NOT LIKE '%\"internal\"%'))
+             )))".to_string(),
+        );
+    } else {
+        conditions.push("c.submission_status = ?".to_string());
+        params.push(Box::new(st.to_string()));
+    }
+}
+
 #[tauri::command]
 pub fn get_candidates(
     state: State<'_, AppState>,
@@ -46,8 +76,7 @@ pub fn get_candidates(
         params.push(Box::new(jid.clone()));
     }
     if let Some(st) = &status {
-        conditions.push("c.submission_status = ?".to_string());
-        params.push(Box::new(st.clone()));
+        apply_status_condition(st, &mut conditions, &mut params);
     }
     if let Some(s) = &search {
         conditions.push(
@@ -386,8 +415,7 @@ pub fn get_candidates_with_job(
         params.push(Box::new(cid.clone()));
     }
     if let Some(st) = &status {
-        conditions.push("c.submission_status = ?".to_string());
-        params.push(Box::new(st.clone()));
+        apply_status_condition(st, &mut conditions, &mut params);
     }
     if let Some(s) = &search {
         conditions.push(

@@ -41,7 +41,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
-import { getCandidateSubStageLabel } from "../lib/candidateUtils";
+import { getCandidateSubStageBadge } from "../lib/candidateUtils";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, formatDateShort, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { CandidateWithJob } from "../types";
@@ -78,6 +78,10 @@ export function Candidates() {
   const deleteCandidate = useDeleteCandidate();
 
   const [hideRejected, setHideRejected] = useState(() => {
+    const initialStatus = new URLSearchParams(window.location.search).get("status");
+    if (initialStatus && initialStatus !== "all") {
+      return false;
+    }
     return localStorage.getItem("recdesk_hide_rejected") === "true";
   });
 
@@ -89,6 +93,9 @@ export function Candidates() {
     const s = params.get("status");
     if (s && s !== status) {
       setStatus(s);
+      if (s !== "all") {
+        setHideRejected(false);
+      }
     }
   }, [params]);
 
@@ -111,11 +118,12 @@ export function Candidates() {
 
   const displayedCandidates = useMemo(() => {
     if (!sorted) return [];
+    if (status === "rejected") return sorted;
     if (!hideRejected) return sorted;
     return sorted.filter(
       (c) => c.submission_status !== "rejected" && c.submission_status !== "not_interested",
     );
-  }, [sorted, hideRejected]);
+  }, [sorted, hideRejected, status]);
 
   const selection = useSelection(
     displayedCandidates.map((c) => c.id),
@@ -358,192 +366,218 @@ export function Candidates() {
           <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
             <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
               <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface text-left">
-                {selectMode && (
-                  <th className="sticky top-0 z-10 w-10 bg-surface px-4 py-2.5">
-                    <input
-                      type="checkbox"
-                      checked={selection.allSelected}
-                      onChange={selection.toggleAll}
-                      className="h-3.5 w-3.5 rounded border-border accent-primary"
-                    />
-                  </th>
-                )}
-                <th className="sticky top-0 z-10 w-[240px] max-w-[260px] bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Name</th>
-                <th className="sticky top-0 z-10 max-w-[180px] bg-surface px-4 py-2.5">
-                  <button
-                    onClick={() => toggleSort("job_title")}
-                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
-                  >
-                    Job <SortIcon active={sortKey === "job_title"} dir={sortDir} />
-                  </button>
-                </th>
-                <th className="sticky top-0 z-10 max-w-[140px] bg-surface px-4 py-2.5">
-                  <button
-                    onClick={() => toggleSort("client_name")}
-                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
-                  >
-                    Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
-                  </button>
-                </th>
-                <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
-                <th className="sticky top-0 z-10 min-w-[150px] whitespace-nowrap bg-surface px-4 py-2.5">
-                  <button
-                    onClick={() => toggleSort("location")}
-                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
-                  >
-                    Location <SortIcon active={sortKey === "location"} dir={sortDir} />
-                  </button>
-                </th>
-                <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2.5">
-                  <button
-                    onClick={() => toggleSort("date_added")}
-                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
-                  >
-                    Added <SortIcon active={sortKey === "date_added"} dir={sortDir} />
-                  </button>
-                </th>
-                <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2.5">
-                  <button
-                    onClick={() => toggleSort("last_updated")}
-                    className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
-                  >
-                    Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
-                  </button>
-                </th>
-                <th className="sticky top-0 z-10 w-20 bg-surface px-3 py-2.5" />
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {displayedCandidates.map((c) => (
-                <tr
-                  key={c.id}
-                  className={cn(
-                    "group cursor-pointer transition-colors hover:bg-surface-hover",
-                    selection.selected.has(c.id) && "bg-primary/5 hover:bg-primary/5",
-                  )}
-                  onClick={() => (selectMode ? selection.toggle(c.id) : openPanel(c.id))}
-                >
-                  {selectMode && (
-                    <td className="w-10 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
-                      <input
-                        type="checkbox"
-                        checked={selection.selected.has(c.id)}
-                        onChange={() => selection.toggle(c.id)}
-                        className="h-3.5 w-3.5 rounded border-border accent-primary"
-                      />
-                    </td>
-                  )}
-                  <td className="w-[240px] max-w-[260px] px-4 py-2.5">
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
-                        style={{
-                          background: `${submissionPalette(c.submission_status).dot}1f`,
-                          color: submissionPalette(c.submission_status).dot,
-                        }}
+                <thead>
+                  <tr className="border-b border-border bg-surface text-left">
+                    {selectMode && (
+                      <th className="sticky top-0 z-10 w-10 bg-surface px-4 py-2">
+                        <input
+                          type="checkbox"
+                          checked={selection.allSelected}
+                          onChange={selection.toggleAll}
+                          className="h-3.5 w-3.5 rounded border-border accent-primary"
+                        />
+                      </th>
+                    )}
+                    <th className="sticky top-0 z-10 w-[240px] max-w-[260px] bg-surface px-4 py-2 text-xs font-semibold text-fg-muted">Name</th>
+                    <th className="sticky top-0 z-10 max-w-[180px] bg-surface px-4 py-2">
+                      <button
+                        onClick={() => toggleSort("job_title")}
+                        className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
                       >
-                        {nameInitials(c.name)}
-                      </span>
-                      <div className="min-w-0 max-w-[190px]">
-                        <p className="truncate text-[13px] font-medium text-fg transition-colors duration-150 group-hover:text-primary">{c.name}</p>
-                        <p className="truncate text-[11px] text-fg-subtle">
-                          {c.current_title ? `${c.current_title}${c.email ? ` · ${c.email}` : ""}` : c.email || ""}
-                        </p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="max-w-[180px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.job_title}>
-                    <p className="truncate">{c.job_title}</p>
-                  </td>
-                  <td className="max-w-[140px] px-4 py-2.5 text-[13px] text-fg-muted" title={c.client_name}>
-                    <p className="truncate">{c.client_name}</p>
-                  </td>
-                  <td className="whitespace-nowrap px-4 py-2.5">
-                    <div className="flex flex-col gap-1">
-                      <SubmissionStatusSelect
-                        value={c.submission_status}
-                        triggerClassName="h-7 w-[118px] text-[11px]"
-                        onValueChange={(v) => {
-                          if (v === c.submission_status) return;
-                          handleStatusChange(c, v);
-                        }}
-                      />
-                      {getCandidateSubStageLabel(c) && (
-                        <span className="inline-flex items-center self-start rounded bg-surface-hover border border-border/60 px-1.5 py-0.2 text-[10px] font-medium text-fg-subtle">
-                          {getCandidateSubStageLabel(c)}
-                        </span>
-                      )}
-                    </div>
-                  </td>
-                  <td className="min-w-[150px] whitespace-nowrap px-4 py-2.5 text-[13px] text-fg-muted">{c.location ?? "-"}</td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-fg-muted">{formatDateShort(c.date_added)}</td>
-                  <td className="whitespace-nowrap px-4 py-2.5 text-[13px] text-fg-muted">{timeAgo(c.last_updated)}</td>
-                  <td className="w-20 px-3 py-2.5">
-                    <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-fg-subtle hover:text-primary hover:bg-primary/10 cursor-pointer"
-                            onClick={(e) => handleDuplicate(e, c)}
-                          >
-                            <Copy className="h-3.5 w-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Duplicate Candidate</TooltipContent>
-                      </Tooltip>
+                        Job <SortIcon active={sortKey === "job_title"} dir={sortDir} />
+                      </button>
+                    </th>
+                    <th className="sticky top-0 z-10 max-w-[140px] bg-surface px-4 py-2">
+                      <button
+                        onClick={() => toggleSort("client_name")}
+                        className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                      >
+                        Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
+                      </button>
+                    </th>
+                    <th className="sticky top-0 z-10 min-w-[155px] whitespace-nowrap bg-surface px-4 py-2 text-xs font-semibold text-fg-muted">Status</th>
+                    <th className="sticky top-0 z-10 min-w-[140px] whitespace-nowrap bg-surface px-4 py-2">
+                      <button
+                        onClick={() => toggleSort("location")}
+                        className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                      >
+                        Location <SortIcon active={sortKey === "location"} dir={sortDir} />
+                      </button>
+                    </th>
+                    <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2">
+                      <button
+                        onClick={() => toggleSort("date_added")}
+                        className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                      >
+                        Added <SortIcon active={sortKey === "date_added"} dir={sortDir} />
+                      </button>
+                    </th>
+                    <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-4 py-2">
+                      <button
+                        onClick={() => toggleSort("last_updated")}
+                        className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
+                      >
+                        Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
+                      </button>
+                    </th>
+                    <th className="sticky top-0 z-10 w-20 bg-surface px-3 py-2" />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {displayedCandidates.map((c) => {
+                    const subStageBadge = getCandidateSubStageBadge(c);
 
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-6 w-6 text-fg-subtle hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDeleting(c);
-                            }}
-                          >
-                            <Trash className="h-3.5 w-3.5" />
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent>Delete</TooltipContent>
-                      </Tooltip>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <InfiniteScrollTrigger
-            onIntersect={() => fetchNextPage()}
-            hasNextPage={hasNextPage}
-            isFetchingNextPage={isFetchingNextPage}
-          />
-          </div>
-          <div className="flex items-center justify-between border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
-            <div>
-              {displayedCandidates.length === 0
-                ? "0 candidates"
-                : `Showing ${displayedCandidates.length} candidate${displayedCandidates.length !== 1 ? "s" : ""}${hasNextPage ? " · Scroll down for more" : " · All loaded"}`}
+                    return (
+                      <tr
+                        key={c.id}
+                        className={cn(
+                          "group cursor-pointer transition-colors hover:bg-surface-hover",
+                          selection.selected.has(c.id) && "bg-primary/5 hover:bg-primary/5",
+                        )}
+                        onClick={() => (selectMode ? selection.toggle(c.id) : openPanel(c.id))}
+                      >
+                        {selectMode && (
+                          <td className="w-10 px-4 py-1.5" onClick={(e) => e.stopPropagation()}>
+                            <input
+                              type="checkbox"
+                              checked={selection.selected.has(c.id)}
+                              onChange={() => selection.toggle(c.id)}
+                              className="h-3.5 w-3.5 rounded border-border accent-primary"
+                            />
+                          </td>
+                        )}
+                        <td className="w-[240px] max-w-[260px] px-4 py-1.5">
+                          <div className="flex items-center gap-2.5">
+                            <span
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
+                              style={{
+                                background: `${submissionPalette(c.submission_status).dot}1f`,
+                                color: submissionPalette(c.submission_status).dot,
+                              }}
+                            >
+                              {nameInitials(c.name)}
+                            </span>
+                            <div className="min-w-0 max-w-[190px]">
+                              <p className="truncate text-[13px] font-semibold text-fg transition-colors duration-150 group-hover:text-primary">
+                                {c.name}
+                              </p>
+                              {c.current_title && (
+                                <p className="truncate text-[10.5px] text-zinc-600 dark:text-zinc-300 font-normal" title={c.current_title}>
+                                  {c.current_title}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="max-w-[180px] px-4 py-1.5 text-[12px] font-medium text-zinc-800 dark:text-zinc-200" title={c.job_title}>
+                          <p className="truncate">{c.job_title}</p>
+                        </td>
+                        <td className="max-w-[140px] px-4 py-1.5 text-[12px] font-medium text-zinc-800 dark:text-zinc-200" title={c.client_name}>
+                          <p className="truncate">{c.client_name}</p>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-1.5">
+                          <div className="flex items-center gap-1.5">
+                            <SubmissionStatusSelect
+                              value={c.submission_status}
+                              triggerClassName="h-7 w-[116px] text-[11px]"
+                              onValueChange={(v) => {
+                                if (v === c.submission_status) return;
+                                handleStatusChange(c, v);
+                              }}
+                            />
+                            {subStageBadge && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <span
+                                    className={cn(
+                                      "inline-flex h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold tracking-tight border shadow-2xs transition-transform hover:scale-105 cursor-default select-none",
+                                      subStageBadge.colorClass,
+                                    )}
+                                  >
+                                    {subStageBadge.shortLabel}
+                                  </span>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs font-medium">
+                                  {subStageBadge.fullLabel}
+                                </TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </td>
+                        <td className="min-w-[140px] whitespace-nowrap px-4 py-1.5 text-[12.5px] text-zinc-700 dark:text-zinc-300">
+                          {c.location ?? "-"}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-1.5 text-[12px] text-zinc-600 dark:text-zinc-300 tabular-nums">
+                          {formatDateShort(c.date_added)}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-1.5 text-[12px] text-zinc-600 dark:text-zinc-300 tabular-nums">
+                          {timeAgo(c.last_updated)}
+                        </td>
+                        <td className="w-20 px-3 py-1.5">
+                          <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-fg-subtle hover:text-primary hover:bg-primary/10 cursor-pointer"
+                                  onClick={(e) => handleDuplicate(e, c)}
+                                >
+                                  <Copy className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Duplicate Candidate</TooltipContent>
+                            </Tooltip>
+
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-6 w-6 text-fg-subtle hover:text-red-500 hover:bg-red-500/10 cursor-pointer"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setDeleting(c);
+                                  }}
+                                >
+                                  <Trash className="h-3.5 w-3.5" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>Delete</TooltipContent>
+                            </Tooltip>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <InfiniteScrollTrigger
+                onIntersect={() => fetchNextPage()}
+                hasNextPage={hasNextPage}
+                isFetchingNextPage={isFetchingNextPage}
+              />
             </div>
-            {hasNextPage && (
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={isFetchingNextPage}
-                onClick={() => fetchNextPage()}
-                className="h-6 px-2 text-xs font-normal"
-              >
-                {isFetchingNextPage ? "Streaming..." : "Load More"}
-              </Button>
-            )}
+            <div className="flex items-center justify-between border-t border-border bg-surface-hover/40 px-4 py-2 text-xs text-fg-subtle">
+              <div>
+                {displayedCandidates.length === 0
+                  ? "0 candidates"
+                  : `Showing ${displayedCandidates.length} candidate${displayedCandidates.length !== 1 ? "s" : ""}${hasNextPage ? " · Scroll down for more" : " · All loaded"}`}
+              </div>
+              {hasNextPage && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isFetchingNextPage}
+                  onClick={() => fetchNextPage()}
+                  className="h-6 px-2 text-xs font-normal"
+                >
+                  {isFetchingNextPage ? "Streaming..." : "Load More"}
+                </Button>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        )}
       </div>
 
       <CandidateForm open={formOpen} onOpenChange={setFormOpen} />

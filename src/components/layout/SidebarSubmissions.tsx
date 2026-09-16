@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { PaperPlaneTilt, CaretDown, CalendarBlank } from "@phosphor-icons/react";
 import { useCandidatesWithJob } from "../../hooks/useQueries";
-import { isExternalSubmission } from "../../lib/candidateUtils";
+import { isExternalSubmission, getSubmissionTimestamp } from "../../lib/candidateUtils";
 import { cn } from "../../lib/utils";
 import type { CandidateWithJob } from "../../types";
 
@@ -79,9 +79,14 @@ export function SidebarSubmissions() {
     const list = candidates.filter((c) => isExternalSubmission(c));
 
     return list.sort((a, b) => {
-      const timeA = a.submitted_at ? new Date(a.submitted_at).getTime() : 0;
-      const timeB = b.submitted_at ? new Date(b.submitted_at).getTime() : 0;
-      return timeB - timeA;
+      const timeA = getSubmissionTimestamp(a.submitted_at);
+      const timeB = getSubmissionTimestamp(b.submitted_at);
+      if (timeB !== timeA) {
+        return timeB - timeA;
+      }
+      const updatedA = a.last_updated ? new Date(a.last_updated).getTime() : 0;
+      const updatedB = b.last_updated ? new Date(b.last_updated).getTime() : 0;
+      return updatedB - updatedA;
     });
   }, [candidates]);
 
@@ -157,21 +162,13 @@ export function SidebarSubmissions() {
                       <span className="truncate text-[11.5px] font-semibold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors min-w-0 flex-1">
                         {cand.name}
                       </span>
-                      {cand.submission_status === "interview" ? (
-                        <span className="shrink-0 max-w-[65px] truncate rounded bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                          Interview
-                        </span>
-                      ) : cand.submission_status === "placed" ? (
-                        <span className="shrink-0 max-w-[65px] truncate rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                          Placed
-                        </span>
-                      ) : cand.submission_status === "rejected" ? (
+                      {cand.submission_status === "rejected" ? (
                         <span className="shrink-0 max-w-[65px] truncate rounded bg-red-500/10 text-red-600 dark:text-red-400 border border-red-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
                           Rejected
                         </span>
                       ) : (
                         <span className="shrink-0 max-w-[65px] truncate rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                          Client
+                          External
                         </span>
                       )}
                     </div>

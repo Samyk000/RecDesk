@@ -317,6 +317,84 @@ export function getSubmissionType(candidate: Candidate | CandidateWithJob): Subm
   return "client"; // default to client submission
 }
 
+export interface SubStageBadgeInfo {
+  shortLabel: string;
+  fullLabel: string;
+  colorClass: string;
+}
+
+/**
+ * Returns a compact badge (e.g. R1, Ext, Int) with full contextual tooltip and vibrant color
+ * for positioning directly beside the status dropdown in dense table rows.
+ */
+export function getCandidateSubStageBadge(
+  candidate: Candidate | CandidateWithJob,
+): SubStageBadgeInfo | null {
+  const status = candidate.submission_status;
+
+  if (status === "submitted") {
+    const isInt = candidate.client_feedback === "internal";
+    return isInt
+      ? {
+        shortLabel: "Int",
+        fullLabel: "Internal Review",
+        colorClass:
+          "border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300",
+      }
+      : {
+        shortLabel: "Ext",
+        fullLabel: "External Client Submission",
+        colorClass:
+          "border-amber-500/35 bg-amber-500/15 text-amber-700 dark:text-amber-300",
+      };
+  }
+
+  if (status === "interview") {
+    const rounds = parseInterviewRounds(candidate.interview_status, candidate.interview_at);
+    const roundNum = rounds.length > 0 ? rounds.length : 1;
+    const activeRound = rounds[roundNum - 1];
+    const roundName = activeRound?.round_name || `Round ${roundNum}`;
+    return {
+      shortLabel: `R${roundNum}`,
+      fullLabel: `Interview · ${roundName}`,
+      colorClass:
+        "border-violet-500/35 bg-violet-500/15 text-violet-700 dark:text-violet-300",
+    };
+  }
+
+  if (status === "rejected") {
+    const detail = parseRejectionDetail(candidate.rejection_reason);
+    if (detail.origin === "internal") {
+      return {
+        shortLabel: "Int",
+        fullLabel: "Rejected at Internal Review",
+        colorClass:
+          "border-slate-500/30 bg-slate-500/15 text-slate-700 dark:text-slate-300",
+      };
+    }
+    if (detail.origin === "client_screening") {
+      return {
+        shortLabel: "Ext",
+        fullLabel: "Rejected at Client Screening",
+        colorClass:
+          "border-rose-500/35 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+      };
+    }
+    if (detail.origin === "interview") {
+      const rNum = detail.round_number || 1;
+      return {
+        shortLabel: `R${rNum}`,
+        fullLabel: `Rejected after Round ${rNum} Interview`,
+        colorClass:
+          "border-rose-500/35 bg-rose-500/15 text-rose-700 dark:text-rose-300",
+      };
+    }
+    return null;
+  }
+
+  return null;
+}
+
 /**
  * Returns a human-readable sub-stage badge label for table rows and status badges
  */
@@ -385,6 +463,40 @@ export function isExternalSubmission(candidate: Candidate | CandidateWithJob): b
 }
 
 /**
+ * Safely extracts a numeric timestamp from a submission date string (e.g. "2026-08-10 external").
+ */
+export function getSubmissionTimestamp(val?: string | null): number {
+  if (!val || !val.trim()) return 0;
+  const trimmed = val.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const tMatch = trimmed.match(/T(\d{2}):(\d{2}):(\d{2})/);
+    if (tMatch) {
+      const d = new Date(trimmed.split(/\s+/)[0]);
+      if (!isNaN(d.getTime())) return d.getTime();
+    }
+    return new Date(year, month - 1, day, 12, 0, 0).getTime();
+  }
+  const parts = trimmed.split(/\s+/);
+  const d = new Date(parts[0]);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+/**
+ * Safely extracts a numeric timestamp from an interview date string (e.g. "2026-08-21T11:00 EST").
+ */
+export function getInterviewTimestamp(val?: string | null): number {
+  if (!val || !val.trim()) return 0;
+  const parts = val.trim().split(/\s+/);
+  const dateTimePart = parts[0] || "";
+  const d = new Date(dateTimePart);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+/**
  * Returns true if a candidate reached the interview stage (active, placed, or interview-rejected).
  */
 export function hasHadInterview(candidate: Candidate | CandidateWithJob): boolean {
@@ -398,8 +510,20 @@ export function hasHadInterview(candidate: Candidate | CandidateWithJob): boolea
       return true;
     }
   }
-  const rounds = parseInterviewRounds(candidate.interview_status, candidate.interview_at);
-  return rounds.length > 0;
+  if (candidate.interview_at && candidate.interview_at.trim()) {
+    return true;
+  }
+  if (candidate.interview_status) {
+    try {
+      const parsed = JSON.parse(candidate.interview_status);
+      if (Array.isArray(parsed) && parsed.some((r: any) => r.scheduled_at && r.scheduled_at.trim())) {
+        return true;
+      }
+    } catch {
+      // Ignore JSON parse errors
+    }
+  }
+  return false;
 }
 
 /**
