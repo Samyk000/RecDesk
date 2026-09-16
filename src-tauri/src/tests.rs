@@ -20,12 +20,12 @@ mod tests {
         let conn = test_conn();
         let count: i64 = conn
             .query_row(
-                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('clients','jobs','candidates','reminders')",
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('clients','jobs','candidates')",
                 [],
                 |r| r.get(0),
             )
             .unwrap();
-        assert_eq!(count, 4);
+        assert_eq!(count, 3);
     }
 
     #[test]
@@ -591,108 +591,26 @@ Skills: Agile, Scrum, Figma, SQL, UI/UX
         assert_eq!(pipe_profile.linkedin_url.as_deref(), Some("https://linkedin.com/in/sarahjenkins"));
         assert_eq!(pipe_profile.experience_years, Some(8.0));
         assert!(pipe_profile.skills.contains(&"Figma".to_string()));
+
+        // Test compound name-headline on Line 1 (real-world delimiter format)
+        let compound_resume = r#"
+Deion Smith – kubernetes / openSHIFT / NVIDIA GUP platform sme
+deion.smith@cloudops.net | (555) 321-7654 | San Jose, CA
+Technical Summary:
+Over 6 years consulting on enterprise storage and Kubernetes clusters.
+Skills: Kubernetes, Docker, Linux, Python, Go
+"#;
+        let compound_profile = crate::commands::ai::extract_profile_from_text(compound_resume);
+        assert_eq!(compound_profile.name, "Deion Smith");
+        assert_eq!(compound_profile.current_role.as_deref(), Some("kubernetes / openSHIFT / NVIDIA GUP platform sme"));
+        assert_eq!(compound_profile.email.as_deref(), Some("deion.smith@cloudops.net"));
+        assert_eq!(compound_profile.location.as_deref(), Some("San Jose, CA"));
+        assert_eq!(compound_profile.experience_years, Some(6.0));
+        assert!(compound_profile.skills.contains(&"Kubernetes".to_string()));
+        assert!(compound_profile.skills.contains(&"Go".to_string()));
     }
 
-    #[test]
-    fn reminder_crud_and_snooze_roundtrip() {
-        let conn = test_conn();
 
-        // Create a reminder
-        let created = crate::commands::reminder::create_reminder_inner(
-            &conn,
-            crate::models::ReminderInput {
-                title: "Follow up with client regarding candidate feedback".to_string(),
-                description: Some("Urgent feedback required".to_string()),
-                category: Some("reminder".to_string()),
-                due_date: "2026-08-30".to_string(),
-                due_time: Some("14:00".to_string()),
-                timezone: Some("America/New_York".to_string()),
-                remind_at: Some("2026-08-30T18:00:00Z".to_string()),
-                priority: Some("high".to_string()),
-                notify_before_minutes: Some(15),
-                status: Some("pending".to_string()),
-                snoozed_until: None,
-                candidate_id: None,
-                job_id: None,
-                client_id: None,
-                meeting_link: None,
-            },
-        )
-        .expect("create reminder failed");
-
-        assert_eq!(created.reminder.title, "Follow up with client regarding candidate feedback");
-        assert_eq!(created.reminder.priority, "high");
-        assert_eq!(created.reminder.status, "pending");
-
-        // Fetch reminders
-        let list = crate::commands::reminder::get_reminders_inner(&conn, Some("pending".to_string()), None)
-            .expect("get_reminders failed");
-        assert_eq!(list.len(), 1);
-        assert_eq!(list[0].reminder.id, created.reminder.id);
-
-        // Toggle completed
-        let toggled = crate::commands::reminder::toggle_reminder_completed_inner(&conn, &created.reminder.id)
-            .expect("toggle completed failed");
-        assert_eq!(toggled.reminder.status, "completed");
-
-        // Toggle back to pending
-        let toggled_back = crate::commands::reminder::toggle_reminder_completed_inner(&conn, &created.reminder.id)
-            .expect("toggle pending failed");
-        assert_eq!(toggled_back.reminder.status, "pending");
-
-        // Snooze reminder
-        let snoozed = crate::commands::reminder::snooze_reminder_inner(&conn, &created.reminder.id, 10)
-            .expect("snooze failed");
-        assert_eq!(snoozed.reminder.status, "snoozed");
-        assert!(snoozed.reminder.snoozed_until.is_some());
-
-        // Delete reminder
-        crate::commands::reminder::delete_reminder_inner(&conn, &created.reminder.id)
-            .expect("delete failed");
-
-        let empty_list = crate::commands::reminder::get_reminders_inner(&conn, None, None)
-            .expect("get_reminders after delete failed");
-        assert_eq!(empty_list.len(), 0);
-    }
-
-    #[test]
-    fn reminder_export_import_roundtrip() {
-        let conn = test_conn();
-        let created = crate::commands::reminder::create_reminder_inner(
-            &conn,
-            crate::models::ReminderInput {
-                title: "Call candidate for offer negotiation".to_string(),
-                description: Some("Offer package details".to_string()),
-                category: Some("task".to_string()),
-                due_date: "2026-09-01".to_string(),
-                due_time: Some("15:30".to_string()),
-                timezone: Some("America/Chicago".to_string()),
-                remind_at: Some("2026-09-01T20:30:00Z".to_string()),
-                priority: Some("high".to_string()),
-                notify_before_minutes: Some(30),
-                status: Some("pending".to_string()),
-                snoozed_until: None,
-                candidate_id: None,
-                job_id: None,
-                client_id: None,
-                meeting_link: None,
-            },
-        )
-        .unwrap();
-
-        let json = crate::commands::data::export_json(&conn).unwrap();
-
-        let mut conn2 = test_conn();
-        let summary = crate::commands::data::import_json(&mut conn2, &json, true).unwrap();
-        assert_eq!(summary.reminders, 1);
-
-        let list = crate::commands::reminder::get_reminders_inner(&conn2, None, None).unwrap();
-        assert_eq!(list.len(), 1);
-        assert_eq!(list[0].reminder.id, created.reminder.id);
-        assert_eq!(list[0].reminder.title, "Call candidate for offer negotiation");
-        assert_eq!(list[0].reminder.timezone, "America/Chicago");
-        assert_eq!(list[0].reminder.priority, "high");
-    }
 }
 
 

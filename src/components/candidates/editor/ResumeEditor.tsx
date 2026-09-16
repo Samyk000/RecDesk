@@ -275,7 +275,156 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
   };
 
   const handlePrint = () => {
-    window.print();
+    if (!editor) return;
+    const contentHtml = editor.getHTML();
+
+    // Create an invisible iframe for completely isolated document printing
+    const iframe = document.createElement("iframe");
+    iframe.style.position = "fixed";
+    iframe.style.right = "0";
+    iframe.style.bottom = "0";
+    iframe.style.width = "0";
+    iframe.style.height = "0";
+    iframe.style.border = "0";
+    iframe.style.visibility = "hidden";
+
+    document.body.appendChild(iframe);
+
+    const doc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!doc) {
+      document.body.removeChild(iframe);
+      window.print();
+      return;
+    }
+
+    const docTitle = candidateName ? `${candidateName} - Resume` : filename.replace(/\.[^/.]+$/, "");
+
+    doc.open();
+    doc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>${escapeHtml(docTitle)}</title>
+          <style>
+            @page {
+              size: letter portrait;
+              margin: 0; /* CRITICAL: removes Chromium browser header (date, title) and footer (URL, page #) */
+            }
+            * {
+              box-sizing: border-box;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
+            }
+            html, body {
+              background: #ffffff !important;
+              color: #0f172a !important;
+              font-family: ${selectedFont};
+              font-size: 11pt;
+              line-height: 1.4;
+              margin: 0 !important;
+              padding: 15mm 15mm 15mm 15mm !important; /* Clean executive margins */
+            }
+            .resume-content {
+              width: 100%;
+              max-width: 100%;
+              margin: 0 auto;
+            }
+            h1 {
+              font-size: 19pt;
+              font-weight: 700;
+              text-align: center;
+              margin: 0 0 6pt 0;
+              padding-bottom: 4pt;
+              border-bottom: 1.5px solid #cbd5e1;
+              line-height: 1.2;
+              page-break-after: avoid;
+              break-after: avoid;
+            }
+            h2 {
+              font-size: 13pt;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin: 14pt 0 4pt 0;
+              padding-bottom: 2pt;
+              border-bottom: 1px solid #e2e8f0;
+              line-height: 1.2;
+              page-break-after: avoid;
+              break-after: avoid;
+            }
+            h3 {
+              font-size: 11.5pt;
+              font-weight: 600;
+              margin: 8pt 0 2pt 0;
+              line-height: 1.25;
+              page-break-after: avoid;
+              break-after: avoid;
+            }
+            p {
+              margin: 3pt 0 4pt 0;
+              line-height: 1.4;
+            }
+            ul, ol {
+              margin: 3pt 0 5pt 0;
+              padding-left: 18pt;
+            }
+            li {
+              margin: 2pt 0;
+              line-height: 1.4;
+            }
+            p, li {
+              page-break-inside: avoid;
+              break-inside: avoid;
+            }
+            hr {
+              border: none;
+              border-top: 1px dashed #cbd5e1;
+              margin: 12pt 0;
+            }
+            .docx-wrapper, .docx-document-wrapper, [class*="-wrapper"] {
+              background: transparent !important;
+              padding: 0 !important;
+              margin: 0 !important;
+              box-shadow: none !important;
+            }
+            section.docx, section.docx-document, section {
+              background: #ffffff !important;
+              box-shadow: none !important;
+              border: none !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+            }
+            strong, b {
+              font-weight: 700;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="resume-content">${contentHtml}</div>
+        </body>
+      </html>
+    `);
+    doc.close();
+
+    // Give browser time to finish layout and font loading before invoking print dialog
+    setTimeout(() => {
+      try {
+        iframe.contentWindow?.focus();
+        iframe.contentWindow?.print();
+      } catch (err) {
+        console.error("Iframe print error:", err);
+        window.print();
+      } finally {
+        // Clean up iframe after print dialog completes
+        setTimeout(() => {
+          if (document.body.contains(iframe)) {
+            document.body.removeChild(iframe);
+          }
+        }, 3000);
+      }
+    }, 250);
   };
 
   // Stable refs for keydown shortcuts
@@ -283,13 +432,18 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
   handleSaveRef.current = handleSave;
   const handleCloseRef = useRef(handleClose);
   handleCloseRef.current = handleClose;
+  const handlePrintRef = useRef(handlePrint);
+  handlePrintRef.current = handlePrint;
 
-  // Keyboard shortcut Ctrl+S / Escape
+  // Keyboard shortcut Ctrl+S, Ctrl+P, Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "s") {
         e.preventDefault();
         handleSaveRef.current();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === "p") {
+        e.preventDefault();
+        handlePrintRef.current();
       } else if (e.key === "Escape") {
         handleCloseRef.current();
       }
@@ -299,7 +453,7 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950/95 backdrop-blur-md animate-[fade-in_0.2s_ease-out]">
+    <div className="fixed inset-0 z-50 flex flex-col bg-zinc-950/95 backdrop-blur-md animate-[fade-in_0.2s_ease-out] print:hidden">
       {/* Click-outside backdrop to dismiss open popovers */}
       {(showColorPicker || showHighlightPicker) && (
         <div

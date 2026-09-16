@@ -1,7 +1,7 @@
 /**
  * RecDesk Timezone & Date Conversion Utilities
  * Handles exact conversions between US recruitment timezones (EDT, CDT, MDT, PDT),
- * IST (user local laptop time), and UTC for reliable reminder scheduling.
+ * IST (user local laptop time), and UTC for reliable interview scheduling.
  */
 
 export interface TimezoneOption {

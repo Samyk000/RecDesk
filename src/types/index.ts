@@ -194,6 +194,7 @@ export interface DashboardStats {
   interview_candidates: number;
   placed_candidates: number;
   on_hold_jobs: number;
+  external_submissions?: number;
   candidates_by_status: StatusCount[];
   jobs_by_status: StatusCount[];
   recent_jobs: JobWithStats[];
@@ -255,7 +256,6 @@ export interface ImportSummary {
   clients: number;
   jobs: number;
   candidates: number;
-  reminders?: number;
   replaced: boolean;
 }
 
@@ -281,55 +281,6 @@ export interface ExtractedCandidateProfile {
   location?: string | null;
   linkedin_url?: string | null;
   notes_summary?: string | null;
-}
-
-export type ReminderCategory = "reminder" | "task" | "meeting";
-export type ReminderPriority = "low" | "medium" | "high";
-export type ReminderStatus = "pending" | "completed" | "snoozed" | "dismissed";
-
-export interface Reminder {
-  id: string;
-  title: string;
-  description?: string | null;
-  category: ReminderCategory;
-  due_date: string;
-  due_time?: string | null;
-  timezone: string;
-  remind_at: string;
-  priority: ReminderPriority;
-  notify_before_minutes: number;
-  status: ReminderStatus;
-  snoozed_until?: string | null;
-  candidate_id?: string | null;
-  job_id?: string | null;
-  client_id?: string | null;
-  meeting_link?: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface ReminderInput {
-  title: string;
-  description?: string | null;
-  category?: ReminderCategory | null;
-  due_date: string;
-  due_time?: string | null;
-  timezone?: string | null;
-  remind_at?: string | null;
-  priority?: ReminderPriority | null;
-  notify_before_minutes?: number | null;
-  status?: ReminderStatus | null;
-  snoozed_until?: string | null;
-  candidate_id?: string | null;
-  job_id?: string | null;
-  client_id?: string | null;
-  meeting_link?: string | null;
-}
-
-export interface ReminderWithContext extends Reminder {
-  candidate_name?: string | null;
-  job_title?: string | null;
-  client_name?: string | null;
 }
 
 

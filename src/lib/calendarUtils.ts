@@ -105,7 +105,8 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
     // (Internal reviews are internal steps and excluded from client calendar)
     // ==========================================
     const isInternalOnly =
-      cand.client_feedback === "internal" || rejDetail.origin === "internal";
+      (cand.submission_status === "submitted" && cand.client_feedback === "internal") ||
+      (cand.submission_status === "rejected" && rejDetail.origin === "internal");
 
     if (!isInternalOnly) {
       const isSubmittedStage = cand.submission_status === "submitted";

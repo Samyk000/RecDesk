@@ -7,7 +7,6 @@ import {
   Monitor,
   Moon,
   ShieldCheck,
-  Sparkle,
   Sun,
   UploadSimple,
 } from "@phosphor-icons/react";
@@ -27,7 +26,6 @@ import { errorMessage, cn } from "../lib/utils";
 import { generateExcelWorkbook, generateSampleExcelTemplate } from "../lib/excelExport";
 import { parseExcelImport, type ExcelImportValidation } from "../lib/excelImport";
 import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
-import { OpenRouterSettings } from "../components/settings/OpenRouterSettings";
 import type { ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
@@ -63,7 +61,6 @@ export function Settings() {
     qc.invalidateQueries({ queryKey: ["candidates"] });
     qc.invalidateQueries({ queryKey: ["dashboard"] });
     qc.invalidateQueries({ queryKey: ["globalSearch"] });
-    qc.invalidateQueries({ queryKey: ["reminders"] });
   }
 
   async function exportJsonData() {
@@ -156,7 +153,7 @@ export function Settings() {
         const summary = await apiData.import(json, replace);
         invalidateAllDataQueries();
         toast.success(
-          `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates${summary.reminders ? `, ${summary.reminders} reminders` : ""}`,
+          `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
         );
       }
     } catch (err) {
@@ -186,11 +183,11 @@ export function Settings() {
 
   return (
     <div className="px-6 pt-3.5 pb-6">
-      <PageHeader title="Settings" subtitle="Preferences, AI models, and data management" />
+      <PageHeader title="Settings" subtitle="Preferences, workspace personalization, and data backups" />
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Left Column: Preferences */}
-        <div className="space-y-4 lg:col-span-1">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Left Column: Preferences & Appearance */}
+        <div className="space-y-4">
           <section className="rounded-xl border border-border bg-surface p-4.5 space-y-4">
             <div>
               <h2 className="font-display text-[14.5px] font-semibold tracking-tight text-fg">Appearance</h2>
@@ -300,28 +297,13 @@ export function Settings() {
               About RecDesk
             </h2>
             <p className="text-[11.5px] text-fg-muted leading-relaxed">
-              Local-first personal recruiting tracker. Built with Tauri, Rust, SQLite, and React.
+              Local-first personal recruiting workspace. Built with Tauri, Rust, SQLite, and React. Everything is stored 100% locally on your machine.
             </p>
           </section>
         </div>
 
-        {/* Right Column: AI & Data Management */}
-        <div className="space-y-4 lg:col-span-2">
-          {/* AI Resume Formatter Settings */}
-          <section className="rounded-xl border border-border bg-surface p-4 space-y-3">
-            <div className="border-b border-border/70 pb-2.5">
-              <h2 className="font-display flex items-center gap-2 text-[14.5px] font-semibold tracking-tight text-fg">
-                <Sparkle className="h-4 w-4 text-primary" />
-                AI Resume Formatter
-              </h2>
-              <p className="mt-0.5 text-xs text-fg-subtle">
-                Configure OpenRouter API keys and cloud models for intelligent resume parsing.
-              </p>
-            </div>
-
-            <OpenRouterSettings />
-          </section>
-
+        {/* Right Column: Data Management */}
+        <div className="space-y-4">
           {/* Data Management Section */}
           <section className="rounded-xl border border-border bg-surface p-4.5 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/70 pb-2.5">

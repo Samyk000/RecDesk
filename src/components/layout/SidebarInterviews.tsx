@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarCheck, CaretDown, Clock, CalendarBlank } from "@phosphor-icons/react";
+import { CalendarCheck, CaretDown, CalendarBlank } from "@phosphor-icons/react";
 import { useCandidatesWithJob } from "../../hooks/useQueries";
 import { cn } from "../../lib/utils";
 import { parseInterviewRounds } from "../../lib/candidateUtils";
@@ -209,53 +209,36 @@ export function SidebarInterviews() {
                     key={cand.id}
                     type="button"
                     onClick={() => handleOpenCandidate(cand)}
-                    className="group relative flex w-full flex-col items-center justify-center rounded-lg border border-border bg-surface px-2.5 py-2 text-center transition-all duration-150 hover:border-primary/50 hover:bg-surface-hover hover:shadow-xs active:scale-[0.98] cursor-pointer shadow-2xs"
+                    className="group relative flex w-full flex-col rounded-md border border-border/70 bg-surface/90 px-2.5 py-1.5 text-left transition-all duration-150 hover:border-primary/50 hover:bg-surface-hover active:scale-[0.99] cursor-pointer shadow-2xs overflow-hidden"
                   >
-                    {/* Line 1: Candidate Name · Client Name */}
-                    <div className="flex w-full items-center justify-center gap-1.5 text-center leading-snug">
-                      <span className="truncate text-[12px] font-bold text-fg group-hover:text-primary transition-colors">
+                    {/* Line 1: Candidate Name + Round Tag (Guaranteed no overflow) */}
+                    <div className="flex w-full items-center justify-between gap-1.5 min-w-0 overflow-hidden">
+                      <span className="truncate text-[11.5px] font-semibold text-fg group-hover:text-primary transition-colors min-w-0 flex-1">
                         {cand.name}
                       </span>
-                      {cand.client_name && (
-                        <>
-                          <span className="text-fg-subtle/70 font-semibold text-[11px]">·</span>
-                          <span className="truncate text-[11px] font-semibold text-fg-muted">
-                            {cand.client_name}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Line 2: Round Badge + Date/Time + Timezone */}
-                    <div className="mt-1.5 flex items-center justify-center gap-1.5">
-                      <span className="shrink-0 rounded bg-primary/20 border border-primary/30 px-1.5 py-0.5 text-[9.5px] font-bold text-primary tracking-wider">
+                      <span className="shrink-0 max-w-[50px] truncate rounded bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums tracking-wide">
                         R{roundNum}
                       </span>
+                    </div>
 
+                    {/* Line 2: Client Company + Date / Time */}
+                    <div className="mt-1 flex w-full items-center justify-between gap-1 text-[10px] min-w-0 overflow-hidden">
+                      <span className="truncate text-fg-muted font-normal min-w-0 flex-1">
+                        {cand.client_name || "Direct Client"}
+                      </span>
                       <span
                         className={cn(
-                          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-semibold leading-tight",
+                          "shrink-0 tabular-nums font-medium",
                           schedule.isToday
-                            ? "bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30"
+                            ? "text-emerald-600 dark:text-emerald-400 font-semibold"
                             : schedule.isTomorrow
-                              ? "bg-primary/20 text-primary border border-primary/30"
-                              : schedule.isPast
-                                ? "bg-surface-active text-fg border border-border/80"
-                                : "bg-surface-active text-fg border border-border/80",
+                              ? "text-primary font-semibold"
+                              : "text-fg-subtle",
                         )}
                       >
-                        <Clock className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {schedule.dateLabel}
-                          {schedule.timeLabel ? ` · ${schedule.timeLabel}` : ""}
-                        </span>
+                        {schedule.dateLabel}
+                        {schedule.timeLabel ? `, ${schedule.timeLabel}` : ""}
                       </span>
-
-                      {schedule.tz && (
-                        <span className="shrink-0 rounded bg-surface-active border border-border/80 px-1.5 py-0.5 text-[9.5px] font-bold text-fg-muted tracking-wider">
-                          {schedule.tz}
-                        </span>
-                      )}
                     </div>
                   </button>
                 );

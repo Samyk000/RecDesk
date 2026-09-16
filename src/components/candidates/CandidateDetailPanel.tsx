@@ -66,6 +66,8 @@ import {
 } from "../ui/dropdown";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { errorMessage, formatDateAbbr, nameInitials, titleCase, cn } from "../../lib/utils";
+import { BackwardStatusConfirmDialog } from "./BackwardStatusConfirmDialog";
+import { ResetStatusConfirmDialog } from "./ResetStatusConfirmDialog";
 import {
   toCandidateInput,
   syncCandidateFieldsToSubmissionDetails,
@@ -74,6 +76,7 @@ import {
   getActiveInterviewSchedule,
   parseRejectionDetail,
   serializeRejectionDetail,
+  isBackwardTransition,
 } from "../../lib/candidateUtils";
 import { Spinner } from "../common/Spinner";
 import type {
@@ -137,6 +140,9 @@ function CandidatePanelBody({
     rejection_reason: string | null;
   } | null>(null);
   const [saving, setSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
+  const [backwardTargetStatus, setBackwardTargetStatus] = useState<string | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // Show "Details" icon once moved to in_touch or if details have been recorded
   const hasSubmissionDetails = Boolean(
@@ -184,12 +190,14 @@ function CandidatePanelBody({
     };
 
     setSaving(true);
+    setJustSaved(false);
     try {
       await update.mutateAsync({
         id: candidate.id,
         input: toCandidateInput(candidate, fullPatch),
       });
-      toast.success("Saved");
+      setJustSaved(true);
+      setTimeout(() => setJustSaved(false), 2000);
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -225,6 +233,35 @@ function CandidatePanelBody({
       setSaving(false);
     }
   }
+
+  const handleConfirmBackward = (preserveMilestone: boolean) => {
+    const target = backwardTargetStatus;
+    setBackwardTargetStatus(null);
+    if (!target) return;
+
+    setPreviousStatusSnapshot({
+      submission_status: candidate.submission_status,
+      submitted_at: candidate.submitted_at ?? null,
+      interview_at: candidate.interview_at ?? null,
+      placed_at: candidate.placed_at ?? null,
+      rejection_reason: candidate.rejection_reason ?? null,
+    });
+
+    if (preserveMilestone) {
+      saveField({ submission_status: target });
+      toast.success(`Moved to ${titleCase(target)} (milestone history preserved)`);
+    } else {
+      const patch: Partial<CandidateInput> = { submission_status: target };
+      if (target === "sourced" || target === "in_touch") {
+        patch.submitted_at = null;
+        patch.interview_at = null;
+        patch.placed_at = null;
+        patch.rejection_reason = null;
+      }
+      saveField(patch);
+      toast.success(`Moved to ${titleCase(target)} (milestones reset)`);
+    }
+  };
 
   async function handleRestoreStatus() {
     if (!previousStatusSnapshot) return;
@@ -368,131 +405,143 @@ function CandidatePanelBody({
   const resumeName = candidate.resume_path?.split(/[\\/]/).pop() ?? "";
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       <div className="flex items-center gap-3 border-b border-border p-4">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
           {initials}
         </span>
         <div className="min-w-0 flex-1">
-          <span className="flex items-center gap-1 text-[11px] text-fg-subtle">
-            <CalendarDots className="h-3 w-3" />
+          <span className="flex items-center gap-1.5 text-[11px] font-medium text-fg-subtle whitespace-nowrap">
+            <CalendarDots className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
             ADDED ON {formatDateAbbr(candidate.date_added)}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1">
-          {showFeedbackIcon && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className={cn(
-                    "h-8 w-8 hover:bg-primary/10",
-                    hasFeedbackRecorded
-                      ? "text-primary font-semibold"
-                      : "text-fg-subtle hover:text-primary",
-                  )}
-                  onClick={() => setShowInterviewFeedback(true)}
-                  aria-label="Interview Feedback Call"
-                >
-                  <PhoneCall className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Interview Feedback Call</TooltipContent>
-            </Tooltip>
-          )}
-          {showDetailsIcon && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-primary hover:bg-primary/10"
-                  onClick={() => setShowSubmissionDetails(true)}
-                  aria-label="Candidate Details"
-                >
-                  <IdentificationCard className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Candidate Details</TooltipContent>
-            </Tooltip>
-          )}
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="h-8 w-8 text-primary hover:bg-primary/10"
-                onClick={() => setShowScreeningQA(true)}
-              >
-                <ListChecks className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Screening Q&A</TooltipContent>
-          </Tooltip>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="icon"
-                variant="ghost"
-                title="Job options"
-                className="h-8 w-8 text-fg-subtle hover:text-fg hover:bg-surface-hover cursor-pointer"
-              >
-                <Briefcase className="h-3.5 w-3.5" />
-              </Button>
-            </DropdownMenuTrigger>
-
-            <DropdownMenuContent align="end" sideOffset={6} className="w-36">
-              {!embedded && (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    onClose();
-                    setTimeout(() => {
-                      navigate(`/jobs/${candidate.job_id}`);
-                    }, 0);
-                  }}
-                  className="flex items-center gap-2 cursor-pointer text-xs"
-                >
-                  <ArrowSquareOut className="h-3.5 w-3.5 text-fg-muted" />
-                  <span>View job</span>
-                </DropdownMenuItem>
-              )}
-              <DropdownMenuItem
-                onSelect={() => setChangeJobOpen(true)}
-                className="flex items-center gap-2 cursor-pointer text-xs"
-              >
-                <ArrowsLeftRight className="h-3.5 w-3.5 text-primary" />
-                <span>Change job…</span>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
           {confirmDelete ? (
-            <div className="flex items-center gap-1">
-              <Button size="sm" variant="ghost" className="text-xs" onClick={() => setConfirmDelete(false)}>
+            <div className="flex items-center gap-1.5 animate-fade-in">
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-7 px-2 text-xs text-fg-muted hover:text-fg hover:bg-surface-hover cursor-pointer"
+                onClick={() => setConfirmDelete(false)}
+              >
                 Cancel
               </Button>
-              <Button size="sm" variant="destructive" className="text-xs" onClick={handleDelete}>
-                Confirm
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-7 px-2.5 text-xs font-medium bg-red-600 hover:bg-red-700 text-white cursor-pointer shadow-xs"
+                onClick={handleDelete}
+              >
+                Delete
               </Button>
             </div>
           ) : (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-500"
-                  onClick={() => setConfirmDelete(true)}
-                >
-                  <Trash className="h-3.5 w-3.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Delete</TooltipContent>
-            </Tooltip>
+            <>
+              {showFeedbackIcon && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className={cn(
+                        "h-8 w-8 hover:bg-primary/10",
+                        hasFeedbackRecorded
+                          ? "text-primary font-semibold"
+                          : "text-fg-subtle hover:text-primary",
+                      )}
+                      onClick={() => setShowInterviewFeedback(true)}
+                      aria-label="Interview Feedback Call"
+                    >
+                      <PhoneCall className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Interview Feedback Call</TooltipContent>
+                </Tooltip>
+              )}
+              {showDetailsIcon && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 text-primary hover:bg-primary/10"
+                      onClick={() => setShowSubmissionDetails(true)}
+                      aria-label="Candidate Details"
+                    >
+                      <IdentificationCard className="h-4 w-4" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Candidate Details</TooltipContent>
+                </Tooltip>
+              )}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-primary hover:bg-primary/10"
+                    onClick={() => setShowScreeningQA(true)}
+                  >
+                    <ListChecks className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Screening Q&A</TooltipContent>
+              </Tooltip>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    title="Job options"
+                    className="h-8 w-8 text-fg-subtle hover:text-fg hover:bg-surface-hover cursor-pointer"
+                  >
+                    <Briefcase className="h-3.5 w-3.5" />
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" sideOffset={6} className="w-36">
+                  {!embedded && (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        onClose();
+                        setTimeout(() => {
+                          navigate(`/jobs/${candidate.job_id}`);
+                        }, 0);
+                      }}
+                      className="flex items-center gap-2 cursor-pointer text-xs"
+                    >
+                      <ArrowSquareOut className="h-3.5 w-3.5 text-fg-muted" />
+                      <span>View job</span>
+                    </DropdownMenuItem>
+                  )}
+                  <DropdownMenuItem
+                    onSelect={() => setChangeJobOpen(true)}
+                    className="flex items-center gap-2 cursor-pointer text-xs"
+                  >
+                    <ArrowsLeftRight className="h-3.5 w-3.5 text-primary" />
+                    <span>Change job…</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className="h-8 w-8 text-red-500 hover:bg-red-500/10 hover:text-red-500 cursor-pointer"
+                    onClick={() => setConfirmDelete(true)}
+                  >
+                    <Trash className="h-3.5 w-3.5" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Delete</TooltipContent>
+              </Tooltip>
+            </>
           )}
           <button
             onClick={onClose}
-            className="rounded-md p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg"
+            className="rounded-md p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg cursor-pointer ml-1"
           >
             <X className="h-4 w-4" />
           </button>
@@ -500,11 +549,6 @@ function CandidatePanelBody({
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
-        {saving && (
-          <div className="absolute right-4 top-16 flex items-center gap-1 text-[11px] text-fg-subtle">
-            <CircleNotch className="h-3 w-3 animate-spin" /> Saving…
-          </div>
-        )}
 
         {/* Row 1: Name, Title */}
         <div className="grid grid-cols-2 gap-3">
@@ -650,9 +694,9 @@ function CandidatePanelBody({
                 {status !== "sourced" && (
                   <button
                     type="button"
-                    onClick={resetToSourced}
+                    onClick={() => setShowResetConfirm(true)}
                     title="Clear status and reset to Sourced"
-                    className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500"
+                    className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500 cursor-pointer"
                   >
                     <X className="h-3 w-3" />
                     <span>Reset</span>
@@ -664,8 +708,35 @@ function CandidatePanelBody({
               value={status}
               triggerClassName="h-8 w-full text-xs"
               onValueChange={(v) => {
-                if (v === "sourced") {
-                  resetToSourced();
+                if (v === candidate.submission_status) return;
+
+                if (isBackwardTransition(candidate.submission_status, v)) {
+                  setBackwardTargetStatus(v);
+                } else if (v === "sourced") {
+                  setShowResetConfirm(true);
+                } else if (v === "submitted") {
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "submitted",
+                    client_feedback: candidate.client_feedback || "internal",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                  };
+                  saveField(patch);
+                } else if (v === "interview") {
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "interview",
+                    client_feedback: "client",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    interview_at: candidate.interview_at || new Date().toISOString(),
+                  };
+                  saveField(patch);
+                } else if (v === "placed") {
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "placed",
+                    client_feedback: "client",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    placed_at: candidate.placed_at || new Date().toISOString(),
+                  };
+                  saveField(patch);
                 } else {
                   const patch: Partial<CandidateInput> = { submission_status: v };
                   saveField(patch);
@@ -685,36 +756,50 @@ function CandidatePanelBody({
                     />
                   )}
                   {status === "interview" && (
-                    <InterviewRoundsManager
-                      rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
-                      onChange={(newRounds) => {
-                        saveField({
-                          interview_status: serializeInterviewRounds(newRounds),
-                          interview_at: getActiveInterviewSchedule(newRounds),
-                        });
-                      }}
-                      onSelectAndPlace={() => {
-                        saveField({
-                          submission_status: "placed",
-                          placed_at: new Date().toISOString(),
-                        });
-                        toast.success("Candidate marked as Placed!");
-                      }}
-                      onRejectRound={(rNum) => {
-                        const detail: RejectionDetail = {
-                          origin: "interview",
-                          round_number: rNum,
-                          category: "Interview feedback",
-                          reason: null,
-                          rejected_at: new Date().toISOString(),
-                        };
-                        saveField({
-                          submission_status: "rejected",
-                          rejection_reason: serializeRejectionDetail(detail),
-                        });
-                        toast.success(`Candidate marked as Rejected after Round ${rNum}`);
-                      }}
-                    />
+                    <div className="space-y-1.5">
+                      {candidate.submitted_at && (
+                        <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-2.5 py-1 text-[11px] text-fg-subtle">
+                          <span>External Submission:</span>
+                          <span className="font-semibold text-fg tabular-nums">
+                            {formatDateAbbr(candidate.submitted_at)}
+                          </span>
+                        </div>
+                      )}
+                      <InterviewRoundsManager
+                        rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
+                        onChange={(newRounds) => {
+                          saveField({
+                            interview_status: serializeInterviewRounds(newRounds),
+                            interview_at: getActiveInterviewSchedule(newRounds),
+                          });
+                        }}
+                        onSelectAndPlace={() => {
+                          saveField({
+                            submission_status: "placed",
+                            client_feedback: "client",
+                            submitted_at: candidate.submitted_at || new Date().toISOString(),
+                            placed_at: new Date().toISOString(),
+                          });
+                          toast.success("Candidate marked as Placed!");
+                        }}
+                        onRejectRound={(rNum) => {
+                          const detail: RejectionDetail = {
+                            origin: "interview",
+                            round_number: rNum,
+                            category: "Interview feedback",
+                            reason: null,
+                            rejected_at: new Date().toISOString(),
+                          };
+                          saveField({
+                            submission_status: "rejected",
+                            client_feedback: "client",
+                            submitted_at: candidate.submitted_at || new Date().toISOString(),
+                            rejection_reason: serializeRejectionDetail(detail),
+                          });
+                          toast.success(`Candidate marked as Rejected after Round ${rNum}`);
+                        }}
+                      />
+                    </div>
                   )}
                   {status === "placed" && (
                     <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
@@ -755,6 +840,22 @@ function CandidatePanelBody({
           />
         </div>
       </div>
+
+      {(saving || justSaved) && (
+        <div className="pointer-events-none absolute bottom-3 right-4 z-30 flex items-center gap-1.5 rounded-full border border-border/80 bg-surface/95 px-3 py-1 text-xs shadow-md backdrop-blur-xs animate-fade-in">
+          {saving ? (
+            <>
+              <CircleNotch className="h-3 w-3 animate-spin text-primary" />
+              <span className="text-[11px] font-medium text-fg-subtle">Saving…</span>
+            </>
+          ) : (
+            <>
+              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+              <span className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400">Saved</span>
+            </>
+          )}
+        </div>
+      )}
 
       <InterviewFeedbackDialog
         candidateId={candidate.id}
@@ -798,6 +899,25 @@ function CandidatePanelBody({
           }}
         />
       )}
+
+      <BackwardStatusConfirmDialog
+        open={backwardTargetStatus !== null}
+        candidateName={candidate.name}
+        currentStatus={candidate.submission_status}
+        targetStatus={backwardTargetStatus || ""}
+        onConfirm={handleConfirmBackward}
+        onCancel={() => setBackwardTargetStatus(null)}
+      />
+
+      <ResetStatusConfirmDialog
+        open={showResetConfirm}
+        candidateName={candidate.name}
+        onConfirm={() => {
+          setShowResetConfirm(false);
+          resetToSourced();
+        }}
+        onCancel={() => setShowResetConfirm(false)}
+      />
     </div>
   );
 }
@@ -927,7 +1047,7 @@ function SubmissionSubStageSection({
   candidate: Candidate;
   onSave: (patch: Partial<CandidateInput>) => void;
 }) {
-  const subType = candidate.client_feedback === "internal" ? "internal" : "client";
+  const subType = candidate.client_feedback === "client" ? "client" : "internal";
 
   const handleSetSubType = (type: "internal" | "client") => {
     onSave({

@@ -5,5 +5,4 @@ pub mod dashboard;
 pub mod data;
 pub mod files;
 pub mod job;
-pub mod reminder;
 pub mod search;

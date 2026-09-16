@@ -268,8 +268,12 @@ export function Dashboard() {
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
                     const IconComp = submissionIcon(s.status);
+                    const displayCount =
+                      s.status === "submitted" && data.external_submissions !== undefined
+                        ? data.external_submissions
+                        : s.count;
                     const pct = data.total_candidates
-                      ? ((s.count / data.total_candidates) * 100).toFixed(0)
+                      ? ((displayCount / data.total_candidates) * 100).toFixed(0)
                       : "0";
                     return (
                       <Link
@@ -283,7 +287,7 @@ export function Dashboard() {
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
                           <span className="rounded-md bg-surface-active px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
-                            {s.count}
+                            {displayCount}
                           </span>
                           <span className="text-[9.5px] text-fg-subtle">({pct}%)</span>
                         </div>

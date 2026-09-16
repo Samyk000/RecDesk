@@ -153,22 +153,43 @@ function formatLinesToHtml(
     const text = line.text.trim();
     if (!text) continue;
 
-    // Check for Candidate Name (First Line of First Page if large or bold)
-    if (isFirstPage && i === 0 && (line.fontSize >= medianFontSize * 1.3 || line.isBold)) {
+    // Check for Candidate Name (First Line of First Page)
+    if (isFirstPage && i === 0 && (line.fontSize >= medianFontSize * 1.15 || line.isBold || (!text.includes("@") && text.length < 80))) {
       closeLists();
-      result.push(`<h1>${escapeHtml(text)}</h1>`);
+      // If line contains compound Name - Headline separator e.g. "Deion Smith – kubernetes / openSHIFT..."
+      const splitDelim = text.match(/^([^–—|]+?)\s*[–—|]\s*(.+)$/);
+      if (splitDelim && splitDelim[1].trim().length < 35 && splitDelim[1].trim().split(/\s+/).length <= 4) {
+        result.push(`<h1>${escapeHtml(splitDelim[1].trim())}</h1>`);
+        result.push(`<h3>${escapeHtml(splitDelim[2].trim())}</h3>`);
+      } else {
+        result.push(`<h1>${escapeHtml(text)}</h1>`);
+      }
       continue;
+    }
+
+    // Check if current line combined with next line forms a compound section header:
+    // e.g. "TECHNICAL" + "SUMMARY:" -> "TECHNICAL SUMMARY:" or "WORK" + "EXPERIENCE"
+    let candidateHeader = text;
+    let lookaheadUsed = false;
+    if (i + 1 < lines.length) {
+      const nextText = lines[i + 1].text.trim();
+      const combined = `${text} ${nextText}`;
+      if (SECTION_KEYWORD_REGEX.test(combined)) {
+        candidateHeader = combined;
+        lookaheadUsed = true;
+      }
     }
 
     // Section Header Detection
     const isSectionHeader =
-      SECTION_KEYWORD_REGEX.test(text) ||
-      (line.fontSize >= medianFontSize * 1.25 && text.length < 50) ||
-      (line.isBold && text.length < 40 && text === text.toUpperCase() && text.length > 3);
+      SECTION_KEYWORD_REGEX.test(candidateHeader) ||
+      (line.fontSize >= medianFontSize * 1.25 && candidateHeader.length < 50) ||
+      (line.isBold && candidateHeader.length < 40 && candidateHeader === candidateHeader.toUpperCase() && candidateHeader.length > 3);
 
     if (isSectionHeader) {
       closeLists();
-      result.push(`<h2>${escapeHtml(text)}</h2>`);
+      result.push(`<h2>${escapeHtml(candidateHeader)}</h2>`);
+      if (lookaheadUsed) i++;
       continue;
     }
 

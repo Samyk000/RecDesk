@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Briefcase, Plus } from "@phosphor-icons/react";
 import { useJobs } from "../hooks/useQueries";
+import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
@@ -12,6 +13,17 @@ import { JobFormDialog } from "../components/jobs/JobFormDialog";
 import { JOB_STATUSES, jobPalette } from "../lib/constants";
 import { cn, timeAgo, titleCase } from "../lib/utils";
 import { useDebounce } from "../hooks/useDebounce";
+import type { JobWithStats } from "../types";
+
+type JobSortKey = "title" | "job_id" | "client_name" | "candidate_count" | "updated_at";
+
+const COMPARE_JOBS: (a: JobWithStats, b: JobWithStats, key: JobSortKey) => number = (a, b, key) => {
+  if (key === "title") return a.title.localeCompare(b.title);
+  if (key === "job_id") return a.job_id.localeCompare(b.job_id);
+  if (key === "client_name") return a.client_name.localeCompare(b.client_name);
+  if (key === "candidate_count") return (a.candidate_count ?? 0) - (b.candidate_count ?? 0);
+  return a.updated_at.localeCompare(b.updated_at);
+};
 
 export function Jobs() {
   const navigate = useNavigate();
@@ -22,11 +34,13 @@ export function Jobs() {
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
   const [formOpen, setFormOpen] = useState(false);
+  const { sortKey, sortDir, toggleSort } = useTableSort<JobSortKey>("updated_at");
   const { data, isLoading } = useJobs(
     undefined,
     status === "all" ? undefined : status || undefined,
     debounced || undefined,
   );
+  const sortedJobs = useSortedRows(data, sortKey, sortDir, COMPARE_JOBS);
 
   useEffect(() => {
     if (params.get("new")) {
@@ -113,17 +127,57 @@ export function Jobs() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface text-left">
-                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Job Title</th>
-                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted whitespace-nowrap">Job ID</th>
-                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Client</th>
+                    <th
+                      onClick={() => toggleSort("title")}
+                      className="group sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted cursor-pointer select-none hover:text-fg transition-colors"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Job Title</span>
+                        <SortIcon active={sortKey === "title"} dir={sortDir} />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => toggleSort("job_id")}
+                      className="group sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted whitespace-nowrap cursor-pointer select-none hover:text-fg transition-colors"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Job ID</span>
+                        <SortIcon active={sortKey === "job_id"} dir={sortDir} />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => toggleSort("client_name")}
+                      className="group sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted cursor-pointer select-none hover:text-fg transition-colors"
+                    >
+                      <div className="flex items-center gap-1">
+                        <span>Client</span>
+                        <SortIcon active={sortKey === "client_name"} dir={sortDir} />
+                      </div>
+                    </th>
                     <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted whitespace-nowrap">Location</th>
                     <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted">Status</th>
-                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-right text-xs font-semibold text-fg-muted whitespace-nowrap">Candidates</th>
-                    <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 text-right text-xs font-semibold text-fg-muted whitespace-nowrap">Updated</th>
+                    <th
+                      onClick={() => toggleSort("candidate_count")}
+                      className="group sticky top-0 z-10 bg-surface px-4 py-2.5 text-right text-xs font-semibold text-fg-muted whitespace-nowrap cursor-pointer select-none hover:text-fg transition-colors"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Candidates</span>
+                        <SortIcon active={sortKey === "candidate_count"} dir={sortDir} />
+                      </div>
+                    </th>
+                    <th
+                      onClick={() => toggleSort("updated_at")}
+                      className="group sticky top-0 z-10 bg-surface px-4 py-2.5 text-right text-xs font-semibold text-fg-muted whitespace-nowrap cursor-pointer select-none hover:text-fg transition-colors"
+                    >
+                      <div className="flex items-center justify-end gap-1">
+                        <span>Updated</span>
+                        <SortIcon active={sortKey === "updated_at"} dir={sortDir} />
+                      </div>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {data.map((job) => (
+                  {sortedJobs.map((job) => (
                     <tr
                       key={job.id}
                       onClick={() => navigate(`/jobs/${job.id}`)}

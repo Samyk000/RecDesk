@@ -3,7 +3,6 @@ import { Building, Briefcase, CalendarBlank, IdentificationCard, SquaresFour, Ge
 import { cn } from "../../lib/utils";
 import { SidebarInterviews } from "./SidebarInterviews";
 import { SidebarSubmissions } from "./SidebarSubmissions";
-import { SidebarReminders } from "./SidebarReminders";
 
 const navItems = [
   { to: "/", label: "Dashboard", icon: SquaresFour, end: true },
@@ -59,7 +58,7 @@ export function Sidebar() {
       {/* Minimal Divider Line below Navigation */}
       <div className="mx-3 my-2.5 border-t border-border/60" />
 
-      {/* Middle Section: Submissions, Interviews, and Reminders */}
+      {/* Middle Section: Submissions and Interviews */}
       <div className="flex-1 overflow-y-auto space-y-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {/* Candidate Submissions Section (Closed by default) */}
         <SidebarSubmissions />
@@ -69,12 +68,6 @@ export function Sidebar() {
 
         {/* Upcoming Interviews Section */}
         <SidebarInterviews />
-
-        {/* Minimal Divider Line */}
-        <div className="mx-3 border-t border-border/40" />
-
-        {/* Reminders, Tasks & Meetings Section */}
-        <SidebarReminders />
       </div>
 
       {/* Permanently Anchored Bottom Settings */}

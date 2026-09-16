@@ -67,47 +67,12 @@ CREATE TABLE IF NOT EXISTS candidates (
   date_added TEXT NOT NULL,
   last_updated TEXT NOT NULL
 );
-
-CREATE TABLE IF NOT EXISTS reminders (
-  id TEXT PRIMARY KEY,
-  title TEXT NOT NULL,
-  description TEXT,
-  category TEXT NOT NULL DEFAULT 'reminder',
-  due_date TEXT NOT NULL,
-  due_time TEXT,
-  timezone TEXT NOT NULL DEFAULT 'UTC',
-  remind_at TEXT NOT NULL,
-  priority TEXT NOT NULL DEFAULT 'medium',
-  notify_before_minutes INTEGER NOT NULL DEFAULT 0,
-  status TEXT NOT NULL DEFAULT 'pending',
-  snoozed_until TEXT,
-  candidate_id TEXT REFERENCES candidates(id) ON DELETE SET NULL,
-  job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
-  client_id TEXT REFERENCES clients(id) ON DELETE SET NULL,
-  meeting_link TEXT,
-  created_at TEXT NOT NULL,
-  updated_at TEXT NOT NULL
-);
-
-CREATE INDEX IF NOT EXISTS idx_clients_name ON clients(name);
-CREATE INDEX IF NOT EXISTS idx_clients_company ON clients(company);
-
-CREATE INDEX IF NOT EXISTS idx_jobs_client ON jobs(client_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
-CREATE INDEX IF NOT EXISTS idx_jobs_job_id ON jobs(job_id);
-CREATE INDEX IF NOT EXISTS idx_jobs_title ON jobs(title);
-CREATE INDEX IF NOT EXISTS idx_jobs_updated ON jobs(updated_at);
-
-CREATE INDEX IF NOT EXISTS idx_candidates_job ON candidates(job_id);
-CREATE INDEX IF NOT EXISTS idx_candidates_name ON candidates(name);
-CREATE INDEX IF NOT EXISTS idx_candidates_email ON candidates(email);
 CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(submission_status);
 CREATE INDEX IF NOT EXISTS idx_candidates_updated ON candidates(last_updated);
-
-CREATE INDEX IF NOT EXISTS idx_reminders_remind_at ON reminders(remind_at);
-CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status);
-CREATE INDEX IF NOT EXISTS idx_reminders_category ON reminders(category);
-CREATE INDEX IF NOT EXISTS idx_reminders_due_date ON reminders(due_date);
+CREATE INDEX IF NOT EXISTS idx_candidates_job_id ON candidates(job_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_client_id ON jobs(client_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_candidates_submitted_at ON candidates(submitted_at);
 "#;
 
 const CURRENT_SCHEMA_VERSION: i32 = 3;
@@ -120,7 +85,7 @@ pub fn create_schema(conn: &Connection) -> AppResult<()> {
         migrate_clients(conn)?;
         migrate_jobs(conn)?;
         migrate_candidates(conn)?;
-        migrate_reminders(conn)?;
+        conn.execute_batch("DROP TABLE IF EXISTS reminders;")?;
         conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)?;
     }
 
@@ -212,35 +177,4 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
     Ok(())
 }
 
-// Idempotent migration: ensures reminders table and indexes exist.
-fn migrate_reminders(conn: &Connection) -> AppResult<()> {
-    conn.execute_batch(
-        r#"
-        CREATE TABLE IF NOT EXISTS reminders (
-          id TEXT PRIMARY KEY,
-          title TEXT NOT NULL,
-          description TEXT,
-          category TEXT NOT NULL DEFAULT 'reminder',
-          due_date TEXT NOT NULL,
-          due_time TEXT,
-          timezone TEXT NOT NULL DEFAULT 'UTC',
-          remind_at TEXT NOT NULL,
-          priority TEXT NOT NULL DEFAULT 'medium',
-          notify_before_minutes INTEGER NOT NULL DEFAULT 0,
-          status TEXT NOT NULL DEFAULT 'pending',
-          snoozed_until TEXT,
-          candidate_id TEXT REFERENCES candidates(id) ON DELETE SET NULL,
-          job_id TEXT REFERENCES jobs(id) ON DELETE SET NULL,
-          client_id TEXT REFERENCES clients(id) ON DELETE SET NULL,
-          meeting_link TEXT,
-          created_at TEXT NOT NULL,
-          updated_at TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_reminders_remind_at ON reminders(remind_at);
-        CREATE INDEX IF NOT EXISTS idx_reminders_status ON reminders(status);
-        CREATE INDEX IF NOT EXISTS idx_reminders_category ON reminders(category);
-        CREATE INDEX IF NOT EXISTS idx_reminders_due_date ON reminders(due_date);
-        "#,
-    )?;
-    Ok(())
-}
+

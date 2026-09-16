@@ -127,10 +127,11 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
       current_title: currentTitle.trim() || null,
       linkedin_url: linkedin.trim() || null,
       submission_status: status,
+      client_feedback: status === "submitted" ? "internal" : (status === "interview" || status === "placed") ? "client" : null,
       candidate_status: "active",
-      submitted_at: status === "submitted" ? submittedAt || null : null,
-      interview_at: status === "interview" ? interviewAt || null : null,
-      placed_at: status === "placed" ? placedAt || null : null,
+      submitted_at: (status === "submitted" || status === "interview" || status === "placed") ? (submittedAt || new Date().toISOString()) : null,
+      interview_at: status === "interview" ? interviewAt || new Date().toISOString() : null,
+      placed_at: status === "placed" ? placedAt || new Date().toISOString() : null,
       rejection_reason: status === "rejected" ? rejectionReason.trim() || null : null,
     };
 

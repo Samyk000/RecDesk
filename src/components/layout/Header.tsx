@@ -1,12 +1,10 @@
 import { useState, useEffect } from "react";
-import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X, ListChecks, FileDoc, CircleNotch } from "@phosphor-icons/react";
+import { Copy, Minus, Moon, MagnifyingGlass, Square, Sun, X, ListChecks } from "@phosphor-icons/react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTheme } from "../../store/theme";
-import { useResumeFormatterStore } from "../../store/resumeFormatterStore";
 import { Button } from "../ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { QuickScreenDialog } from "../candidates/QuickScreenDialog";
-import { ResumeFormatterModal } from "../candidates/ResumeFormatterModal";
 
 interface Props {
   onSearch: () => void;
@@ -16,7 +14,6 @@ export function Header({ onSearch }: Props) {
   const { resolved, setMode } = useTheme();
   const isDark = resolved === "dark";
   const [quickScreenOpen, setQuickScreenOpen] = useState(false);
-  const { isOpen, isProcessing, openModal, closeModal } = useResumeFormatterStore();
 
   return (
     <>
@@ -37,40 +34,6 @@ export function Header({ onSearch }: Props) {
         </button>
 
         <div className="ml-auto flex items-center gap-1.5">
-
-          <Tooltip>
-            <TooltipTrigger asChild>
-              {isProcessing ? (
-                <div className="relative inline-flex overflow-hidden rounded-md p-[1.5px] shadow-xs">
-                  {/* Subtle circling border line trail animation */}
-                  <span className="absolute inset-[-1000%] animate-[spin_2.5s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#3b82f6_0%,transparent_50%,#3b82f6_100%)]" />
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={openModal}
-                    className="relative h-8 gap-1.5 text-xs bg-surface border-transparent font-medium hover:bg-surface-hover transition-colors"
-                  >
-                    <CircleNotch className="h-3.5 w-3.5 animate-spin text-primary" />
-                    <span className="text-primary font-semibold">Formatting…</span>
-                  </Button>
-                </div>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={openModal}
-                  className="h-8 gap-1.5 text-xs"
-                >
-                  <FileDoc className="h-3.5 w-3.5 text-primary" weight="duotone" />
-                  <span>Format Resume</span>
-                </Button>
-              )}
-            </TooltipTrigger>
-            <TooltipContent>
-              {isProcessing ? "Resume formatting in progress (click to view)" : "Format a resume for client submission"}
-            </TooltipContent>
-          </Tooltip>
-
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -110,10 +73,6 @@ export function Header({ onSearch }: Props) {
       <QuickScreenDialog
         open={quickScreenOpen}
         onOpenChange={setQuickScreenOpen}
-      />
-      <ResumeFormatterModal
-        open={isOpen}
-        onClose={closeModal}
       />
     </>
   );

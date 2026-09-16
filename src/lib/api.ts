@@ -11,8 +11,6 @@ import type {
   ImportSummary,
   JobInput,
   JobWithStats,
-  ReminderInput,
-  ReminderWithContext,
   SearchResults,
 } from "../types";
 
@@ -56,17 +54,6 @@ export const apiCandidates = {
     call<CandidateWithJob[]>("get_candidates_with_job", { clientId, search, status, limit, offset }),
 };
 
-// ---- Reminders, Tasks & Meetings ----
-export const apiReminders = {
-  list: (status?: string, category?: string) =>
-    call<ReminderWithContext[]>("get_reminders", { status, category }),
-  get: (id: string) => call<ReminderWithContext>("get_reminder", { id }),
-  create: (input: ReminderInput) => call<ReminderWithContext>("create_reminder", { input }),
-  update: (id: string, input: ReminderInput) => call<ReminderWithContext>("update_reminder", { id, input }),
-  remove: (id: string) => call<void>("delete_reminder", { id }),
-  toggleCompleted: (id: string) => call<ReminderWithContext>("toggle_reminder_completed", { id }),
-  snooze: (id: string, minutes: number) => call<ReminderWithContext>("snooze_reminder", { id, minutes }),
-};
 
 // ---- Dashboard / Search ----
 export const apiDashboard = {
@@ -98,8 +85,9 @@ export const apiFiles = {
     }),
 };
 
-// ---- AI Resume Auto-Fill ----
-export const apiAi = {
+// ---- Resume Auto-Fill Parser ----
+export const apiResumeParser = {
   parseResume: (text: string) =>
     call<import("../types").ExtractedCandidateProfile>("parse_resume_text", { text }),
 };
+export const apiAi = apiResumeParser;

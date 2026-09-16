@@ -38,9 +38,9 @@ Recruiting moves fast, but most recruiters spend their days scattered across 15 
 **RecDesk brings your entire recruiting desk into a single, lightning-fast native desktop application:**
 
 - **Candidates, Jobs & Clients**: Linked together seamlessly with zero network latency.
-- **Daily Follow-ups & Reminders**: Native desktop alerts and multi-timezone conversions (EDT, CDT, MDT, PDT).
+- **Milestone & Interview Tracking**: Accurate tracking of internal vs. external submissions, multi-round interviews (R1/R2/R3/Final), and placements with automatic multi-timezone support.
 - **Phone Screens & Submissions**: Auto-saving questionnaires and 1-click email summary formatting.
-- **Client Document Prep**: Automated resume formatting to standardized Word `.docx` with PII stripping.
+- **Candidate Document Inspection**: In-app PDF and Word resume inspection with zooming, printing, and Word-like inline editing.
 - **Total Privacy & Ownership**: Everything lives in a local database directly on your computer — no monthly seat fees, no cloud tracking.
 
 ---
@@ -61,8 +61,8 @@ See your entire recruiting desk at a single glance the moment you open the app.
 Organize talent through every milestone: `Sourced`, `In Touch`, `Submitted`, `Interview`, `Placed`, and `Archived`.
 
 - **Move vs. Copy Roles**: Effortlessly transfer a candidate to another requisition, or clone their profile across multiple client searches without duplicating resume files on disk.
+- **Safety Confirmation Guards**: Built-in safeguards protect against accidental stage resets or backward pipeline transitions while preserving historical milestones.
 - **Duplicate Warnings**: Real-time `ALREADY IN ROLE` badges prevent accidental double submissions.
-- **Safety Undo**: Revert accidental candidate job transfers in 1 click with the built-in Undo toast.
 - **In-Place Detail Drawer**: Review dossiers, notes, resumes, and Right-to-Represent (RTR) details directly from the dashboard without losing your place.
 
 <p align="center">
@@ -108,11 +108,11 @@ Prepare candidate profiles for client presentations and conduct structured phone
 ---
 
 ### 6. 📅 Interactive Recruitment Calendar & Interview Tracking
-Keep daily submissions, multi-round interviews, and follow-ups synchronized on a single interactive desk calendar.
+Keep daily submissions, multi-round interviews, and talent placements synchronized on a single interactive desk calendar.
 
-- **Full Month & Week Calendars**: Track candidate submissions, round 1/2/3 interviews, and placements on a color-coded calendar grid.
-- **Live Event Feed**: Instant access to candidate names, client accounts, interview times, and meeting statuses.
-- **Desktop Alerts & Chime**: Gentle 528 Hz harmonic chime and native Windows notifications ensure you never miss a client interview or candidate prep call.
+- **Full Month & Day Matrices**: Track external submissions, round 1/2/3 interviews, and placements on a color-coded calendar grid with a real-time current time indicator.
+- **Live Event Feed & Quick Filtering**: Instant access to candidate names, client accounts, interview times, round statuses, and meeting links with 1-click filtering.
+- **Persistent Milestone Integrity**: Retains external submission and interview credits even if candidates later face client rejections or advance to offers.
 - **Multi-Timezone Conversion**: Automatically reconciles candidate and client timezones against your local machine.
 
 <p align="center">
@@ -121,35 +121,33 @@ Keep daily submissions, multi-round interviews, and follow-ups synchronized on a
 
 ---
 
-### 7. 🪄 Smart Resume Formatter & Instant Word Export
-Transform raw, messy candidate resumes into immaculate, client-ready Word documents in seconds.
+### 7. 📄 In-App Document Inspection & Resume Editor
+Preview candidate resumes and documents instantly without leaving your desk or opening external software.
 
-- **100% Verbatim Text Retention**: Standardizes typography, headers, and bullet alignments without letting models hallucinate or alter candidate achievements.
-- **Automated PII Redaction**: Strips candidate emails, phone numbers, home addresses, LinkedIn handles, and personal links in 1 click to protect agency ownership.
-- **Dual-Engine Formatting**: Built-in offline rule engine formats instantly with zero latency, or connect OpenRouter to leverage cloud models (e.g. Llama 3.3, Gemini Flash) for complex, unstructured resumes.
-- **Side-by-Side Live Editor**: Real-time rich text editor with live preview, zoom controls (60%–150%), and instant `.docx` download formatted with recruiter-standard 0.5" margins.
+- **Universal Document Support**: Native rendering for PDF, Microsoft Word (`.docx`), and plain text resumes.
+- **Inspection Controls**: Multi-page navigation, smooth zoom (50%–250%), native printing, and external system launch.
+- **Inline Document Editor**: Edit candidate resumes directly in the Word-like WYSIWYG editor with live formatting and instant `.docx` saving.
 
 ---
 
 ### 8. 🔍 Global Instant Search & Keyboard Shortcuts
 Navigate across your entire database in milliseconds without taking your hands off the keyboard.
 
-- **Universal Search (`⌘K` / `Ctrl+K`)**: Instantly look up candidates, open requisitions, clients, and interview reminders from any screen.
+- **Universal Search (`⌘K` / `Ctrl+K`)**: Instantly look up candidates, open requisitions, and client accounts from any screen.
 - **Keyboard-Driven Workflow**: Fast shortcuts for quick candidate screening, job creation (`Ctrl+N`), theme toggles, and status updates.
 - **In-Place Drawer Navigation**: Jump straight to candidate profiles, dossiers, or job requisitions without losing context or refreshing pages.
 
 ---
 
-### 9. 🎨 Curated Themes, OpenRouter Integration & 1-Click Data Portability
+### 9. 🎨 Curated Themes, US Timezones & 1-Click Data Portability
 Your workspace, tailored to how you work best.
 
 - **Curated Themes**: Choose between crisp Light Mode, deep Dark Mode, or system match, paired with 9 calibrated color palettes (*Blue, Teal, Emerald, Forest, Amber, Sunset, Rose, Violet, Slate*).
-- **OpenRouter Cloud Integration**: Easily configure your OpenRouter API key in Settings to unlock cloud models for the Resume Formatter with live model search, context stats, and free-model filtering.
 - **Customizable World Clocks**: Configure which timezones appear in your header bar (EST, CST, MST, PST) to match your active recruiting territories.
 - **100% Data Portability**: 1-click full JSON snapshot export/import and Excel workbook generation makes backing up or migrating to a new laptop painless.
 
 <p align="center">
-  <img src="public/Settings.png" alt="Workspace Customization, AI Resume Formatting & Data Backups" width="100%" />
+  <img src="public/Settings.png" alt="Workspace Customization, Timezone Clocks & Data Backups" width="100%" />
 </p>
 
 ---
@@ -162,7 +160,7 @@ Your workspace, tailored to how you work best.
 | 🐌 Spinning loaders and sluggish network requests | ⚡ **Zero latency** — sub-millisecond local SQLite queries |
 | 💸 Expensive recurring monthly seat subscriptions | 💎 **Private & local** — lives entirely on your computer |
 | ☁️ Your client notes and candidate data mined in the cloud | 🔒 **100% data privacy** — nothing leaves your machine |
-| 📄 20 minutes spent fixing resume margins by hand in Word | 🪄 **10-second automated export** to standardized `.docx` |
+| 📄 20 minutes spent hunting for misplaced resume files | 🔍 **Instant in-app preview** for PDF and Word resumes |
 | 🌐 Mental timezone math before scheduling calls | ⏰ **Automatic multi-timezone conversion** (EDT/CDT/MDT/PDT) |
 
 ---
@@ -187,7 +185,6 @@ Built with a modern, high-performance desktop foundation:
 - **Local Storage Engine**: Embedded [SQLite](https://www.sqlite.org/) (WAL mode with memory caching)
 - **User Interface**: [React 19](https://react.dev/), [TypeScript](https://www.typescriptlang.org/), [Tailwind CSS](https://tailwindcss.com/)
 - **Document Engine**: Custom TipTap WYSIWYG editor & `docx` generation pipeline
-- **Resume Intelligence**: Optional OpenRouter cloud integration + offline heuristic rule engine
 
 ---
 

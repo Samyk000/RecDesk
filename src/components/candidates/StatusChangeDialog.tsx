@@ -18,6 +18,9 @@ import { Spinner } from "../common/Spinner";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
+import { BackwardStatusConfirmDialog } from "./BackwardStatusConfirmDialog";
+import { ResetStatusConfirmDialog } from "./ResetStatusConfirmDialog";
+import { isBackwardTransition } from "../../lib/candidateUtils";
 import type { CandidatePatch, CandidateWithJob } from "../../types";
 
 interface Props {
@@ -33,31 +36,78 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
   const [interviewAt, setInterviewAt] = useState<string | null>(candidate.interview_at ?? null);
   const [placedAt, setPlacedAt] = useState<string | null>(candidate.placed_at ?? null);
   const [rejectionReason, setRejectionReason] = useState(candidate.rejection_reason ?? "");
+  const [showBackwardConfirm, setShowBackwardConfirm] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
   const saving = bulkUpdate.isPending;
 
-  async function handleSave() {
-    const patch: CandidatePatch = { submission_status: status };
-    if (status === "sourced") {
-      patch.submitted_at = null;
-      patch.interview_at = null;
-      patch.placed_at = null;
-      patch.rejection_reason = null;
-    } else if (status === "submitted") {
-      patch.submitted_at = submittedAt || null;
-    } else if (status === "interview") {
-      patch.interview_at = interviewAt || null;
-    } else if (status === "placed") {
-      patch.placed_at = placedAt || null;
-    }
-    if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
-
+  async function executeSave(patch: CandidatePatch) {
     try {
       await bulkUpdate.mutateAsync({ ids: [candidate.id], patch });
-      toast.success(`${candidate.name} marked ${titleCase(status)}`);
+      toast.success(`${candidate.name} marked ${titleCase(patch.submission_status || status)}`);
       onClose();
     } catch (err) {
       toast.error(errorMessage(err));
     }
+  }
+
+  function handleSave() {
+    if (status === candidate.submission_status) {
+      onClose();
+      return;
+    }
+
+    if (isBackwardTransition(candidate.submission_status, status)) {
+      setShowBackwardConfirm(true);
+      return;
+    }
+
+    if (status === "sourced") {
+      setShowResetConfirm(true);
+      return;
+    }
+
+    const patch: CandidatePatch = { submission_status: status };
+    if (status === "submitted") {
+      patch.submitted_at = submittedAt || new Date().toISOString();
+      patch.client_feedback = candidate.client_feedback || "internal";
+    } else if (status === "interview") {
+      patch.interview_at = interviewAt || new Date().toISOString();
+      patch.client_feedback = "client";
+      patch.submitted_at = candidate.submitted_at || submittedAt || new Date().toISOString();
+    } else if (status === "placed") {
+      patch.placed_at = placedAt || new Date().toISOString();
+      patch.client_feedback = "client";
+      patch.submitted_at = candidate.submitted_at || submittedAt || new Date().toISOString();
+    }
+    if (status === "rejected") patch.rejection_reason = rejectionReason.trim() || null;
+
+    executeSave(patch);
+  }
+
+  function handleConfirmBackward(preserveMilestones: boolean) {
+    setShowBackwardConfirm(false);
+    const patch: CandidatePatch = { submission_status: status };
+    if (!preserveMilestones) {
+      if (status === "sourced" || status === "in_touch") {
+        patch.submitted_at = null;
+        patch.interview_at = null;
+        patch.placed_at = null;
+        patch.rejection_reason = null;
+      }
+    }
+    executeSave(patch);
+  }
+
+  function handleConfirmReset() {
+    setShowResetConfirm(false);
+    const patch: CandidatePatch = {
+      submission_status: "sourced",
+      submitted_at: null,
+      interview_at: null,
+      placed_at: null,
+      rejection_reason: null,
+    };
+    executeSave(patch);
   }
 
   return (
@@ -156,6 +206,22 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
             {saving ? <Spinner className="h-4 w-4" /> : "Save"}
           </Button>
         </DialogFooter>
+
+        <BackwardStatusConfirmDialog
+          open={showBackwardConfirm}
+          candidateName={candidate.name}
+          currentStatus={candidate.submission_status}
+          targetStatus={status}
+          onConfirm={handleConfirmBackward}
+          onCancel={() => setShowBackwardConfirm(false)}
+        />
+
+        <ResetStatusConfirmDialog
+          open={showResetConfirm}
+          candidateName={candidate.name}
+          onConfirm={handleConfirmReset}
+          onCancel={() => setShowResetConfirm(false)}
+        />
       </DialogContent>
     </Dialog>
   );

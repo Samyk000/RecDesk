@@ -347,6 +347,102 @@ export function getCandidateSubStageLabel(
   return null;
 }
 
+/**
+ * Returns true if a candidate reached the external client submission milestone.
+ * This holds true across the entire lifecycle:
+ * - Currently submitted to external client
+ * - Currently interviewing
+ * - Currently placed
+ * - Rejected by client on resume screening
+ * - Rejected during or after interview rounds
+ * Strictly excludes internal reviews/draft pre-screens.
+ */
+export function isExternalSubmission(candidate: Candidate | CandidateWithJob): boolean {
+  const status = candidate.submission_status;
+  const isInternal = candidate.client_feedback === "internal";
+
+  if (status === "submitted") {
+    return !isInternal;
+  }
+
+  if (status === "interview" || status === "placed") {
+    return true;
+  }
+
+  if (status === "rejected") {
+    const detail = parseRejectionDetail(candidate.rejection_reason);
+    if (detail.origin === "internal") {
+      return false;
+    }
+    if (detail.origin === "client_screening" || detail.origin === "interview") {
+      return true;
+    }
+    // If general rejection but was previously marked client feedback or has submitted_at and not internal
+    return !isInternal && Boolean(candidate.submitted_at?.trim());
+  }
+
+  return false;
+}
+
+/**
+ * Returns true if a candidate reached the interview stage (active, placed, or interview-rejected).
+ */
+export function hasHadInterview(candidate: Candidate | CandidateWithJob): boolean {
+  const status = candidate.submission_status;
+  if (status === "interview" || status === "placed") {
+    return true;
+  }
+  if (status === "rejected") {
+    const detail = parseRejectionDetail(candidate.rejection_reason);
+    if (detail.origin === "interview") {
+      return true;
+    }
+  }
+  const rounds = parseInterviewRounds(candidate.interview_status, candidate.interview_at);
+  return rounds.length > 0;
+}
+
+/**
+ * Pipeline hierarchy levels:
+ * 0: sourced
+ * 1: in_touch
+ * 2: submitted
+ * 3: interview
+ * 4: placed
+ * (rejected and not_interested are outcome states: -1)
+ */
+export function getPipelineStageLevel(status: string): number {
+  switch (status) {
+    case "sourced":
+      return 0;
+    case "in_touch":
+      return 1;
+    case "submitted":
+      return 2;
+    case "interview":
+      return 3;
+    case "placed":
+      return 4;
+    default:
+      return -1;
+  }
+}
+
+/**
+ * Returns true if moving from fromStatus to toStatus is a backward step in the pipeline.
+ * Only triggers when moving from an advanced stage (Level >= 2: submitted, interview, placed)
+ * back to an earlier stage (e.g. in_touch or sourced).
+ */
+export function isBackwardTransition(fromStatus: string, toStatus: string): boolean {
+  const fromLevel = getPipelineStageLevel(fromStatus);
+  const toLevel = getPipelineStageLevel(toStatus);
+
+  if (fromLevel >= 2 && toLevel >= 0 && toLevel < fromLevel) {
+    return true;
+  }
+  return false;
+}
+
 
 
 

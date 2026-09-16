@@ -24,8 +24,9 @@ export function DocxViewer({ data, scale }: Props) {
     const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
 
     renderAsync(buffer, target, undefined, {
-      className: "docx-document",
+      className: "docx",
       inWrapper: true,
+      hideWrapperOnPrint: true,
       ignoreWidth: false,
       ignoreHeight: false,
       ignoreFonts: false,
@@ -114,7 +115,7 @@ export function DocxViewer({ data, scale }: Props) {
       >
         <div
           ref={containerRef}
-          className="docx-preview-container max-w-full [&_.docx-wrapper]:bg-transparent [&_.docx-wrapper]:p-0 [&_section.docx]:shadow-2xl [&_section.docx]:mb-6 [&_section.docx]:rounded-xs [&_section.docx]:bg-white [&_section.docx]:text-slate-900"
+          className="docx-preview-container max-w-full [&_.docx-wrapper]:bg-transparent [&_.docx-wrapper]:p-0 [&_.docx-document-wrapper]:bg-transparent [&_.docx-document-wrapper]:p-0 [&_section.docx]:shadow-2xl [&_section.docx]:mb-6 [&_section.docx]:rounded-xs [&_section.docx]:bg-white [&_section.docx]:text-slate-900 [&_section.docx-document]:shadow-2xl [&_section.docx-document]:mb-6 [&_section.docx-document]:rounded-xs [&_section.docx-document]:bg-white [&_section.docx-document]:text-slate-900"
         />
       </div>
     </div>

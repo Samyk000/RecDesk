@@ -2,7 +2,6 @@ import { lazy, Suspense } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { Dashboard } from "./pages/Dashboard";
-import { useNotificationScheduler } from "./lib/notificationEngine";
 
 const Jobs = lazy(() => import("./pages/Jobs").then((m) => ({ default: m.Jobs })));
 const JobDetail = lazy(() => import("./pages/JobDetail").then((m) => ({ default: m.JobDetail })));
@@ -19,8 +18,6 @@ const PageFallback = () => (
 );
 
 function App() {
-  // Background notification engine & scheduler
-  useNotificationScheduler();
 
   return (
     <Routes>

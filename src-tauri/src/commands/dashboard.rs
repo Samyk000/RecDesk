@@ -65,6 +65,18 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         [],
         |r| r.get(0),
     )?;
+    let external_submissions: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM candidates 
+         WHERE (submission_status = 'submitted' AND (client_feedback IS NULL OR client_feedback != 'internal'))
+            OR submission_status IN ('interview', 'placed')
+            OR (submission_status = 'rejected' AND (
+                rejection_reason LIKE '%\"client_screening\"%' 
+                OR rejection_reason LIKE '%\"interview\"%'
+                OR (submitted_at IS NOT NULL AND TRIM(submitted_at) != '' AND (client_feedback IS NULL OR client_feedback != 'internal') AND (rejection_reason IS NULL OR rejection_reason NOT LIKE '%\"internal\"%'))
+            ))",
+        [],
+        |r| r.get(0),
+    )?;
 
     let candidates_by_status = status_counts(&conn, StatusTarget::CandidatesBySubmissionStatus)?;
     let jobs_by_status = status_counts(&conn, StatusTarget::JobsByStatus)?;
@@ -96,6 +108,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         interview_candidates,
         placed_candidates,
         on_hold_jobs,
+        external_submissions,
         candidates_by_status,
         jobs_by_status,
         recent_jobs,

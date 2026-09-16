@@ -15,7 +15,6 @@
       "allow": [{ "path": "$APPDATA/**" }]
     },
     "dialog:default",
-    "notification:default",
     {
       "identifier": "fs:allow-read-text-file",
       "allow": [{ "path": "$APPDATA/**" }, { "path": "$DOCUMENT/**" }, { "path": "$DESKTOP/**" }, { "path": "$DOWNLOAD/**" }]
