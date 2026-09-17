@@ -185,6 +185,18 @@ export interface StatusCount {
   count: number;
 }
 
+export interface TrendPoint {
+  date: string;
+  label: string;
+  count: number;
+}
+
+export interface MetricTrend {
+  this_week: number;
+  this_month: number;
+  points: TrendPoint[];
+}
+
 export interface DashboardStats {
   active_jobs: number;
   total_jobs: number;
@@ -199,6 +211,10 @@ export interface DashboardStats {
   jobs_by_status: StatusCount[];
   recent_jobs: JobWithStats[];
   recent_candidates: Candidate[];
+  candidates_trend?: MetricTrend;
+  submissions_trend?: MetricTrend;
+  interviews_trend?: MetricTrend;
+  placed_trend?: MetricTrend;
 }
 
 export interface SearchResults {

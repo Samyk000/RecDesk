@@ -108,7 +108,7 @@ export function SidebarSubmissions() {
           <PaperPlaneTilt className="h-3.5 w-3.5 text-amber-500 shrink-0" />
           <span>Submissions</span>
           {submittedList.length > 0 && (
-            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-amber-500/20 px-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-surface-active border border-border/80 px-1.5 text-[10px] font-semibold tabular-nums text-fg-muted group-hover:text-fg transition-colors">
               {submittedList.length}
             </span>
           )}
@@ -155,11 +155,11 @@ export function SidebarSubmissions() {
                     key={cand.id}
                     type="button"
                     onClick={() => handleOpenCandidate(cand)}
-                    className="group relative flex w-full flex-col rounded-md border border-border/70 bg-surface/90 px-2.5 py-1.5 text-left transition-all duration-150 hover:border-amber-500/50 hover:bg-surface-hover active:scale-[0.99] cursor-pointer shadow-2xs overflow-hidden"
+                    className="group relative flex w-full flex-col rounded-md border border-border/70 bg-surface/90 px-2.5 py-1.5 text-left transition-all duration-150 hover:border-amber-500/35 hover:bg-surface-hover active:scale-[0.99] cursor-pointer shadow-2xs overflow-hidden"
                   >
                     {/* Line 1: Candidate Name + Status Tag (Guaranteed no overflow) */}
                     <div className="flex w-full items-center justify-between gap-1.5 min-w-0 overflow-hidden">
-                      <span className="truncate text-[11.5px] font-semibold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors min-w-0 flex-1">
+                      <span className="truncate text-[11.5px] font-semibold text-fg group-hover:text-primary transition-colors min-w-0 flex-1">
                         {cand.name}
                       </span>
                       {cand.submission_status === "rejected" ? (
@@ -167,7 +167,7 @@ export function SidebarSubmissions() {
                           Rejected
                         </span>
                       ) : (
-                        <span className="shrink-0 max-w-[65px] truncate rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/25 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+                        <span className="shrink-0 max-w-[65px] truncate rounded bg-amber-500/15 text-black dark:text-white border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
                           External
                         </span>
                       )}

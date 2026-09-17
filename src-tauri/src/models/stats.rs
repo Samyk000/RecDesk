@@ -17,6 +17,24 @@ pub struct DashboardStats {
     pub jobs_by_status: Vec<StatusCount>,
     pub recent_jobs: Vec<JobWithStats>,
     pub recent_candidates: Vec<Candidate>,
+    pub candidates_trend: MetricTrend,
+    pub submissions_trend: MetricTrend,
+    pub interviews_trend: MetricTrend,
+    pub placed_trend: MetricTrend,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrendPoint {
+    pub date: String,
+    pub label: String,
+    pub count: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MetricTrend {
+    pub this_week: i64,
+    pub this_month: i64,
+    pub points: Vec<TrendPoint>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

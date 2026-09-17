@@ -9,19 +9,20 @@ import {
   Clock,
   IdentificationCard,
   Lightning,
-  ListChecks,
+  PaperPlaneTilt,
   Plus,
   UserPlus,
 } from "@phosphor-icons/react";
+import { MetricSparkline } from "../components/dashboard/MetricSparkline";
 import { useDashboardStats } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
-import { PageHeader } from "../components/common/PageHeader";
-import { jobPalette, submissionPalette, submissionIcon } from "../lib/constants";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
+import { jobPalette, submissionPalette } from "../lib/constants";
 import { getCandidateSubStageLabel } from "../lib/candidateUtils";
-import { cn, formatZoneTime, greetingLine, nameInitials, timeAgo, titleCase } from "../lib/utils";
+import { cn, formatZoneTime, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import { useProfile } from "../store/profile";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
@@ -33,7 +34,6 @@ import { DetailDrawer } from "../components/common/DetailDrawer";
 export function Dashboard() {
   const { data, isLoading } = useDashboardStats();
   const navigate = useNavigate();
-  const { name } = useProfile();
   const [params, setParams] = useSearchParams();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const activeCandidateId = selectedCandidateId ?? params.get("candidate");
@@ -66,60 +66,142 @@ export function Dashboard() {
       value: data.total_candidates,
       icon: IdentificationCard,
       accent: "text-violet-500",
+      color: "#8b5cf6",
       to: "/candidates",
+      trend: data.candidates_trend,
     },
     {
-      label: "Active jobs",
-      value: data.active_jobs,
-      icon: Briefcase,
-      accent: "text-blue-500",
-      to: "/jobs",
+      label: "Submissions",
+      value: data.external_submissions ?? (data.candidates_by_status.find((s) => s.status === "submitted")?.count ?? 0),
+      icon: PaperPlaneTilt,
+      accent: "text-amber-500",
+      color: "#f59e0b",
+      to: "/candidates?status=submitted",
+      trend: data.submissions_trend,
     },
     {
       label: "Interview",
       value: data.interview_candidates,
       icon: CalendarCheck,
-      accent: "text-violet-500",
+      accent: "text-purple-500",
+      color: "#a855f7",
       to: "/candidates?status=interview",
+      trend: data.interviews_trend,
     },
     {
       label: "Placed",
       value: data.placed_candidates,
       icon: CheckCircle,
       accent: "text-emerald-500",
+      color: "#10b981",
       to: "/candidates?status=placed",
+      trend: data.placed_trend,
     },
   ];
 
   return (
-    <div className="flex h-full flex-col overflow-hidden px-6 pt-3 pb-3 gap-2.5">
+    <div className="flex h-full flex-col overflow-hidden px-6 pt-5 pb-3.5 gap-3">
       {/* 1. Header & KPI Stats */}
       <div className="shrink-0">
-        <PageHeader
-          title={greetingLine(name)}
-          subtitle={isEmpty ? "Start by creating your first job." : undefined}
-          actions={<ZoneClock />}
-          className="mb-0"
-        />
+        {/* Top Header Row: Left Title + Right Stacked Timezones & Quick Actions Box */}
+        <div className="flex items-center justify-between gap-4">
+          {/* Left: Title & Subtitle */}
+          <div className="shrink-0">
+            <h1 className="font-display text-[26px] font-bold tracking-tight text-fg leading-none">
+              Dashboard
+            </h1>
+            <p className="mt-1.5 text-xs text-fg-subtle">
+              {isEmpty ? "Start by creating your first job." : "Your recruiting workspace"}
+            </p>
+          </div>
+
+          {/* Right: Stacked Column (Top: Single-Line Timezones, Bottom: Quick Actions Box matching width) */}
+          <div className="flex flex-col gap-2.5 w-[500px] max-w-full shrink-0">
+            {/* 1. Time Zones in single line on top */}
+            <ZoneClock />
+
+            {/* 2. Quick Actions Box - Aligned perfectly with Timezones width */}
+            <div className="w-full rounded-xl border border-border/80 bg-surface/80 px-2.5 pt-1.5 pb-2 shadow-2xs backdrop-blur-xs">
+              {/* Centered header label with icon */}
+              <div className="mb-1.5 flex items-center justify-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-fg-muted">
+                <Lightning className="h-3 w-3 text-amber-500" weight="fill" />
+                <span>Quick Actions</span>
+              </div>
+
+              {/* 4 Action Buttons below */}
+              <div className="grid grid-cols-4 gap-1.5">
+                {/* 1. Add Candidate */}
+                <button
+                  type="button"
+                  onClick={() => setCandidateFormOpen(true)}
+                  className="group flex items-center justify-center gap-1.5 rounded-lg border border-violet-500/25 bg-violet-500/10 px-2 py-1.5 text-[11px] font-semibold text-violet-700 dark:text-violet-300 transition-all duration-150 hover:bg-violet-500/20 hover:border-violet-500/40 hover:shadow-2xs active:scale-97 cursor-pointer whitespace-nowrap"
+                >
+                  <UserPlus className="h-3.5 w-3.5 shrink-0 text-violet-600 dark:text-violet-400" />
+                  <span>+ Candidate</span>
+                </button>
+
+                {/* 2. Add Job */}
+                <button
+                  type="button"
+                  onClick={() => setJobFormOpen(true)}
+                  className="group flex items-center justify-center gap-1.5 rounded-lg border border-blue-500/25 bg-blue-500/10 px-2 py-1.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300 transition-all duration-150 hover:bg-blue-500/20 hover:border-blue-500/40 hover:shadow-2xs active:scale-97 cursor-pointer whitespace-nowrap"
+                >
+                  <Briefcase className="h-3.5 w-3.5 shrink-0 text-blue-600 dark:text-blue-400" />
+                  <span>+ Job</span>
+                </button>
+
+                {/* 3. Add Client */}
+                <button
+                  type="button"
+                  onClick={() => setClientFormOpen(true)}
+                  className="group flex items-center justify-center gap-1.5 rounded-lg border border-amber-500/25 bg-amber-500/10 px-2 py-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-300 transition-all duration-150 hover:bg-amber-500/20 hover:border-amber-500/40 hover:shadow-2xs active:scale-97 cursor-pointer whitespace-nowrap"
+                >
+                  <Building className="h-3.5 w-3.5 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <span>+ Client</span>
+                </button>
+
+                {/* 4. Quick Screen */}
+                <button
+                  type="button"
+                  onClick={() => setQuickScreenOpen(true)}
+                  className="group flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/25 bg-emerald-500/10 px-2 py-1.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-300 transition-all duration-150 hover:bg-emerald-500/20 hover:border-emerald-500/40 hover:shadow-2xs active:scale-97 cursor-pointer whitespace-nowrap"
+                >
+                  <Lightning className="h-3.5 w-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" weight="fill" />
+                  <span>Screen</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
 
         {/* Top 4 Stats Cards */}
-        <div className="mt-5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <div className="mt-3.5 grid grid-cols-2 gap-2.5 lg:grid-cols-4">
           {stats.map((s, i) => (
             <Link
               key={s.label}
               to={s.to}
               style={{ animationDelay: `${i * 40}ms` }}
-              className="group flex items-center justify-center gap-3.5 rounded-xl border border-border bg-surface py-3.5 px-4 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
+              className="group relative flex items-center justify-between gap-2.5 rounded-xl border border-border bg-surface py-2.5 px-3.5 transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-border-strong animate-stagger active:scale-[0.99]"
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
-                <s.icon className={cn("h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
-              </span>
-              <div className="min-w-0">
-                <p className="font-display text-[20px] font-bold tabular-nums leading-tight tracking-tight text-fg transition-colors duration-150 group-hover:text-primary">
-                  {s.value}
-                </p>
-                <p className="truncate text-[11.5px] text-fg-muted">{s.label}</p>
+              {/* Left: Icon + Value & Label */}
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-active transition-colors duration-150 group-hover:bg-surface-hover">
+                  <s.icon className={cn("h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110", s.accent)} />
+                </span>
+                <div className="min-w-0">
+                  <p className="font-display text-[21px] font-bold tabular-nums leading-tight tracking-tight text-fg transition-colors duration-150 group-hover:text-primary">
+                    {s.value}
+                  </p>
+                  <p className="truncate text-[11.5px] text-fg-muted">{s.label}</p>
+                </div>
               </div>
+
+              {/* Right: Sparkline Chart with interactive hover */}
+              <MetricSparkline
+                trend={s.trend}
+                color={s.color}
+                metricName={s.label}
+              />
             </Link>
           ))}
         </div>
@@ -159,7 +241,7 @@ export function Dashboard() {
                 <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
                   {data.recent_jobs
                     .filter((job) => job.status === "active")
-                    .slice(0, 5)
+                    .slice(0, 7)
                     .map((job) => (
                       <Link
                         key={job.id}
@@ -205,7 +287,7 @@ export function Dashboard() {
                         cand.submission_status !== "not_interested" &&
                         cand.submission_status !== "rejected",
                     )
-                    .slice(0, 5)
+                    .slice(0, 7)
                     .map((cand) => (
                       <button
                         type="button"
@@ -241,33 +323,39 @@ export function Dashboard() {
             </Section>
           </div>
 
-          {/* Full-Width Candidate Pipeline Widget */}
+          {/* Full-Width Enhanced Candidate Pipeline Widget */}
           <div className="mt-2.5">
             <Section title="Pipeline" to="/candidates">
               <div className="rounded-xl border border-border bg-surface p-3 shadow-2xs">
-                {/* Thin, refined distribution bar */}
-                <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-active/60 shadow-inner">
+                {/* Sleek, thin distribution bar */}
+                <div className="flex h-2 w-full overflow-hidden rounded-full bg-surface-active/60">
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
                     const pct = data.total_candidates ? (s.count / data.total_candidates) * 100 : 0;
                     if (pct === 0) return null;
+                    const displayCount =
+                      s.status === "submitted" && data.external_submissions !== undefined
+                        ? data.external_submissions
+                        : s.status === "interview" && data.interview_candidates !== undefined
+                          ? data.interview_candidates
+                          : s.count;
+                    const pctLabel = `${pct.toFixed(0)}%`;
                     return (
                       <div
                         key={s.status}
-                        className="h-full transition-all duration-500 hover:opacity-85 cursor-pointer first:rounded-l-full last:rounded-r-full"
+                        className="h-full transition-all duration-300 hover:opacity-80 cursor-pointer first:rounded-l-full last:rounded-r-full"
                         style={{ width: `${pct}%`, background: p.dot }}
-                        title={`${titleCase(s.status)}: ${s.count} (${pct.toFixed(0)}%)`}
+                        title={`${titleCase(s.status)}: ${displayCount} (${pctLabel})`}
                         onClick={() => navigate(`/candidates?status=${s.status}`)}
                       />
                     );
                   })}
                 </div>
 
-                {/* Clean, spread-out status chips with stage icons */}
-                <div className="mt-2.5 flex flex-wrap items-center gap-2 pt-2.5 border-t border-border/50">
+                {/* Clean, spread-out status legend showing ALL statuses with dot, count, and percent */}
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 px-1 text-xs">
                   {data.candidates_by_status.map((s) => {
                     const p = submissionPalette(s.status);
-                    const IconComp = submissionIcon(s.status);
                     const displayCount =
                       s.status === "submitted" && data.external_submissions !== undefined
                         ? data.external_submissions
@@ -281,104 +369,22 @@ export function Dashboard() {
                       <Link
                         key={s.status}
                         to={`/candidates?status=${s.status}`}
-                        className="group flex-1 min-w-[125px] flex items-center justify-between gap-1.5 rounded-lg border border-border/60 bg-surface/80 px-2.5 py-1.5 text-[11px] text-fg-muted transition-all duration-150 hover:border-primary/40 hover:bg-surface-hover hover:text-fg shadow-2xs cursor-pointer active:scale-98"
+                        className="group flex items-center gap-2 rounded-lg px-2 py-1 text-fg-muted hover:bg-surface-hover hover:text-fg transition-colors cursor-pointer"
                       >
-                        <div className="flex items-center gap-1.5 min-w-0">
-                          <IconComp className="h-3.5 w-3.5 shrink-0" style={{ color: p.dot }} />
-                          <span className="truncate font-medium text-fg-subtle group-hover:text-fg transition-colors">{titleCase(s.status)}</span>
-                        </div>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <span className="rounded-md bg-surface-active px-1.5 py-0.5 text-[10.5px] font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
-                            {displayCount}
-                          </span>
-                          <span className="text-[9.5px] text-fg-subtle">({pct}%)</span>
-                        </div>
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ background: p.dot }} />
+                        <span className="font-medium text-fg-subtle group-hover:text-fg transition-colors">
+                          {titleCase(s.status)}
+                        </span>
+                        <span className="font-bold tabular-nums text-fg group-hover:text-primary transition-colors">
+                          {displayCount}
+                        </span>
+                        <span className="text-[11px] text-fg-subtle">({pct}%)</span>
                       </Link>
                     );
                   })}
                 </div>
               </div>
             </Section>
-          </div>
-
-          {/* Quick Actions Bento Cards Section */}
-          <div className="mt-2.5 mb-1">
-            <div className="mb-1.5 flex items-center justify-between px-1">
-              <h2 className="font-display text-[13.5px] font-semibold tracking-tight text-fg flex items-center gap-1.5">
-                <Lightning className="h-3.5 w-3.5 text-amber-500" weight="fill" />
-                <span>Quick Actions</span>
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
-              {/* 1. Add Candidate */}
-              <button
-                type="button"
-                onClick={() => setCandidateFormOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-violet-500/50 hover:bg-violet-500/5 active:scale-[0.98]"
-              >
-                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 group-hover:bg-violet-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-violet-500/25 transition-all duration-200 shadow-2xs">
-                  <UserPlus className="h-5 w-5" />
-                </div>
-                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-violet-600 dark:group-hover:text-violet-400 transition-colors">
-                  Add Candidate
-                </p>
-                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
-                  Profile & resume extract
-                </p>
-              </button>
-
-              {/* 2. Add Job */}
-              <button
-                type="button"
-                onClick={() => setJobFormOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-blue-500/50 hover:bg-blue-500/5 active:scale-[0.98]"
-              >
-                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-blue-500/10 text-blue-600 dark:text-blue-400 group-hover:bg-blue-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-blue-500/25 transition-all duration-200 shadow-2xs">
-                  <Briefcase className="h-5 w-5" />
-                </div>
-                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                  Add Job
-                </p>
-                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
-                  New job requisition
-                </p>
-              </button>
-
-              {/* 3. Add Client */}
-              <button
-                type="button"
-                onClick={() => setClientFormOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-amber-500/50 hover:bg-amber-500/5 active:scale-[0.98]"
-              >
-                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400 group-hover:bg-amber-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-amber-500/25 transition-all duration-200 shadow-2xs">
-                  <Building className="h-5 w-5" />
-                </div>
-                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
-                  Add Client
-                </p>
-                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
-                  Register client org
-                </p>
-              </button>
-
-              {/* 4. Quick Screen */}
-              <button
-                type="button"
-                onClick={() => setQuickScreenOpen(true)}
-                className="group flex flex-col items-center justify-center rounded-xl border border-border bg-surface py-4.5 px-3 text-center transition-all duration-200 cursor-pointer hover:-translate-y-0.5 hover:shadow-float hover:border-emerald-500/50 hover:bg-emerald-500/5 active:scale-[0.98]"
-              >
-                <div className="flex h-9.5 w-9.5 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 group-hover:bg-emerald-500 group-hover:text-white group-hover:shadow-md group-hover:shadow-emerald-500/25 transition-all duration-200 shadow-2xs">
-                  <ListChecks className="h-5 w-5" />
-                </div>
-                <p className="mt-2.5 font-display text-[13px] font-bold text-fg group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-                  Quick Screen
-                </p>
-                <p className="mt-1 text-[11px] text-fg-muted line-clamp-1">
-                  Screening script & questions
-                </p>
-              </button>
-            </div>
           </div>
         </>
       )}
@@ -414,6 +420,17 @@ export function Dashboard() {
   );
 }
 
+function getMinimalZoneInfo(zone: string): { letter: string; fullLabel: string } {
+  if (zone === "America/New_York") return { letter: "E", fullLabel: "Eastern Time (EDT / EST)" };
+  if (zone === "America/Chicago") return { letter: "C", fullLabel: "Central Time (CDT / CST)" };
+  if (zone === "America/Denver") return { letter: "M", fullLabel: "Mountain Time (MDT / MST)" };
+  if (zone === "America/Los_Angeles") return { letter: "P", fullLabel: "Pacific Time (PDT / PST)" };
+  if (zone === "Asia/Kolkata" || zone === "Asia/Calcutta") return { letter: "IST", fullLabel: "India Standard Time (IST)" };
+  if (zone === "UTC") return { letter: "UTC", fullLabel: "Coordinated Universal Time (UTC)" };
+  const city = zone.split("/")[1] || zone;
+  return { letter: city.slice(0, 3).toUpperCase(), fullLabel: zone };
+}
+
 function ZoneClock() {
   const timeZones = useProfile((s) => s.timeZones);
   const [, setTick] = useState(0);
@@ -434,14 +451,26 @@ function ZoneClock() {
   }, [timeZones.length]);
 
   if (timeZones.length === 0) return null;
+
   return (
-    <div className="flex items-center rounded-lg border border-border/80 bg-surface/80 px-1.5 py-1.5 text-xs font-medium tabular-nums text-fg-muted shadow-2xs divide-x divide-border/70">
-      {timeZones.map((zone) => (
-        <span key={zone} className="flex items-center gap-1.5 px-2.5 py-0.5">
-          <Clock className="h-3.5 w-3.5 shrink-0 text-primary" />
-          <span>{formatZoneTime(zone)}</span>
-        </span>
-      ))}
+    <div className="flex w-full items-center rounded-xl border border-border/80 bg-surface/80 px-2.5 py-2 text-xs font-medium tabular-nums text-fg-muted shadow-2xs divide-x divide-border/70 backdrop-blur-xs">
+      {timeZones.map((zone) => {
+        const info = getMinimalZoneInfo(zone);
+        return (
+          <Tooltip key={zone}>
+            <TooltipTrigger asChild>
+              <span className="flex-1 flex items-center justify-center gap-1.5 px-2 py-0.5 text-[11.5px] font-medium text-fg-muted cursor-default hover:text-fg transition-colors">
+                <Clock className="h-3 w-3 shrink-0 text-primary/75" />
+                <span>{formatZoneTime(zone)}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11.5px]">
+              <p className="font-semibold">{info.fullLabel}</p>
+              <p className="text-[10px] opacity-80">{zone}</p>
+            </TooltipContent>
+          </Tooltip>
+        );
+      })}
     </div>
   );
 }

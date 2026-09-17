@@ -519,12 +519,12 @@ mod tests {
     fn schema_user_version_is_set() {
         let conn = test_conn();
         let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(version, 3);
+        assert_eq!(version, 4);
 
         // Running create_schema again should be a safe no-op
         schema::create_schema(&conn).unwrap();
         let version2: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(version2, 3);
+        assert_eq!(version2, 4);
     }
 
     #[test]

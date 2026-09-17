@@ -72,20 +72,33 @@ CREATE INDEX IF NOT EXISTS idx_candidates_updated ON candidates(last_updated);
 CREATE INDEX IF NOT EXISTS idx_candidates_job_id ON candidates(job_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_client_id ON jobs(client_id);
 CREATE INDEX IF NOT EXISTS idx_jobs_status ON jobs(status);
+CREATE INDEX IF NOT EXISTS idx_jobs_updated_at ON jobs(updated_at);
 CREATE INDEX IF NOT EXISTS idx_candidates_submitted_at ON candidates(submitted_at);
+CREATE INDEX IF NOT EXISTS idx_candidates_interview_at ON candidates(interview_at);
+CREATE INDEX IF NOT EXISTS idx_candidates_placed_at ON candidates(placed_at);
+CREATE INDEX IF NOT EXISTS idx_candidates_date_added ON candidates(date_added);
 "#;
 
-const CURRENT_SCHEMA_VERSION: i32 = 3;
+const CURRENT_SCHEMA_VERSION: i32 = 4;
 
 pub fn create_schema(conn: &Connection) -> AppResult<()> {
     conn.execute_batch(SCHEMA_SQL)?;
+
+    // Clean up legacy tables & duplicate index artifacts from early prototype versions
+    conn.execute_batch(
+        r#"
+        DROP TABLE IF EXISTS reminders;
+        DROP TABLE IF EXISTS candidate_resume_chunks;
+        DROP INDEX IF EXISTS idx_jobs_client;
+        DROP INDEX IF EXISTS idx_candidates_job;
+        "#,
+    )?;
 
     let user_version: i32 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
     if user_version < CURRENT_SCHEMA_VERSION {
         migrate_clients(conn)?;
         migrate_jobs(conn)?;
         migrate_candidates(conn)?;
-        conn.execute_batch("DROP TABLE IF EXISTS reminders;")?;
         conn.pragma_update(None, "user_version", CURRENT_SCHEMA_VERSION)?;
     }
 

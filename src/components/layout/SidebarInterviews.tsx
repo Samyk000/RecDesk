@@ -162,7 +162,7 @@ export function SidebarInterviews() {
           <CalendarCheck className="h-3.5 w-3.5 text-primary shrink-0" />
           <span>Interviews</span>
           {upcoming.length > 0 && (
-            <span className="flex h-4 min-w-[16px] items-center justify-center rounded-full bg-primary/20 px-1.5 text-[10px] font-bold text-primary">
+            <span className="flex h-4 min-w-[18px] items-center justify-center rounded-full bg-surface-active border border-border/80 px-1.5 text-[10px] font-semibold tabular-nums text-fg-muted group-hover:text-fg transition-colors">
               {upcoming.length}
             </span>
           )}

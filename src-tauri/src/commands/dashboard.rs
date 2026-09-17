@@ -87,6 +87,41 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     let candidates_by_status = status_counts(&conn, StatusTarget::CandidatesBySubmissionStatus)?;
     let jobs_by_status = status_counts(&conn, StatusTarget::JobsByStatus)?;
 
+    let candidates_trend = compute_metric_trend(
+        &conn,
+        "COALESCE(NULLIF(TRIM(date_added), ''), last_updated)",
+        "1=1",
+    )?;
+
+    let submissions_trend = compute_metric_trend(
+        &conn,
+        "COALESCE(NULLIF(TRIM(submitted_at), ''), date_added)",
+        "(submission_status = 'submitted' AND (client_feedback IS NULL OR client_feedback != 'internal'))
+         OR submission_status IN ('interview', 'placed')
+         OR (submission_status = 'rejected' AND (
+             rejection_reason LIKE '%\"client_screening\"%' 
+             OR rejection_reason LIKE '%\"interview\"%'
+             OR (submitted_at IS NOT NULL AND TRIM(submitted_at) != '' AND (client_feedback IS NULL OR client_feedback != 'internal') AND (rejection_reason IS NULL OR rejection_reason NOT LIKE '%\"internal\"%'))
+         ))",
+    )?;
+
+    let interviews_trend = compute_metric_trend(
+        &conn,
+        "COALESCE(NULLIF(TRIM(interview_at), ''), NULLIF(TRIM(submitted_at), ''), date_added)",
+        "submission_status IN ('interview', 'placed')
+         OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
+         OR (submission_status = 'rejected' AND (
+             rejection_reason LIKE '%\"interview\"%'
+             OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
+         ))",
+    )?;
+
+    let placed_trend = compute_metric_trend(
+        &conn,
+        "COALESCE(NULLIF(TRIM(placed_at), ''), NULLIF(TRIM(interview_at), ''), date_added)",
+        "submission_status = 'placed'",
+    )?;
+
     let recent_jobs: Vec<JobWithStats> = {
         let mut stmt = conn.prepare(&format!("{JOB_SELECT} WHERE j.status = 'active' ORDER BY j.updated_at DESC LIMIT 8"))?;
         let rows = stmt
@@ -119,5 +154,85 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         jobs_by_status,
         recent_jobs,
         recent_candidates,
+        candidates_trend,
+        submissions_trend,
+        interviews_trend,
+        placed_trend,
+    })
+}
+
+fn compute_metric_trend(
+    conn: &rusqlite::Connection,
+    date_expr: &str,
+    where_clause: &str,
+) -> AppResult<crate::models::MetricTrend> {
+    use chrono::{Datelike, Duration, Utc};
+    use std::collections::HashMap;
+
+    let now = Utc::now().date_naive();
+    let dates: Vec<chrono::NaiveDate> = (0..14)
+        .rev()
+        .map(|days_ago| now - Duration::days(days_ago))
+        .collect();
+
+    let weekday_from_mon = now.weekday().num_days_from_monday();
+    let start_of_week = now - Duration::days(weekday_from_mon as i64);
+    let start_of_week_str = start_of_week.format("%Y-%m-%d").to_string();
+
+    let start_of_month = now.with_day(1).unwrap_or(now);
+    let start_of_month_str = start_of_month.format("%Y-%m-%d").to_string();
+
+    let earliest_date = std::cmp::min(dates[0], start_of_month);
+    let earliest_date_str = earliest_date.format("%Y-%m-%d").to_string();
+    let today_str = now.format("%Y-%m-%d").to_string();
+
+    let sql = format!(
+        "SELECT substr({date_expr}, 1, 10) AS day, COUNT(*) AS cnt 
+         FROM candidates 
+         WHERE ({where_clause}) AND substr({date_expr}, 1, 10) >= ?1 
+         GROUP BY day"
+    );
+
+    let mut stmt = conn.prepare(&sql)?;
+    let mut day_counts: HashMap<String, i64> = HashMap::new();
+    let rows = stmt.query_map([&earliest_date_str], |r| {
+        let day: String = r.get(0)?;
+        let cnt: i64 = r.get(1)?;
+        Ok((day, cnt))
+    })?;
+
+    for row in rows {
+        if let Ok((day, cnt)) = row {
+            day_counts.insert(day, cnt);
+        }
+    }
+
+    let mut points = Vec::with_capacity(14);
+    for d in dates {
+        let d_str = d.format("%Y-%m-%d").to_string();
+        let label = d.format("%b %e").to_string();
+        let count = day_counts.get(&d_str).copied().unwrap_or(0);
+        points.push(crate::models::TrendPoint {
+            date: d_str,
+            label: label.trim().to_string(),
+            count,
+        });
+    }
+
+    let mut this_week = 0;
+    let mut this_month = 0;
+    for (day, count) in &day_counts {
+        if day.as_str() >= start_of_week_str.as_str() && day.as_str() <= today_str.as_str() {
+            this_week += count;
+        }
+        if day.as_str() >= start_of_month_str.as_str() && day.as_str() <= today_str.as_str() {
+            this_month += count;
+        }
+    }
+
+    Ok(crate::models::MetricTrend {
+        this_week,
+        this_month,
+        points,
     })
 }
