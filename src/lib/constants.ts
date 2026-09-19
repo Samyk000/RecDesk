@@ -73,7 +73,7 @@ export const NOT_INTERESTED_REASONS = [
   "Other candidate reason",
 ] as const;
 
-type Palette = {
+export type Palette = {
   dot: string;
   badge: string;
   badgeText: string;
@@ -108,12 +108,12 @@ const SUBMISSION_PALETTE: Record<string, Palette> = {
     bar: "bg-amber-400",
   },
   interview: {
-    dot: "#8b5cf6",
-    badge: "bg-violet-500/15 text-violet-700 dark:text-violet-300",
-    badgeText: "text-violet-700 dark:text-violet-300",
-    chip: "bg-violet-100 text-violet-800 dark:bg-violet-500/20 dark:text-violet-200",
-    chipText: "text-violet-700 dark:text-violet-300",
-    bar: "bg-violet-400",
+    dot: "#a855f7",
+    badge: "bg-purple-500/15 text-purple-700 dark:text-purple-300",
+    badgeText: "text-purple-700 dark:text-purple-300",
+    chip: "bg-purple-100 text-purple-800 dark:bg-purple-500/20 dark:text-purple-200",
+    chipText: "text-purple-700 dark:text-purple-300",
+    bar: "bg-purple-400",
   },
   placed: {
     dot: "#10b981",
@@ -132,7 +132,7 @@ const SUBMISSION_PALETTE: Record<string, Palette> = {
     bar: "bg-red-400",
   },
   not_interested: {
-    dot: "#a3a3ad",
+    dot: "#94a3b8",
     badge: "bg-slate-500/15 text-slate-600 dark:text-slate-400",
     badgeText: "text-slate-600 dark:text-slate-400",
     chip: "bg-slate-100 text-slate-600 dark:bg-slate-700/40 dark:text-slate-300",

@@ -280,10 +280,7 @@ export type ThemeName =
   | "blue"
   | "teal"
   | "violet"
-  | "sunset"
-  | "forest"
   | "rose"
-  | "emerald"
   | "amber"
   | "slate";
 
@@ -297,5 +294,7 @@ export interface ExtractedCandidateProfile {
   linkedin_url?: string | null;
   notes_summary?: string | null;
 }
+
+
 
 
