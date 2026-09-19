@@ -132,8 +132,9 @@ export function SidebarInterviews() {
     if (!candidates) return [];
 
     const list = candidates.filter((c) => c.submission_status === "interview");
+    if (collapsed) return list;
 
-    // Sort chronologically (earliest/upcoming first, TBD last)
+    // Sort chronologically (earliest/upcoming first, TBD last) only when open
     return list.sort((a, b) => {
       const timeA = getInterviewTimestamp(a.interview_at);
       const timeB = getInterviewTimestamp(b.interview_at);
@@ -142,7 +143,8 @@ export function SidebarInterviews() {
       if (!timeB) return -1;
       return timeA - timeB;
     });
-  }, [candidates]);
+  }, [candidates, collapsed]);
+
 
   const handleOpenCandidate = (candidate: CandidateWithJob) => {
     navigate(`/candidates?candidate=${candidate.id}`);

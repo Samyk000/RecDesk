@@ -19,10 +19,6 @@ static RE_TITLE_PREFIX: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)^(title|role|position|current position|current role|headline):\s*(.+)").expect("valid title prefix regex")
 });
 
-static RE_EXP: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?i)(\d+(\.\d+)?)\+?\s*(years|yrs|year)\b").expect("valid exp regex")
-});
-
 static RE_US_STATE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"(?i)\b[A-Za-z\s.-]+,\s*(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY|DC|PR|ON|BC|QC|AB)\b").expect("valid us state regex")
 });
@@ -45,7 +41,6 @@ pub struct ExtractedCandidateProfile {
     pub email: Option<String>,
     pub phone: Option<String>,
     pub current_role: Option<String>,
-    pub experience_years: Option<f64>,
     pub skills: Vec<String>,
     pub location: Option<String>,
     pub linkedin_url: Option<String>,
@@ -56,16 +51,23 @@ pub struct ExtractedCandidateProfile {
 pub async fn parse_resume_text(
     _app: AppHandle,
     text: String,
+    filename: Option<String>,
+    embedded_links: Option<Vec<String>>,
 ) -> Result<ExtractedCandidateProfile, String> {
     if text.trim().is_empty() {
         return Err("Pasted resume text is empty".into());
     }
 
-    let profile = extract_profile_from_text(&text);
+    let links = embedded_links.unwrap_or_default();
+    let profile = extract_profile_from_text(&text, filename.as_deref(), &links);
     Ok(sanitize_and_verify_profile(profile, &text))
 }
 
-pub fn extract_profile_from_text(raw: &str) -> ExtractedCandidateProfile {
+pub fn extract_profile_from_text(
+    raw: &str,
+    filename: Option<&str>,
+    embedded_links: &[String],
+) -> ExtractedCandidateProfile {
     let clean_text = raw.replace("\r\n", "\n");
     let lines: Vec<&str> = clean_text
         .lines()
@@ -73,152 +75,52 @@ pub fn extract_profile_from_text(raw: &str) -> ExtractedCandidateProfile {
         .filter(|l| !l.is_empty())
         .collect();
 
-    // 1. Email extraction (RFC 5322 regex via LazyLock)
-    let email = RE_EMAIL
-        .find(&clean_text)
-        .map(|m| m.as_str().to_string());
+    // 1. Email extraction: check embedded mailto links first, then RFC 5322 regex in text
+    let mut email = None;
+    for link in embedded_links {
+        if link.to_lowercase().starts_with("mailto:") {
+            let address = link["mailto:".len()..].split('?').next().unwrap_or("").trim();
+            if RE_EMAIL.is_match(address) {
+                email = Some(address.to_string());
+                break;
+            }
+        }
+    }
+    if email.is_none() {
+        email = RE_EMAIL.find(&clean_text).map(|m| {
+            let s = m.as_str().trim();
+            s.trim_end_matches(&['.', ',', ';', ')', ']'][..]).to_string()
+        });
+    }
 
-    // 2. Phone extraction (validated via LazyLock and is_valid_phone)
+    // 2. Phone extraction (validated against false-positive years e.g. 2018-2022)
     let phone = RE_PHONE
         .find_iter(&clean_text)
         .map(|m| m.as_str().trim().to_string())
         .find(|p| is_valid_phone(p));
 
-    // 3. LinkedIn URL extraction (via LazyLock)
-    let linkedin_url = RE_LINKEDIN.find(&clean_text).map(|m| {
-        let mut url_str = m.as_str().to_string();
-        if !url_str.starts_with("http") {
-            url_str = format!("https://{}", url_str);
-        }
-        url_str
-    });
-
-    // 4. Candidate Name & Current Role / Title Extraction
-    let title_keywords = [
-        "engineer", "developer", "architect", "manager", "lead", "designer",
-        "recruiter", "sourcer", "specialist", "director", "consultant", "analyst",
-        "administrator", "vp", "head of", "officer", "coordinator", "talent",
-        "programmer", "scientist", "executive", "associate", "intern", "supervisor",
-        "technician", "auditor", "strategist", "representative", "counsel", "accountant",
-        "sme", "devops", "platform",
-    ];
-
-    let section_headers = [
-        "summary", "profile", "objective", "experience", "work experience",
-        "professional experience", "employment", "education", "skills",
-        "certifications", "projects", "contact",
-    ];
-
-    let mut name = "New Candidate".to_string();
-    let mut current_role = None;
-
-    // Scan lines for name and title
-    for (i, line) in lines.iter().enumerate() {
-        let trimmed = line.trim();
-        let lower = trimmed.to_lowercase();
-
-        // Check if line is a section header (e.g. "SUMMARY", "EXPERIENCE")
-        let is_header = section_headers.iter().any(|h| lower == *h || lower.starts_with(&format!("{}:", h)));
-        if is_header && i > 0 {
-            continue;
-        }
-
-        // Check for compound name-headline on Line 1 or 2: e.g. "Deion Smith – kubernetes / openSHIFT..."
-        if name == "New Candidate" && i <= 2 && (trimmed.contains('–') || trimmed.contains('—') || trimmed.contains(" - ") || trimmed.contains('|')) {
-            let parts: Vec<&str> = trimmed
-                .split(&['–', '—', '|'][..])
-                .flat_map(|p| p.split(" - "))
-                .map(|p| p.trim())
-                .filter(|p| !p.is_empty())
-                .collect();
-            if parts.len() >= 2 {
-                let first_part = parts[0];
-                let is_clean_name = first_part.len() >= 2
-                    && first_part.len() < 35
-                    && !first_part.contains('@')
-                    && !first_part.contains("http")
-                    && !first_part.chars().any(|c| c.is_ascii_digit())
-                    && first_part.split_whitespace().count() <= 4;
-                if is_clean_name {
-                    name = first_part.to_string();
-                    if current_role.is_none() {
-                        let remaining_role = parts[1..].join(" - ");
-                        if remaining_role.len() < 100 {
-                            current_role = Some(clean_role_title(&remaining_role));
-                        }
-                    }
-                    continue;
-                }
-            }
-        }
-
-        // Check for candidate name (typically Line 1 or first clean alphabetical line)
-        let is_name_candidate = trimmed.len() >= 2
-            && trimmed.len() < 40
-            && !trimmed.contains('@')
-            && !trimmed.contains("http")
-            && !trimmed.contains("www.")
-            && !lower.contains("resume")
-            && !lower.contains("curriculum")
-            && !lower.contains("page ")
-            && !lower.contains("phone:")
-            && !lower.contains("email:")
-            && !lower.contains("location:")
-            && !trimmed.chars().all(|c| c.is_numeric() || c.is_whitespace() || c == '-' || c == '(' || c == ')');
-
-        if is_name_candidate && name == "New Candidate" {
-            let is_role_word = title_keywords.iter().any(|k| lower.contains(k));
-            if !is_role_word {
-                name = trimmed.to_string();
-                continue;
-            }
-        }
-
-        // Check for candidate professional title / role
-        if current_role.is_none() && i < 15 {
-            // Check for explicit title prefix: "Title: Senior Software Engineer"
-            if let Some(cap) = RE_TITLE_PREFIX.captures(trimmed) {
-                if let Some(t_match) = cap.get(2) {
-                    let extracted_t = t_match.as_str().trim();
-                    if !extracted_t.is_empty() && extracted_t.len() < 80 {
-                        current_role = Some(clean_role_title(extracted_t));
-                        continue;
-                    }
-                }
-            }
-
-            // In resumes, Line 2 (directly after Name) is almost always the candidate's Headline / Title
-            if i == 1 && name != "New Candidate" && is_name_candidate && !lower.contains("phone") && !lower.contains("email") {
-                // If it's not a location string and < 70 chars, it's the title!
-                if !is_likely_location(trimmed) && trimmed.len() < 70 {
-                    current_role = Some(clean_role_title(trimmed));
-                    continue;
-                }
-            }
-
-            // Check if line contains a recognizable title keyword
-            if title_keywords.iter().any(|k| lower.contains(k)) && trimmed.len() < 80 && !trimmed.contains('@') && !trimmed.contains("http") {
-                current_role = Some(clean_role_title(trimmed));
-            }
+    // 3. LinkedIn URL extraction: check embedded links first, then regex in text
+    let mut linkedin_url = None;
+    for link in embedded_links {
+        if link.to_lowercase().contains("linkedin.com/in/") {
+            linkedin_url = Some(clean_linkedin_url(link));
+            break;
         }
     }
-
-    // 5. Experience years extraction (via LazyLock)
-    let mut experience_years = None;
-    if let Some(cap) = RE_EXP.captures(&clean_text) {
-        if let Some(num_match) = cap.get(1) {
-            if let Ok(num) = num_match.as_str().parse::<f64>() {
-                if (0.5..=50.0).contains(&num) {
-                    experience_years = Some(num);
-                }
-            }
-        }
+    if linkedin_url.is_none() {
+        linkedin_url = RE_LINKEDIN.find(&clean_text).map(|m| clean_linkedin_url(m.as_str()));
     }
+
+    // 4. Candidate Name Extraction (Multi-Signal Scoring Engine)
+    let name = extract_candidate_name(&lines, filename);
+
+    // 5. Current Role / Title Extraction (Dual-Zone: Header Headline + Experience Anchor)
+    let current_role = extract_candidate_role(&lines, &name);
 
     // 6. Comprehensive Location Extraction
     let location = extract_location_from_text(&lines, &clean_text);
 
-    // 7. Skills extraction with whole-word boundary matching (pre-lowercased once to avoid repeated allocations)
+    // 7. Skills extraction with whole-word boundary matching
     let common_skills = [
         "React", "TypeScript", "JavaScript", "Node.js", "Python", "Java", "C++", "C#", "Rust", "Go", "Golang",
         "AWS", "Azure", "GCP", "Docker", "Kubernetes", "SQL", "PostgreSQL", "MongoDB", "Redis", "GraphQL",
@@ -241,12 +143,226 @@ pub fn extract_profile_from_text(raw: &str) -> ExtractedCandidateProfile {
         email,
         phone,
         current_role,
-        experience_years,
         skills: detected_skills,
         location,
         linkedin_url,
         notes_summary: None,
     }
+}
+
+/// Normalizes LinkedIn URLs by ensuring https://, stripping tracking query params and trailing slashes
+fn clean_linkedin_url(raw: &str) -> String {
+    let mut cleaned = raw.trim().to_string();
+    if let Some(q_idx) = cleaned.find('?') {
+        cleaned = cleaned[..q_idx].to_string();
+    }
+    cleaned = cleaned.trim_end_matches('/').to_string();
+    if !cleaned.starts_with("http://") && !cleaned.starts_with("https://") {
+        cleaned = format!("https://{}", cleaned);
+    }
+    cleaned
+}
+
+/// Extracts candidate name using multi-signal scoring (filename anchor, stopword filter, capitalization, positioning)
+fn extract_candidate_name(lines: &[&str], filename: Option<&str>) -> String {
+    // 1. Extract semantic name tokens from filename if available (e.g. "alex_rivera_resume.pdf" -> ["alex", "rivera"])
+    let mut filename_tokens: Vec<String> = Vec::new();
+    if let Some(fname) = filename {
+        let base = fname.split('.').next().unwrap_or(fname).to_lowercase();
+        let noise = [
+            "resume", "cv", "curriculum", "vitae", "profile", "updated", "latest", "draft",
+            "v1", "v2", "final", "2023", "2024", "2025", "2026", "software", "engineer", "dev",
+        ];
+        for part in base.split(&['-', '_', ' ', '.'][..]) {
+            let trimmed = part.trim();
+            if trimmed.len() >= 2 && !noise.contains(&trimmed) && !trimmed.chars().any(|c| c.is_ascii_digit()) {
+                filename_tokens.push(trimmed.to_string());
+            }
+        }
+    }
+
+    let section_headers = [
+        "summary", "profile", "objective", "experience", "work experience",
+        "professional experience", "employment", "education", "skills",
+        "certifications", "projects", "contact", "curriculum vitae", "resume",
+        "references", "portfolio",
+    ];
+
+    let mut best_name = "New Candidate".to_string();
+    let mut highest_score = -100i32;
+
+    for (i, line) in lines.iter().take(8).enumerate() {
+        let trimmed = line.trim();
+        let lower = trimmed.to_lowercase();
+
+        // Immediate Disqualifiers for Name
+        if trimmed.is_empty()
+            || trimmed.contains('@')
+            || trimmed.contains("http")
+            || trimmed.contains("www.")
+            || trimmed.contains("linkedin.com")
+            || trimmed.contains("github.com")
+            || trimmed.contains(".com")
+            || trimmed.contains(".org")
+            || trimmed.contains(".net")
+            || trimmed.chars().any(|c| c.is_ascii_digit())
+            || section_headers.iter().any(|h| lower == *h || lower.starts_with(&format!("{}:", h)))
+            || lower.contains("curriculum vitae")
+            || lower.contains("page ")
+            || lower.starts_with("phone:")
+            || lower.starts_with("email:")
+            || lower.starts_with("address:")
+            || lower.starts_with("location:")
+        {
+            continue;
+        }
+
+        // Handle compound header line: "Alex Rivera | Senior Frontend Architect"
+        let candidate_part = if trimmed.contains('|') || trimmed.contains('–') || trimmed.contains('—') || trimmed.contains(" - ") {
+            let parts: Vec<&str> = trimmed
+                .split(&['|', '–', '—'][..])
+                .flat_map(|p| p.split(" - "))
+                .map(|p| p.trim())
+                .filter(|p| !p.is_empty())
+                .collect();
+            parts.first().copied().unwrap_or(trimmed)
+        } else {
+            trimmed
+        };
+
+        let words: Vec<&str> = candidate_part.split_whitespace().collect();
+        let word_count = words.len();
+
+        // Names are typically 2 to 4 words
+        if !(2..=4).contains(&word_count) {
+            continue;
+        }
+
+        if candidate_part.len() < 3 || candidate_part.len() > 35 {
+            continue;
+        }
+
+        let mut score = 0i32;
+
+        // Signal A: Line position (names are usually at the very top)
+        if i == 0 {
+            score += 40;
+        } else if i == 1 {
+            score += 25;
+        } else if i == 2 {
+            score += 15;
+        }
+
+        // Signal B: Filename token match (huge boost if matching file name)
+        if !filename_tokens.is_empty() {
+            let cand_lower = candidate_part.to_lowercase();
+            let mut matches = 0;
+            for token in &filename_tokens {
+                if cand_lower.contains(token) {
+                    matches += 1;
+                }
+            }
+            if matches >= 2 {
+                score += 100;
+            } else if matches == 1 {
+                score += 50;
+            }
+        }
+
+        // Signal C: Capitalization (Title Case or ALL CAPS)
+        let is_title_cased = words.iter().all(|w| {
+            let mut chars = w.chars();
+            chars.next().map_or(false, |c| c.is_uppercase())
+        });
+        let is_all_caps = candidate_part.chars().all(|c| !c.is_alphabetic() || c.is_uppercase());
+
+        if is_title_cased || is_all_caps {
+            score += 25;
+        }
+
+        // Signal D: Avoid common role nouns as names
+        let role_words = ["engineer", "developer", "designer", "architect", "manager", "lead", "specialist"];
+        if role_words.iter().any(|r| lower.contains(r)) {
+            score -= 50;
+        }
+
+        if score > highest_score {
+            highest_score = score;
+            best_name = candidate_part.to_string();
+        }
+    }
+
+    best_name
+}
+
+/// Extracts current role / title using dual-zone strategy:
+/// 1. Top headline directly under candidate name
+/// 2. First job entry under EXPERIENCE / WORK HISTORY
+fn extract_candidate_role(lines: &[&str], candidate_name: &str) -> Option<String> {
+    let title_keywords = [
+        "engineer", "developer", "architect", "manager", "lead", "designer",
+        "recruiter", "sourcer", "specialist", "director", "consultant", "analyst",
+        "administrator", "vp", "head of", "officer", "coordinator", "talent",
+        "programmer", "scientist", "executive", "associate", "intern", "supervisor",
+        "technician", "auditor", "strategist", "representative", "counsel", "accountant",
+        "sme", "devops", "platform", "full stack", "frontend", "backend",
+    ];
+
+    let name_lower = candidate_name.to_lowercase();
+
+    // Zone 1: Scan top 8 lines for headline (lines directly under Name)
+    for line in lines.iter().take(8) {
+        let trimmed = line.trim();
+        let lower = trimmed.to_lowercase();
+
+        if lower == name_lower || trimmed.contains('@') || trimmed.contains("http") || trimmed.contains("linkedin.com") {
+            continue;
+        }
+
+        // Check for explicit prefix: "Title: Senior DevOps Engineer"
+        if let Some(cap) = RE_TITLE_PREFIX.captures(trimmed) {
+            if let Some(t_match) = cap.get(2) {
+                let val = t_match.as_str().trim();
+                if !val.is_empty() && val.len() < 80 {
+                    return Some(clean_role_title(val));
+                }
+            }
+        }
+
+        // Check if line contains a recognizable title keyword and is concise
+        if title_keywords.iter().any(|k| lower.contains(k)) && trimmed.len() < 80 && !is_likely_location(trimmed) {
+            return Some(clean_role_title(trimmed));
+        }
+    }
+
+    // Zone 2: Experience Section Anchor Fallback
+    // If no headline was in the header, find the first position under "EXPERIENCE"
+    let exp_headers = ["experience", "work experience", "professional experience", "employment history", "work history"];
+    let mut in_experience = false;
+    let mut exp_lines_checked = 0;
+
+    for line in lines {
+        let trimmed = line.trim();
+        let lower = trimmed.to_lowercase();
+
+        if !in_experience {
+            if exp_headers.iter().any(|h| lower == *h || lower.starts_with(&format!("{}:", h))) {
+                in_experience = true;
+            }
+            continue;
+        }
+
+        exp_lines_checked += 1;
+        if exp_lines_checked > 6 {
+            break; // Stop after first entry
+        }
+
+        if title_keywords.iter().any(|k| lower.contains(k)) && trimmed.len() < 80 {
+            return Some(clean_role_title(trimmed));
+        }
+    }
+
+    None
 }
 
 fn is_valid_phone(s: &str) -> bool {
@@ -314,6 +430,10 @@ fn clean_role_title(title: &str) -> String {
             cleaned = cleaned[..idx].trim().to_string();
         }
     }
+    // Strip trailing dates e.g. "(2021 - Present)" or "2021 - 2024"
+    if let Some(idx) = cleaned.find('(') {
+        cleaned = cleaned[..idx].trim().to_string();
+    }
     cleaned
 }
 
@@ -322,7 +442,6 @@ fn is_likely_location(text: &str) -> bool {
     if lower.contains("remote") || lower.contains("area") || lower.contains("city") || lower.contains("metro") {
         return true;
     }
-    // Check "City, ST" via LazyLock
     RE_US_STATE.is_match(text)
 }
 
@@ -338,9 +457,7 @@ fn extract_location_from_text(lines: &[&str], full_text: &str) -> Option<String>
     }
 
     // B. Check top 8 lines (header section) by splitting contact lines:
-    // e.g. "alex@gmail.com | (555) 123-4567 | San Francisco, CA | linkedin.com/in/alex"
     for line in lines.iter().take(8) {
-        // Check for full line or piped tokens
         let tokens: Vec<&str> = line.split(&['|', '•', '·', ';'][..]).map(|t| t.trim()).collect();
         for token in tokens {
             if token.contains('@') || token.contains("http") || token.contains("linkedin.com") {

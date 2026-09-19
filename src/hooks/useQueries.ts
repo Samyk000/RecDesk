@@ -339,7 +339,12 @@ export function useDashboardStats() {
 // ---- Local Resume Parsing ----
 export function useParseResume() {
   return useMutation({
-    mutationFn: (text: string) => apiResumeParser.parseResume(text),
+    mutationFn: (args: string | { text: string; filename?: string; embeddedLinks?: string[] }) => {
+      if (typeof args === "string") {
+        return apiResumeParser.parseResume(args);
+      }
+      return apiResumeParser.parseResume(args.text, args.filename, args.embeddedLinks);
+    },
   });
 }
 

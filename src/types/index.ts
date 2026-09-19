@@ -292,7 +292,6 @@ export interface ExtractedCandidateProfile {
   email?: string | null;
   phone?: string | null;
   current_role?: string | null;
-  experience_years?: number | null;
   skills: string[];
   location?: string | null;
   linkedin_url?: string | null;

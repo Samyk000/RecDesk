@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Lightning } from "@phosphor-icons/react";
+import { Lightning, FileText, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -18,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { useCreateCandidate, useJobs } from "../../hooks/useQueries";
+import { useCreateCandidate, useJobs, useAttachResume } from "../../hooks/useQueries";
 import { SUBMISSION_STATUSES } from "../../lib/constants";
 import { errorMessage } from "../../lib/utils";
 import { StatusSelectItem } from "./StatusSelectItem";
@@ -36,9 +36,11 @@ interface Props {
 
 export function CandidateForm({ open, onOpenChange, jobId }: Props) {
   const create = useCreateCandidate();
+  const attachResumeMut = useAttachResume();
   const { data: allJobs } = useJobs();
 
   const [autoFillOpen, setAutoFillOpen] = useState(false);
+  const [stagedResumePath, setStagedResumePath] = useState<string | null>(null);
 
   // Controlled form states
   const [name, setName] = useState("");
@@ -89,6 +91,7 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     setInterviewAt("");
     setPlacedAt("");
     setRejectionReason("");
+    setStagedResumePath(null);
   }, [open, jobId]);
 
   useEffect(() => {
@@ -102,13 +105,14 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     if (match) setSelectedJobId(match.id);
   }, [selectedRole, selectedClient, allJobs, jobId]);
 
-  function handleApplyExtracted(profile: ExtractedCandidateProfile) {
+  function handleApplyExtracted(profile: ExtractedCandidateProfile, sourceFilePath?: string) {
     if (profile.name) setName(profile.name);
     if (profile.current_role) setCurrentTitle(profile.current_role);
     if (profile.location) setLocation(profile.location);
     if (profile.email) setEmail(profile.email);
     if (profile.phone) setPhone(profile.phone);
     if (profile.linkedin_url) setLinkedin(profile.linkedin_url);
+    if (sourceFilePath) setStagedResumePath(sourceFilePath);
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -141,8 +145,18 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     }
 
     try {
-      await create.mutateAsync(input);
-      toast.success("Candidate added");
+      const newCand = await create.mutateAsync(input);
+      if (stagedResumePath) {
+        try {
+          await attachResumeMut.mutateAsync({ id: newCand.id, sourcePath: stagedResumePath });
+          toast.success("Candidate created & resume attached!");
+        } catch (attachErr) {
+          console.error("Failed to attach staged resume:", attachErr);
+          toast.success("Candidate added (resume attach failed)");
+        }
+      } else {
+        toast.success("Candidate added");
+      }
       onOpenChange(false);
     } catch (err) {
       toast.error(errorMessage(err));
@@ -323,6 +337,27 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
                   onChange={(e) => setRejectionReason(e.target.value)}
                   placeholder="e.g. Failed technical round"
                 />
+              </div>
+            )}
+
+            {/* Staged Resume File Preview Badge */}
+            {stagedResumePath && (
+              <div className="flex items-center justify-between rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-xs animate-fade-in">
+                <div className="flex items-center gap-2 truncate min-w-0">
+                  <FileText className="h-4 w-4 text-primary shrink-0" />
+                  <span className="text-fg-subtle shrink-0">Attached Resume:</span>
+                  <span className="font-semibold text-fg truncate">
+                    {stagedResumePath.split(/[\\/]/).pop()}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setStagedResumePath(null)}
+                  className="text-fg-subtle hover:text-red-500 transition-colors p-1 cursor-pointer shrink-0"
+                  title="Remove attached resume"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
             )}
           </form>

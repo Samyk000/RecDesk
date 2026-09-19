@@ -77,6 +77,7 @@ export function SidebarSubmissions() {
     if (!candidates) return [];
 
     const list = candidates.filter((c) => isExternalSubmission(c));
+    if (collapsed) return list;
 
     return list.sort((a, b) => {
       const timeA = getSubmissionTimestamp(a.submitted_at);
@@ -88,7 +89,8 @@ export function SidebarSubmissions() {
       const updatedB = b.last_updated ? new Date(b.last_updated).getTime() : 0;
       return updatedB - updatedA;
     });
-  }, [candidates]);
+  }, [candidates, collapsed]);
+
 
   const handleOpenCandidate = (candidate: CandidateWithJob) => {
     navigate(`/candidates?candidate=${candidate.id}`);

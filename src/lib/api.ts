@@ -87,7 +87,11 @@ export const apiFiles = {
 
 // ---- Resume Auto-Fill Parser ----
 export const apiResumeParser = {
-  parseResume: (text: string) =>
-    call<import("../types").ExtractedCandidateProfile>("parse_resume_text", { text }),
+  parseResume: (text: string, filename?: string, embeddedLinks?: string[]) =>
+    call<import("../types").ExtractedCandidateProfile>("parse_resume_text", {
+      text,
+      filename: filename || null,
+      embeddedLinks: embeddedLinks || [],
+    }),
 };
 export const apiAi = apiResumeParser;

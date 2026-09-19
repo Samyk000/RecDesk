@@ -50,7 +50,7 @@ export function AppLayout() {
         </div>
       </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
-      <JobFormDialog open={jobFormOpen} onOpenChange={setJobFormOpen} />
+      {jobFormOpen && <JobFormDialog open={jobFormOpen} onOpenChange={setJobFormOpen} />}
     </TooltipProvider>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowCounterClockwise,
@@ -56,7 +56,9 @@ import {
   InterviewFeedbackDialog,
   hasInterviewFeedback,
 } from "./InterviewFeedbackDialog";
-import { ResumePreviewModal } from "./ResumePreviewModal";
+const ResumePreviewModal = lazy(() =>
+  import("./ResumePreviewModal").then((m) => ({ default: m.ResumePreviewModal }))
+);
 import { ChangeJobDialog } from "./ChangeJobDialog";
 import {
   DropdownMenu,
@@ -905,19 +907,22 @@ function CandidatePanelBody({
         }}
       />
 
-      {candidate.resume_path && (
-        <ResumePreviewModal
-          open={showResumePreview}
-          onClose={() => setShowResumePreview(false)}
-          filePath={candidate.resume_path}
-          candidateName={candidate.name}
-          candidateId={candidate.id}
-          onResumeUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: ["candidate", candidate.id] });
-            queryClient.invalidateQueries({ queryKey: ["candidates"] });
-          }}
-        />
+      {candidate.resume_path && showResumePreview && (
+        <Suspense fallback={null}>
+          <ResumePreviewModal
+            open={showResumePreview}
+            onClose={() => setShowResumePreview(false)}
+            filePath={candidate.resume_path}
+            candidateName={candidate.name}
+            candidateId={candidate.id}
+            onResumeUpdated={() => {
+              queryClient.invalidateQueries({ queryKey: ["candidate", candidate.id] });
+              queryClient.invalidateQueries({ queryKey: ["candidates"] });
+            }}
+          />
+        </Suspense>
       )}
+
 
       <BackwardStatusConfirmDialog
         open={backwardTargetStatus !== null}
