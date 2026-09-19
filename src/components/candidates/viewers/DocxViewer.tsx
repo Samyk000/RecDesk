@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { renderAsync } from "docx-preview";
 import { Spinner } from "../../common/Spinner";
 
 interface Props {
@@ -23,18 +22,22 @@ export function DocxViewer({ data, scale }: Props) {
 
     const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
 
-    renderAsync(buffer, target, undefined, {
-      className: "docx",
-      inWrapper: true,
-      hideWrapperOnPrint: true,
-      ignoreWidth: false,
-      ignoreHeight: false,
-      ignoreFonts: false,
-      breakPages: true,
-      ignoreLastRenderedPageBreak: false,
-      experimental: true,
-      useBase64URL: true,
-    })
+    import("docx-preview")
+      .then(({ renderAsync }) => {
+        if (!active) return;
+        return renderAsync(buffer, target, undefined, {
+          className: "docx",
+          inWrapper: true,
+          hideWrapperOnPrint: true,
+          ignoreWidth: false,
+          ignoreHeight: false,
+          ignoreFonts: false,
+          breakPages: true,
+          ignoreLastRenderedPageBreak: false,
+          experimental: true,
+          useBase64URL: true,
+        });
+      })
       .then(() => {
         if (!active) return;
         setLoading(false);

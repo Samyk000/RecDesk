@@ -142,6 +142,20 @@ export const Mascot = memo(function Mascot({ size = 52, className = "" }: Mascot
   const [reaction, setReaction] = useState<Reaction | null>(null);
 
 
+  // Preload companion images into browser cache when idle so switching is instant and lag-free
+  useEffect(() => {
+    const preload = () => {
+      MASCOTS.forEach((m) => {
+        const img1 = new Image();
+        img1.src = m.directions;
+        const img2 = new Image();
+        img2.src = m.reactions;
+      });
+    };
+    const id = setTimeout(preload, 1200);
+    return () => clearTimeout(id);
+  }, []);
+
   // Switch to next mascot on right-click or keyboard trigger with smooth bounce
   const toggleMascot = (e?: React.MouseEvent | React.KeyboardEvent) => {
     e?.stopPropagation();
@@ -356,44 +370,34 @@ export const Mascot = memo(function Mascot({ size = 52, className = "" }: Mascot
                 willChange: "transform",
               }}
             >
-              {/* Pre-render all 4 mascots in the DOM so all textures remain permanently decoded in GPU memory */}
-              {MASCOTS.map((m, idx) => {
-                const isActive = idx === activeMascotIndex;
-                return (
-                  <span
-                    key={m.id}
-                    aria-hidden={!isActive}
-                    style={{
-                      position: "absolute",
-                      inset: 0,
-                      opacity: isActive ? 1 : 0,
-                      pointerEvents: isActive ? "auto" : "none",
-                      transition: "opacity 120ms cubic-bezier(0.4, 0, 0.2, 1)",
-                      willChange: "opacity",
-                      filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.12))",
-                    }}
-                  >
-                    {/* Directions Layer */}
-                    <span
-                      style={{
-                        ...layer,
-                        backgroundImage: `url(${m.directions})`,
-                        ...cell(DIRECTIONS.indexOf(direction)),
-                        opacity: isActive && reaction ? 0 : 1,
-                      }}
-                    />
-                    {/* Reactions Layer */}
-                    <span
-                      style={{
-                        ...layer,
-                        backgroundImage: `url(${m.reactions})`,
-                        ...cell(REACTIONS.indexOf(reaction ?? "blink")),
-                        opacity: isActive && reaction ? 1 : 0,
-                      }}
-                    />
-                  </span>
-                );
-              })}
+              {/* Render only active companion in the DOM to avoid hoarding uncompressed GPU textures */}
+              <span
+                key={mascot.id}
+                style={{
+                  position: "absolute",
+                  inset: 0,
+                  filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.12))",
+                }}
+              >
+                {/* Directions Layer */}
+                <span
+                  style={{
+                    ...layer,
+                    backgroundImage: `url(${mascot.directions})`,
+                    ...cell(DIRECTIONS.indexOf(direction)),
+                    opacity: reaction ? 0 : 1,
+                  }}
+                />
+                {/* Reactions Layer */}
+                <span
+                  style={{
+                    ...layer,
+                    backgroundImage: `url(${mascot.reactions})`,
+                    ...cell(REACTIONS.indexOf(reaction ?? "blink")),
+                    opacity: reaction ? 1 : 0,
+                  }}
+                />
+              </span>
             </span>
           </button>
         </TooltipTrigger>

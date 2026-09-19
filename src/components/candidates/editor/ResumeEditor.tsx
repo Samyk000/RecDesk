@@ -8,8 +8,6 @@ import { Highlight } from "@tiptap/extension-highlight";
 import { FontFamily } from "@tiptap/extension-font-family";
 import { TextAlign } from "@tiptap/extension-text-align";
 import { Placeholder } from "@tiptap/extension-placeholder";
-import mammoth from "mammoth";
-import { convertHtmlToDocxBytes } from "../../../lib/docxExport";
 import {
   TextB,
   TextItalic,
@@ -184,6 +182,7 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
           const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
           if (ext === "docx") {
             try {
+              const { default: mammoth } = await import("mammoth");
               const result = await mammoth.convertToHtml({ arrayBuffer: safeBuffer });
               if (!active) return;
               editor?.commands.setContent(result.value || "<p>Empty document</p>");
@@ -244,6 +243,7 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       // If document is DOCX or was converted from PDF, save as full OpenXML .docx
       if (ext === "docx" || ext === "pdf") {
         targetPath = ext === "pdf" ? filePath.replace(/\.pdf$/i, ".docx") : filePath;
+        const { convertHtmlToDocxBytes } = await import("../../../lib/docxExport");
         const bytes = await convertHtmlToDocxBytes(htmlContent);
         await apiFiles.writeResumeBytes(targetPath, bytes);
       } else {

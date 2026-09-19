@@ -1,12 +1,3 @@
-import * as pdfjs from "pdfjs-dist";
-import pdfWorker from "pdfjs-dist/build/pdf.worker.min.mjs?url";
-import mammoth from "mammoth";
-
-// Ensure PDF.js worker is properly configured for offline desktop execution
-if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {
-  pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
-}
-
 interface RawTextItem {
   text: string;
   x: number;
@@ -47,6 +38,13 @@ export async function extractDocumentText(
 }
 
 async function extractPdfDocument(data: Uint8Array): Promise<ExtractedDocumentContent> {
+  // Dynamically load PDF.js engine only on demand
+  const pdfjs = await import("pdfjs-dist");
+  const { default: pdfWorker } = await import("pdfjs-dist/build/pdf.worker.min.mjs?url");
+  if (typeof window !== "undefined" && !pdfjs.GlobalWorkerOptions.workerSrc) {
+    pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+  }
+
   const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   const loadingTask = pdfjs.getDocument({ data: safeBuffer, verbosity: 0 });
   const pdf = await loadingTask.promise;
@@ -170,6 +168,7 @@ function groupItemsIntoLines(items: RawTextItem[]): string[] {
 }
 
 async function extractDocxDocument(data: Uint8Array): Promise<ExtractedDocumentContent> {
+  const { default: mammoth } = await import("mammoth");
   const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   try {
     const result = await mammoth.extractRawText({ arrayBuffer: safeBuffer });

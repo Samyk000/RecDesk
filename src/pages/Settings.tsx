@@ -23,8 +23,7 @@ import { Button } from "../components/ui/button";
 import { Switch } from "../components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { errorMessage, cn } from "../lib/utils";
-import { generateExcelWorkbook, generateSampleExcelTemplate } from "../lib/excelExport";
-import { parseExcelImport, type ExcelImportValidation } from "../lib/excelImport";
+import type { ExcelImportValidation } from "../lib/excelImport";
 import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
 import type { ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
@@ -84,6 +83,7 @@ export function Settings() {
     try {
       const json = await apiData.export();
       const envelope: ExportEnvelope = JSON.parse(json);
+      const { generateExcelWorkbook } = await import("../lib/excelExport");
       const excelBytes = generateExcelWorkbook(envelope);
 
       const path = await saveDialog({
@@ -104,6 +104,7 @@ export function Settings() {
   async function downloadExcelTemplate() {
     setBusy("template");
     try {
+      const { generateSampleExcelTemplate } = await import("../lib/excelExport");
       const templateBytes = generateSampleExcelTemplate();
       const path = await saveDialog({
         title: "Save sample Excel template",
@@ -142,6 +143,7 @@ export function Settings() {
           apiClients.list().catch(() => []),
           apiJobs.list().catch(() => []),
         ]);
+        const { parseExcelImport } = await import("../lib/excelImport");
         const validation = parseExcelImport(bytes, existingClients, existingJobs);
         setExcelValidation(validation);
       } else {
