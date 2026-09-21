@@ -9,8 +9,6 @@ import {
   ArrowCounterClockwise,
   ArrowSquareOut,
   Printer,
-  CaretLeft,
-  CaretRight,
   PencilSimple,
   DownloadSimple,
 } from "@phosphor-icons/react";
@@ -18,7 +16,7 @@ import { openPath } from "@tauri-apps/plugin-opener";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { apiFiles } from "../../lib/api";
-import { Spinner } from "../common/Spinner";
+import { ThemedOrb } from "../common/Spinner";
 import { PdfViewer } from "./viewers/PdfViewer";
 import { DocxViewer } from "./viewers/DocxViewer";
 import { TextViewer } from "./viewers/TextViewer";
@@ -49,8 +47,6 @@ export function ResumePreviewModal({
   const [data, setData] = useState<Uint8Array | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [scale, setScale] = useState(1.0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isEditing, setIsEditing] = useState(false);
   const [convertedHtml, setConvertedHtml] = useState<string | null>(null);
   const [isConverting, setIsConverting] = useState(false);
@@ -315,8 +311,6 @@ export function ResumePreviewModal({
     if (!open || !filePath) return;
     setCurrentFilePath(filePath);
     setScale(1.0);
-    setCurrentPage(1);
-    setTotalPages(1);
     setIsEditing(false);
     setConvertedHtml(null);
     setIsConverting(false);
@@ -443,13 +437,11 @@ export function ResumePreviewModal({
     <div className="fixed inset-0 z-50 flex flex-col bg-black/80 backdrop-blur-sm animate-[fade-in_0.2s_ease-out] print:hidden">
       {/* Conversion Loading Overlay */}
       {isConverting && (
-        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/85 backdrop-blur-md gap-4">
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10 text-primary shadow-lg animate-pulse">
-            <Spinner />
-          </div>
+        <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-white/95 dark:bg-zinc-950/95 backdrop-blur-md gap-4 select-none animate-fade-in">
+          <ThemedOrb state="working" size={64} />
           <div className="text-center space-y-1">
-            <h3 className="text-sm font-semibold text-white">Converting PDF to Editable Resume</h3>
-            <p className="text-xs text-zinc-400 font-mono">{conversionStep}</p>
+            <h3 className="text-sm font-semibold text-zinc-900 dark:text-white">Converting PDF to Editable Resume</h3>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400 font-mono">{conversionStep}</p>
           </div>
         </div>
       )}
@@ -479,33 +471,8 @@ export function ResumePreviewModal({
           </div>
         </div>
 
-        {/* Center: Controls (Zoom & Pagination) */}
-        <div className="flex items-center gap-2 shrink-0 mx-2">
-          {/* PDF Page Navigation */}
-          {isPdf && totalPages > 1 && (
-            <div className="flex h-8 items-center gap-1 rounded-md border border-border bg-surface-hover px-1.5 text-xs text-fg-subtle shrink-0">
-              <button
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage <= 1}
-                title="Previous page"
-                className="rounded p-1 hover:bg-surface-active disabled:opacity-40"
-              >
-                <CaretLeft className="h-3 w-3" />
-              </button>
-              <span className="min-w-[50px] text-center font-mono text-[11px] tabular-nums whitespace-nowrap">
-                {currentPage} / {totalPages}
-              </span>
-              <button
-                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                disabled={currentPage >= totalPages}
-                title="Next page"
-                className="rounded p-1 hover:bg-surface-active disabled:opacity-40"
-              >
-                <CaretRight className="h-3 w-3" />
-              </button>
-            </div>
-          )}
-
+        {/* Right: Controls, Actions & Close */}
+        <div className="flex items-center gap-2 shrink-0">
           {/* Zoom Controls */}
           <div className="flex h-8 items-center gap-1 rounded-md border border-border bg-surface-hover px-1.5 text-xs text-fg-subtle shrink-0">
             <button
@@ -535,10 +502,9 @@ export function ResumePreviewModal({
               </button>
             )}
           </div>
-        </div>
 
-        {/* Right: Actions & Close */}
-        <div className="flex items-center gap-2 shrink-0">
+          <div className="h-4 w-px bg-border/80 mx-0.5 shrink-0" />
+
           {/* Edit Resume Button */}
           <button
             onClick={handleEditClick}
@@ -550,25 +516,29 @@ export function ResumePreviewModal({
             <span>Edit Resume</span>
           </button>
 
-          {/* Download Original Copy */}
-          <button
-            onClick={handleDownloadCopy}
-            disabled={!data}
-            title={`Download copy of ${filename}`}
-            className="flex h-8 items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md border border-border bg-surface-hover px-3 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg disabled:opacity-50"
-          >
-            <DownloadSimple className="h-3.5 w-3.5 shrink-0" />
-            <span>Download</span>
-          </button>
+          {/* Non-PDF documents: Keep Download and Print in header (PDF already has them on embedded toolbar) */}
+          {!isPdf && (
+            <>
+              <button
+                onClick={handleDownloadCopy}
+                disabled={!data}
+                title={`Download copy of ${filename}`}
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md border border-border bg-surface-hover px-3 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg disabled:opacity-50"
+              >
+                <DownloadSimple className="h-3.5 w-3.5 shrink-0" />
+                <span>Download</span>
+              </button>
 
-          <button
-            onClick={handlePrint}
-            title="Print or Save as clean PDF (Ctrl+P)"
-            className="flex h-8 items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md border border-border bg-surface-hover px-3 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-          >
-            <Printer className="h-3.5 w-3.5 shrink-0" />
-            <span>Print / PDF</span>
-          </button>
+              <button
+                onClick={handlePrint}
+                title="Print or Save as clean PDF (Ctrl+P)"
+                className="flex h-8 items-center gap-1.5 whitespace-nowrap shrink-0 rounded-md border border-border bg-surface-hover px-3 text-xs font-medium text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
+              >
+                <Printer className="h-3.5 w-3.5 shrink-0" />
+                <span>Print / PDF</span>
+              </button>
+            </>
+          )}
 
           <button
             onClick={handleOpenExternal}
@@ -592,11 +562,11 @@ export function ResumePreviewModal({
       </div>
 
       {/* Main Document Viewport */}
-      <div className="relative flex-1 overflow-hidden flex flex-col">
+      <div className="relative flex-1 overflow-hidden flex flex-col bg-slate-100 dark:bg-zinc-950">
         {loading && (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 bg-surface/40">
-            <Spinner />
-            <span className="text-xs text-fg-subtle">Loading resume content…</span>
+          <div className="flex flex-1 flex-col items-center justify-center gap-3.5 bg-slate-100 dark:bg-zinc-950 p-6 select-none animate-fade-in">
+            <ThemedOrb state="searching" size={64} />
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Reviewing resume content…</span>
           </div>
         )}
 
@@ -616,15 +586,7 @@ export function ResumePreviewModal({
 
         {!loading && !error && data && (
           <>
-            {isPdf && (
-              <PdfViewer
-                data={data}
-                scale={scale}
-                currentPage={currentPage}
-                onTotalPages={setTotalPages}
-                onPageChange={setCurrentPage}
-              />
-            )}
+            {isPdf && <PdfViewer data={data} scale={scale} />}
 
             {(isDocx || isLegacyDoc) && <DocxViewer data={data} scale={scale} />}
 

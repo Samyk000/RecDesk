@@ -15,7 +15,7 @@ export function TextViewer({ data, scale }: Props) {
   }, [data]);
 
   return (
-    <div className="flex-1 overflow-y-auto overflow-x-auto p-6 bg-slate-900/30 dark:bg-black/40 flex justify-center">
+    <div className="flex-1 overflow-y-auto overflow-x-auto p-6 bg-slate-100 dark:bg-zinc-950 flex justify-center">
       <div
         className="w-full max-w-4xl transition-transform duration-150 origin-top"
         style={{ transform: `scale(${scale})` }}

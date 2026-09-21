@@ -23,9 +23,6 @@ importers:
       '@radix-ui/react-dropdown-menu':
         specifier: ^2.1.24
         version: 2.1.24(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@radix-ui/react-label':
-        specifier: ^2.1.15
-        version: 2.1.15(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@radix-ui/react-select':
         specifier: ^2.3.7
         version: 2.3.7(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -116,6 +113,9 @@ importers:
       tesseract.js:
         specifier: ^7.0.0
         version: 7.0.0
+      thinking-orbs:
+        specifier: ^0.3.1
+        version: 0.3.1(react@19.2.8)
       xlsx:
         specifier: ^0.18.5
         version: 0.18.5
@@ -652,19 +652,6 @@ packages:
       react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
     peerDependenciesMeta:
       '@types/react':
-        optional: true
-
-  '@radix-ui/react-label@2.1.15':
-    resolution: {integrity: sha512-o/rdYEwZTTo5tjknnPeyQFU45kUC4i/XyeDPP+HGyi6XqpOP6Zf5Ya5vh/Yfe9Id5JiuWnnAx2XqIeD3UYZt0g==}
-    peerDependencies:
-      '@types/react': '*'
-      '@types/react-dom': '*'
-      react: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-      react-dom: ^16.8 || ^17.0 || ^18.0 || ^19.0 || ^19.0.0-rc
-    peerDependenciesMeta:
-      '@types/react':
-        optional: true
-      '@types/react-dom':
         optional: true
 
   '@radix-ui/react-menu@2.1.24':
@@ -1968,6 +1955,11 @@ packages:
   tesseract.js@7.0.0:
     resolution: {integrity: sha512-exPBkd+z+wM1BuMkx/Bjv43OeLBxhL5kKWsz/9JY+DXcXdiBjiAch0V49QR3oAJqCaL5qURE0vx9Eo+G5YE7mA==}
 
+  thinking-orbs@0.3.1:
+    resolution: {integrity: sha512-3BG1aeB1RUTxItCml/BBuIz5JRM4kZqGuyx+vouv0fXTtcR9ZNoKjWGneHPx94y74GxgArwJZ1qbJR5dt54kSw==}
+    peerDependencies:
+      react: '>=18.0.0'
+
   tinyglobby@0.2.17:
     resolution: {integrity: sha512-wXR/dYpcqKmfWpEdZjiKJOwCNFndD0DMnrW/cYjVGttEkBfVgcLFHoNrlj47mjOVic9yyNu65alsgF4NQyTa2g==}
     engines: {node: '>=12.0.0'}
@@ -2533,15 +2525,6 @@ snapshots:
       react: 19.2.8
     optionalDependencies:
       '@types/react': 19.2.18
-
-  '@radix-ui/react-label@2.1.15(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
-    dependencies:
-      '@radix-ui/react-primitive': 2.1.10(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      react: 19.2.8
-      react-dom: 19.2.8(react@19.2.8)
-    optionalDependencies:
-      '@types/react': 19.2.18
-      '@types/react-dom': 19.2.4(@types/react@19.2.18)
 
   '@radix-ui/react-menu@2.1.24(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
@@ -3770,6 +3753,10 @@ snapshots:
       zlibjs: 0.3.1
     transitivePeerDependencies:
       - encoding
+
+  thinking-orbs@0.3.1(react@19.2.8):
+    dependencies:
+      react: 19.2.8
 
   tinyglobby@0.2.17:
     dependencies:

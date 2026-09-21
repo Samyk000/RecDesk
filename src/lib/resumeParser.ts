@@ -53,71 +53,81 @@ async function extractPdfDocument(data: Uint8Array): Promise<ExtractedDocumentCo
   let fullText = "";
   const embeddedLinks: string[] = [];
 
-  for (let pageNum = 1; pageNum <= numPages; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const viewport = page.getViewport({ scale: 1.0 });
-    const pageHeight = viewport.height;
-    const pageWidth = viewport.width;
+  try {
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const viewport = page.getViewport({ scale: 1.0 });
+      const pageHeight = viewport.height;
+      const pageWidth = viewport.width;
 
-    // 1. Recover embedded hyperlink annotations (e.g. LinkedIn icon links, mailto links)
-    try {
-      const annotations = await page.getAnnotations();
-      for (const ann of annotations) {
-        if (ann.subtype === "Link" && typeof ann.url === "string" && ann.url.trim()) {
-          embeddedLinks.push(ann.url.trim());
+      // 1. Recover embedded hyperlink annotations (e.g. LinkedIn icon links, mailto links)
+      try {
+        const annotations = await page.getAnnotations();
+        for (const ann of annotations) {
+          if (ann.subtype === "Link" && typeof ann.url === "string" && ann.url.trim()) {
+            embeddedLinks.push(ann.url.trim());
+          }
         }
+      } catch {
+        // Ignore annotation read failures gracefully
       }
+
+      // 2. Extract text items with spatial coordinates
+      const content = await page.getTextContent();
+      const items: RawTextItem[] = [];
+
+      for (const rawItem of content.items) {
+        if (!("str" in rawItem) || !rawItem.str || !rawItem.str.trim()) continue;
+        const str = rawItem.str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
+        if (!str) continue;
+
+        const tx = rawItem.transform;
+        const fontSize = Math.hypot(tx[0], tx[1]);
+        const x = tx[4];
+        const y = pageHeight - tx[5]; // Convert PDF coordinate system to top-down
+
+        items.push({ text: str, x, y, fontSize });
+      }
+
+      if (items.length === 0) continue;
+
+      // 3. Layout Detection: Check for 2-column template layout
+      // If a clear vertical divider exists with substantial content on both left and right,
+      // read the left column top-to-bottom first, then the right column, preventing horizontal interleaving.
+      const isMultiColumn = checkMultiColumnLayout(items, pageWidth);
+
+      let pageLines: string[] = [];
+
+      if (isMultiColumn) {
+        const splitX = pageWidth * 0.38; // Typical sidebar split boundary
+        const leftItems = items.filter((it) => it.x < splitX);
+        const rightItems = items.filter((it) => it.x >= splitX);
+
+        pageLines = [
+          ...groupItemsIntoLines(leftItems),
+          "\n--- SECTION BREAK ---\n",
+          ...groupItemsIntoLines(rightItems),
+        ];
+      } else {
+        pageLines = groupItemsIntoLines(items);
+      }
+
+      fullText += pageLines.join("\n") + "\n\n";
+      page.cleanup();
+    }
+
+    return {
+      text: fullText.trim(),
+      embeddedLinks: Array.from(new Set(embeddedLinks)),
+    };
+  } finally {
+    try {
+      await pdf.cleanup();
+      await loadingTask.destroy();
     } catch {
-      // Ignore annotation read failures gracefully
+      // Ignore cleanup errors
     }
-
-    // 2. Extract text items with spatial coordinates
-    const content = await page.getTextContent();
-    const items: RawTextItem[] = [];
-
-    for (const rawItem of content.items) {
-      if (!("str" in rawItem) || !rawItem.str || !rawItem.str.trim()) continue;
-      const str = rawItem.str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
-      if (!str) continue;
-
-      const tx = rawItem.transform;
-      const fontSize = Math.hypot(tx[0], tx[1]);
-      const x = tx[4];
-      const y = pageHeight - tx[5]; // Convert PDF coordinate system to top-down
-
-      items.push({ text: str, x, y, fontSize });
-    }
-
-    if (items.length === 0) continue;
-
-    // 3. Layout Detection: Check for 2-column template layout
-    // If a clear vertical divider exists with substantial content on both left and right,
-    // read the left column top-to-bottom first, then the right column, preventing horizontal interleaving.
-    const isMultiColumn = checkMultiColumnLayout(items, pageWidth);
-
-    let pageLines: string[] = [];
-
-    if (isMultiColumn) {
-      const splitX = pageWidth * 0.38; // Typical sidebar split boundary
-      const leftItems = items.filter((it) => it.x < splitX);
-      const rightItems = items.filter((it) => it.x >= splitX);
-
-      pageLines = [
-        ...groupItemsIntoLines(leftItems),
-        "\n--- SECTION BREAK ---\n",
-        ...groupItemsIntoLines(rightItems),
-      ];
-    } else {
-      pageLines = groupItemsIntoLines(items);
-    }
-
-    fullText += pageLines.join("\n") + "\n\n";
   }
-
-  return {
-    text: fullText.trim(),
-    embeddedLinks: Array.from(new Set(embeddedLinks)),
-  };
 }
 
 /**
@@ -168,10 +178,11 @@ function groupItemsIntoLines(items: RawTextItem[]): string[] {
 }
 
 async function extractDocxDocument(data: Uint8Array): Promise<ExtractedDocumentContent> {
-  const { default: mammoth } = await import("mammoth");
+  const mammothModule = await import("mammoth");
+  const mammoth = (mammothModule as any).default ?? mammothModule;
   const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
   try {
-    const result = await mammoth.extractRawText({ arrayBuffer: safeBuffer });
+    const result = await mammoth.extractRawText({ arrayBuffer: safeBuffer as ArrayBuffer });
     const text = result.value || "";
     return {
       text: text.trim(),

@@ -34,94 +34,103 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
   const pdf = await loadingTask.promise;
   const pageCount = pdf.numPages;
 
-  let totalText = "";
-  const pageHtmls: string[] = [];
+  try {
+    let totalText = "";
+    const pageHtmls: string[] = [];
 
-  for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
-    const page = await pdf.getPage(pageNum);
-    const content = await page.getTextContent();
-    const viewport = page.getViewport({ scale: 1.0 });
-    const pageHeight = viewport.height;
+    for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const content = await page.getTextContent();
+      const viewport = page.getViewport({ scale: 1.0 });
+      const pageHeight = viewport.height;
 
-    const items: RawTextItem[] = [];
+      const items: RawTextItem[] = [];
 
-    for (const rawItem of content.items) {
-      if (!("str" in rawItem) || !rawItem.str || !rawItem.str.trim()) continue;
+      for (const rawItem of content.items) {
+        if (!("str" in rawItem) || !rawItem.str || !rawItem.str.trim()) continue;
 
-      const str = rawItem.str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
-      if (!str) continue;
+        const str = rawItem.str.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, "").trim();
+        if (!str) continue;
 
-      const tx = rawItem.transform;
-      const fontSize = Math.hypot(tx[0], tx[1]);
-      const x = tx[4];
-      const y = pageHeight - tx[5]; // Convert PDF bottom-left origin to top-left origin
-      const fontName = (rawItem.fontName || "").toLowerCase();
-      const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
+        const tx = rawItem.transform;
+        const fontSize = Math.hypot(tx[0], tx[1]);
+        const x = tx[4];
+        const y = pageHeight - tx[5]; // Convert PDF bottom-left origin to top-left origin
+        const fontName = (rawItem.fontName || "").toLowerCase();
+        const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
 
-      items.push({
-        text: str,
-        x,
-        y,
-        fontSize,
-        fontName: rawItem.fontName,
-        isBold,
-      });
+        items.push({
+          text: str,
+          x,
+          y,
+          fontSize,
+          fontName: rawItem.fontName,
+          isBold,
+        });
 
-      totalText += str + " ";
-    }
+        totalText += str + " ";
+      }
 
-    if (items.length === 0) continue;
+      if (items.length === 0) continue;
 
-    // Calculate baseline font size for normal body text on this page
-    const fontSizes = items.map((i) => Math.round(i.fontSize));
-    fontSizes.sort((a, b) => a - b);
-    const medianFontSize = fontSizes[Math.floor(fontSizes.length / 2)] || 11;
+      // Calculate baseline font size for normal body text on this page
+      const fontSizes = items.map((i) => Math.round(i.fontSize));
+      fontSizes.sort((a, b) => a - b);
+      const medianFontSize = fontSizes[Math.floor(fontSizes.length / 2)] || 11;
 
-    // Group items into visual lines (tolerance of vertical y distance < 3px)
-    items.sort((a, b) => a.y - b.y || a.x - b.x);
+      // Group items into visual lines (tolerance of vertical y distance < 3px)
+      items.sort((a, b) => a.y - b.y || a.x - b.x);
 
-    const lines: { y: number; fontSize: number; isBold: boolean; text: string }[] = [];
-    let currentLine: RawTextItem[] = [];
+      const lines: { y: number; fontSize: number; isBold: boolean; text: string }[] = [];
+      let currentLine: RawTextItem[] = [];
 
-    for (const item of items) {
-      if (currentLine.length === 0) {
-        currentLine.push(item);
-      } else {
-        const prev = currentLine[currentLine.length - 1];
-        if (Math.abs(item.y - prev.y) <= 4.0) {
+      for (const item of items) {
+        if (currentLine.length === 0) {
           currentLine.push(item);
         } else {
-          // Flush current line
-          lines.push(mergeLineItems(currentLine));
-          currentLine = [item];
+          const prev = currentLine[currentLine.length - 1];
+          if (Math.abs(item.y - prev.y) <= 4.0) {
+            currentLine.push(item);
+          } else {
+            // Flush current line
+            lines.push(mergeLineItems(currentLine));
+            currentLine = [item];
+          }
         }
       }
-    }
-    if (currentLine.length > 0) {
-      lines.push(mergeLineItems(currentLine));
+      if (currentLine.length > 0) {
+        lines.push(mergeLineItems(currentLine));
+      }
+
+      // Convert lines to semantic HTML
+      const pageHtml = formatLinesToHtml(lines, medianFontSize, pageNum === 1);
+      pageHtmls.push(pageHtml);
     }
 
-    // Convert lines to semantic HTML
-    const pageHtml = formatLinesToHtml(lines, medianFontSize, pageNum === 1);
-    pageHtmls.push(pageHtml);
-  }
+    const trimmedTextLength = totalText.replace(/\s+/g, "").length;
+    if (trimmedTextLength < 50) {
+      return {
+        isScanned: true,
+        html: "",
+        pageCount,
+        textCharCount: trimmedTextLength,
+      };
+    }
 
-  const trimmedTextLength = totalText.replace(/\s+/g, "").length;
-  if (trimmedTextLength < 50) {
     return {
-      isScanned: true,
-      html: "",
+      isScanned: false,
+      html: pageHtmls.join("<hr/><br/>"),
       pageCount,
       textCharCount: trimmedTextLength,
     };
+  } finally {
+    try {
+      await pdf.cleanup();
+      await loadingTask.destroy();
+    } catch {
+      // Ignore cleanup errors
+    }
   }
-
-  return {
-    isScanned: false,
-    html: pageHtmls.join("<hr/><br/>"),
-    pageCount,
-    textCharCount: trimmedTextLength,
-  };
 }
 
 function mergeLineItems(items: RawTextItem[]): { y: number; fontSize: number; isBold: boolean; text: string } {
@@ -266,6 +275,7 @@ export async function ocrScannedPdf(
 
   const worker = await createWorker("eng");
   const pageHtmls: string[] = [];
+  const canvas = document.createElement("canvas");
 
   try {
     for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
@@ -273,7 +283,6 @@ export async function ocrScannedPdf(
       const page = await pdf.getPage(pageNum);
       const viewport = page.getViewport({ scale: 2.0 });
 
-      const canvas = document.createElement("canvas");
       canvas.width = Math.floor(viewport.width);
       canvas.height = Math.floor(viewport.height);
       const ctx = canvas.getContext("2d");
@@ -292,8 +301,17 @@ export async function ocrScannedPdf(
         .map((p) => `<p>${escapeHtml(p.replace(/\n/g, " "))}</p>`);
 
       pageHtmls.push(paragraphs.length > 0 ? paragraphs.join("") : "<p>No text detected on page</p>");
+      page.cleanup();
     }
   } finally {
+    canvas.width = 0;
+    canvas.height = 0;
+    try {
+      await pdf.cleanup();
+      await loadingTask.destroy();
+    } catch {
+      // Ignore cleanup errors
+    }
     await worker.terminate();
   }
 

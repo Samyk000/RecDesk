@@ -24,7 +24,7 @@ import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/common/EmptyState";
 import { SearchInput } from "../components/common/SearchInput";
-import { Spinner } from "../components/common/Spinner";
+import { PageLoader } from "../components/common/Spinner";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { CandidateForm } from "../components/candidates/CandidateForm";
@@ -351,7 +351,7 @@ export function Candidates() {
 
       <div className="flex min-h-0 flex-1 flex-col">
         {isLoading ? (
-          <Spinner className="py-16" />
+          <PageLoader state="solving" label="Loading candidates…" />
         ) : !displayedCandidates.length ? (
           <EmptyState
             icon={<IdentificationCard className="h-5 w-5" />}

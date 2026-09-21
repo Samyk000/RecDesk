@@ -632,3 +632,27 @@ button:not(:disabled):active {
     display: none !important;
   }
 }
+
+/* Document Editor (TipTap / ProseMirror) - Remove focus ring / blue outline */
+.ProseMirror,
+.ProseMirror:focus,
+.ProseMirror:focus-visible,
+.ProseMirror-focused {
+  outline: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Wavy Document Skeleton Shimmer Animation */
+@keyframes wave-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.animate-wave-shimmer {
+  animation: wave-shimmer 1.8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}

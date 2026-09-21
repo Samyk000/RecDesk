@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Spinner } from "../../common/Spinner";
+import { ThemedOrb } from "../../common/Spinner";
 
 interface Props {
   data: Uint8Array;
@@ -97,11 +97,11 @@ export function DocxViewer({ data, scale }: Props) {
   }, [data]);
 
   return (
-    <div className="relative flex-1 overflow-y-auto overflow-x-auto p-6 bg-slate-900/40 dark:bg-black/60 flex justify-center">
+    <div className="relative flex-1 overflow-y-auto overflow-x-auto p-6 bg-slate-100 dark:bg-zinc-950 flex justify-center">
       {loading && (
-        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-surface/80 backdrop-blur-xs">
-          <Spinner />
-          <span className="text-xs text-fg-subtle">Rendering Word document layout…</span>
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3.5 bg-surface/85 backdrop-blur-xs select-none animate-fade-in">
+          <ThemedOrb state="searching" size={64} />
+          <span className="text-xs font-medium text-fg-subtle">Rendering Word document layout…</span>
         </div>
       )}
 

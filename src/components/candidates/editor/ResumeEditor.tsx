@@ -28,7 +28,7 @@ import {
   Eraser,
   CaretDown,
 } from "@phosphor-icons/react";
-import { Spinner } from "../../common/Spinner";
+import { Spinner, ThemedOrb } from "../../common/Spinner";
 import { apiFiles } from "../../../lib/api";
 import { toast } from "sonner";
 import { errorMessage } from "../../../lib/utils";
@@ -127,6 +127,7 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
   const [selectedSize, setSelectedSize] = useState(FONT_SIZES[3].value);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const filename = filePath.split(/[\\/]/).pop() ?? "Resume";
   const ext = filename.split(".").pop()?.toLowerCase() ?? "";
@@ -164,6 +165,15 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
     onUpdate: () => {
       setIsDirty(true);
     },
+    onSelectionUpdate: ({ editor }) => {
+      const textStyleAttrs = editor.getAttributes("textStyle");
+      if (textStyleAttrs?.fontFamily) {
+        setSelectedFont(textStyleAttrs.fontFamily);
+      }
+      if (textStyleAttrs?.fontSize) {
+        setSelectedSize(textStyleAttrs.fontSize);
+      }
+    },
   });
 
   // Convert and load content from data bytes or initialHtml
@@ -182,10 +192,11 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
           const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
           if (ext === "docx") {
             try {
-              const { default: mammoth } = await import("mammoth");
-              const result = await mammoth.convertToHtml({ arrayBuffer: safeBuffer });
+              const mammothModule = await import("mammoth");
+              const mammoth = (mammothModule as any).default ?? mammothModule;
+              const result = await mammoth.convertToHtml({ arrayBuffer: safeBuffer as ArrayBuffer });
               if (!active) return;
-              editor?.commands.setContent(result.value || "<p>Empty document</p>");
+              editor?.commands.setContent(result?.value || "<p>Empty document</p>");
             } catch (mammothErr) {
               const text = new TextDecoder().decode(safeBuffer);
               if (text.includes("<p>") || text.includes("<h1>") || text.includes("<div>")) {
@@ -198,31 +209,65 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
           } else {
             // Text / markdown / fallback
             const rawText = new TextDecoder().decode(safeBuffer);
-            const html = rawText
-              .split("\n")
-              .map((line) => {
-                const trimmed = line.trim();
-                if (!trimmed) return "<p><br/></p>";
-                if (trimmed.startsWith("### ")) return `<h3>${escapeHtml(trimmed.slice(4))}</h3>`;
-                if (trimmed.startsWith("## ")) return `<h2>${escapeHtml(trimmed.slice(3))}</h2>`;
-                if (trimmed.startsWith("# ")) return `<h1>${escapeHtml(trimmed.slice(2))}</h1>`;
-                if (trimmed.startsWith("- ") || trimmed.startsWith("* "))
-                  return `<ul><li>${escapeHtml(trimmed.slice(2))}</li></ul>`;
-                return `<p>${escapeHtml(line)}</p>`;
-              })
-              .join("");
+            const lines = rawText.split("\n");
+            const htmlParts: string[] = [];
+            let inList = false;
+
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.startsWith("- ") || trimmed.startsWith("* ")) {
+                if (!inList) {
+                  htmlParts.push("<ul>");
+                  inList = true;
+                }
+                htmlParts.push(`<li>${escapeHtml(trimmed.slice(2))}</li>`);
+              } else {
+                if (inList) {
+                  htmlParts.push("</ul>");
+                  inList = false;
+                }
+                if (!trimmed) {
+                  htmlParts.push("<p><br/></p>");
+                } else if (trimmed.startsWith("### ")) {
+                  htmlParts.push(`<h3>${escapeHtml(trimmed.slice(4))}</h3>`);
+                } else if (trimmed.startsWith("## ")) {
+                  htmlParts.push(`<h2>${escapeHtml(trimmed.slice(3))}</h2>`);
+                } else if (trimmed.startsWith("# ")) {
+                  htmlParts.push(`<h1>${escapeHtml(trimmed.slice(2))}</h1>`);
+                } else {
+                  htmlParts.push(`<p>${escapeHtml(line)}</p>`);
+                }
+              }
+            }
+            if (inList) {
+              htmlParts.push("</ul>");
+            }
+            const html = htmlParts.join("");
             if (!active) return;
             editor?.commands.setContent(html || "<p>Empty document</p>");
           }
         }
-        // Set default font to Times New Roman at the start
-        editor?.chain().focus().setFontFamily(FONT_FAMILIES[0].value).run();
+        // Position cursor at the beginning of the document without jumping down
+        editor?.commands.setTextSelection(0);
         setIsDirty(false);
       } catch (err) {
         console.error("Failed to parse document for editing:", err);
         toast.error("Failed to load document content");
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+          // Guarantee the viewport is scrolled to the very top
+          requestAnimationFrame(() => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop = 0;
+            }
+          });
+          setTimeout(() => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop = 0;
+            }
+          }, 60);
+        }
       }
     }
 
@@ -232,6 +277,13 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       active = false;
     };
   }, [editor, data, ext, initialHtml]);
+
+  // Ensure the document canvas viewport is pinned to the top whenever loading finishes
+  useEffect(() => {
+    if (!loading && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [loading]);
 
   const handleSave = async () => {
     if (!editor) return;
@@ -876,23 +928,26 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       )}
 
       {/* Main Document Canvas Viewport (MS Word Page Look) */}
-      <div className="relative flex-1 overflow-y-auto overflow-x-auto p-6 sm:p-10 bg-zinc-900/90 dark:bg-black/90 flex justify-center">
+      <div
+        ref={scrollContainerRef}
+        className="relative flex-1 overflow-y-auto overflow-x-auto p-6 sm:p-10 bg-slate-200/80 dark:bg-zinc-950 flex justify-center"
+      >
         {loading && (
-          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-surface/80 backdrop-blur-xs">
-            <Spinner />
-            <span className="text-xs text-fg-subtle">Preparing Word-like document editor…</span>
+          <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3.5 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm select-none animate-fade-in">
+            <ThemedOrb state="working" size={64} />
+            <span className="text-xs font-medium text-zinc-700 dark:text-zinc-300">Preparing Word-like document editor…</span>
           </div>
         )}
 
         <div
-          className="w-full max-w-[850px] transition-transform duration-150 origin-top"
-          style={{ transform: `scale(${scale})` }}
+          className="w-[816px] min-w-[816px] max-w-[816px] transition-transform duration-150 origin-top shrink-0"
+          style={{ transform: scale !== 1.0 ? `scale(${scale})` : undefined }}
         >
-          {/* Authentic MS Word Document Page */}
-          <div className="min-h-[1100px] rounded-xs bg-white p-12 sm:p-16 text-slate-900 shadow-2xl border border-black/10">
+          {/* Authentic MS Word Document Page (Exact 8.5in x 11in US Letter at 96 DPI) */}
+          <div className="w-full min-h-[1056px] rounded-xs bg-white px-[72px] py-[72px] text-slate-900 shadow-2xl border border-black/10">
             <EditorContent
               editor={editor}
-              className="tiptap prose prose-slate max-w-none focus:outline-none text-[14.5px] leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:border-b [&_h1]:border-slate-300 [&_h1]:pb-1 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-slate-800 [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-2 [&_p]:my-1.5 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ul_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_ol_li]:my-1"
+              className="tiptap prose prose-slate max-w-none focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus-visible:outline-none [&_.ProseMirror]:ring-0 [&_.ProseMirror]:border-none [&_.ProseMirror-focused]:outline-none [&_.ProseMirror-focused]:ring-0 [&_.ProseMirror-focused]:border-none [&_.ProseMirror-focused]:shadow-none text-[14px] leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:border-b [&_h1]:border-slate-300 [&_h1]:pb-1 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-slate-800 [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-2 [&_p]:my-1.5 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ul_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_ol_li]:my-1"
               style={{ fontFamily: selectedFont }}
             />
           </div>

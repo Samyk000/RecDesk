@@ -25,6 +25,7 @@ import { Input } from "../ui/input";
 import { useParseResume } from "../../hooks/useQueries";
 import { apiFiles } from "../../lib/api";
 import { extractDocumentText } from "../../lib/resumeParser";
+import { ThemedOrb } from "../common/Spinner";
 import { errorMessage } from "../../lib/utils";
 import type { ExtractedCandidateProfile } from "../../types";
 
@@ -293,8 +294,8 @@ export function ResumeAutoFillDialog({ open, onOpenChange, onApply }: Props) {
 
               {/* Processing Progress Indicator */}
               {isProcessingFile && (
-                <div className="flex items-center gap-2.5 rounded-lg border border-primary/20 bg-primary/5 p-3 text-xs text-primary animate-pulse">
-                  <CircleNotch className="h-4 w-4 animate-spin shrink-0" />
+                <div className="flex items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 p-3.5 text-xs text-fg shadow-2xs animate-fade-in">
+                  <ThemedOrb state="working" size={20} className="shrink-0" />
                   <span className="font-medium">{processingStatus}</span>
                 </div>
               )}

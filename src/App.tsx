@@ -2,6 +2,7 @@ import { lazy, Suspense } from "react";
 import { Route, Routes, Navigate } from "react-router-dom";
 import { AppLayout } from "./components/layout/AppLayout";
 import { Dashboard } from "./pages/Dashboard";
+import { PageLoader } from "./components/common/Spinner";
 
 const Jobs = lazy(() => import("./pages/Jobs").then((m) => ({ default: m.Jobs })));
 const JobDetail = lazy(() => import("./pages/JobDetail").then((m) => ({ default: m.JobDetail })));
@@ -12,8 +13,8 @@ const Calendar = lazy(() => import("./pages/Calendar").then((m) => ({ default: m
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
 
 const PageFallback = () => (
-  <div className="flex h-full w-full items-center justify-center py-24">
-    <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+  <div className="flex h-full w-full items-center justify-center">
+    <PageLoader state="solving" label="" />
   </div>
 );
 
