@@ -123,7 +123,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     )?;
 
     let recent_jobs: Vec<JobWithStats> = {
-        let mut stmt = conn.prepare(&format!("{JOB_SELECT} WHERE j.status = 'active' ORDER BY j.updated_at DESC LIMIT 8"))?;
+        let mut stmt = conn.prepare(&format!("{JOB_SELECT} WHERE j.status = 'active' ORDER BY j.created_at DESC, j.updated_at DESC LIMIT 8"))?;
         let rows = stmt
             .query_map([], crate::rows::row_to_job_with_stats)?
             .collect::<Result<Vec<_>, rusqlite::Error>>()?;
@@ -170,9 +170,11 @@ fn compute_metric_trend(
     use std::collections::HashMap;
 
     let now = Utc::now().date_naive();
-    let dates: Vec<chrono::NaiveDate> = (0..14)
-        .rev()
-        .map(|days_ago| now - Duration::days(days_ago))
+    let current_day = now.day();
+
+    // Strict Month-to-Date (MTD): Day 1 of current month up to Today
+    let dates: Vec<chrono::NaiveDate> = (1..=current_day)
+        .filter_map(|d| now.with_day(d))
         .collect();
 
     let weekday_from_mon = now.weekday().num_days_from_monday();
@@ -182,20 +184,20 @@ fn compute_metric_trend(
     let start_of_month = now.with_day(1).unwrap_or(now);
     let start_of_month_str = start_of_month.format("%Y-%m-%d").to_string();
 
-    let earliest_date = std::cmp::min(dates[0], start_of_month);
+    let earliest_date = std::cmp::min(start_of_week, start_of_month);
     let earliest_date_str = earliest_date.format("%Y-%m-%d").to_string();
     let today_str = now.format("%Y-%m-%d").to_string();
 
     let sql = format!(
         "SELECT substr({date_expr}, 1, 10) AS day, COUNT(*) AS cnt 
          FROM candidates 
-         WHERE ({where_clause}) AND substr({date_expr}, 1, 10) >= ?1 
+         WHERE ({where_clause}) AND substr({date_expr}, 1, 10) >= ?1 AND substr({date_expr}, 1, 10) <= ?2 
          GROUP BY day"
     );
 
     let mut stmt = conn.prepare(&sql)?;
     let mut day_counts: HashMap<String, i64> = HashMap::new();
-    let rows = stmt.query_map([&earliest_date_str], |r| {
+    let rows = stmt.query_map([&earliest_date_str, &today_str], |r| {
         let day: String = r.get(0)?;
         let cnt: i64 = r.get(1)?;
         Ok((day, cnt))
@@ -207,7 +209,7 @@ fn compute_metric_trend(
         }
     }
 
-    let mut points = Vec::with_capacity(14);
+    let mut points = Vec::with_capacity(dates.len());
     for d in dates {
         let d_str = d.format("%Y-%m-%d").to_string();
         let label = d.format("%b %e").to_string();

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowDown, ArrowUp, Building, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
+import { Building, PencilSimple, Plus, Trash } from "@phosphor-icons/react";
 import { toast } from "sonner";
-import { useClients, useDeleteClient, useMoveClient } from "../hooks/useQueries";
+import { useClients, useDeleteClient } from "../hooks/useQueries";
 import { useDebounce } from "../hooks/useDebounce";
 import { useFlipList } from "../hooks/useFlipList";
 import { PageLoader } from "../components/common/Spinner";
@@ -22,10 +22,8 @@ export function Clients() {
   const [editing, setEditing] = useState<ClientWithStats | null>(null);
   const [deleting, setDeleting] = useState<ClientWithStats | null>(null);
   const deleteClient = useDeleteClient();
-  const moveClient = useMoveClient();
   const flipRef = useFlipList();
   const { data, isLoading } = useClients(debounced || undefined);
-  const canReorder = !debounced;
 
   async function confirmDelete() {
     if (!deleting) return;
@@ -106,7 +104,7 @@ export function Clients() {
                   </tr>
                 </thead>
             <tbody className="divide-y divide-border">
-              {data.map((client, i) => {
+              {data.map((client) => {
                 return (
                   <tr
                     key={client.id}
@@ -127,26 +125,6 @@ export function Clients() {
                     <td className="px-4 py-2.5 text-[13px] tabular-nums text-fg">{client.jobs_count}</td>
                     <td className="px-4 py-2.5">
                       <div className="flex items-center justify-end gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          title="Move up"
-                          disabled={!canReorder || i === 0 || moveClient.isPending}
-                          onClick={() => moveClient.mutate({ id: client.id, direction: -1 })}
-                        >
-                          <ArrowUp className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-6 w-6"
-                          title="Move down"
-                          disabled={!canReorder || i === data.length - 1 || moveClient.isPending}
-                          onClick={() => moveClient.mutate({ id: client.id, direction: 1 })}
-                        >
-                          <ArrowDown className="h-3.5 w-3.5" />
-                        </Button>
                         <Button
                           size="icon"
                           variant="ghost"

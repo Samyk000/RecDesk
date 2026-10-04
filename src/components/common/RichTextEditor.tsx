@@ -28,6 +28,7 @@ interface Props {
   fill?: boolean;
   collapsibleToolbar?: boolean;
   mono?: boolean;
+  className?: string;
 }
 
 export function RichTextEditor({
@@ -40,6 +41,7 @@ export function RichTextEditor({
   fill,
   collapsibleToolbar,
   mono,
+  className,
 }: Props) {
   const valueRef = useRef(value);
   valueRef.current = value;
@@ -105,7 +107,7 @@ export function RichTextEditor({
   const showToolbar = !collapsibleToolbar || toolbarOpen;
 
   return (
-    <div className={cn("relative rounded-lg border border-border bg-transparent focus-within:ring-1 focus-within:ring-primary", fill && "h-full")}>
+    <div className={cn("relative rounded-lg border border-border bg-transparent focus-within:ring-1 focus-within:ring-primary", fill && "h-full flex-1 flex flex-col", className)}>
       {showToolbar && (
         <div className="absolute inset-x-0 top-0 z-10 flex flex-wrap items-center gap-0.5 rounded-t-lg border-b border-border bg-surface px-2 py-1">
           <ToolbarButton
@@ -176,6 +178,7 @@ export function RichTextEditor({
           "tiptap-scroll scrollbar-thin overflow-y-auto px-3 py-2",
           showToolbar && "pt-10",
           collapsibleToolbar && "pr-8",
+          fill && "flex-1",
         )}
       />
       {collapsibleToolbar && (

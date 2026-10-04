@@ -66,18 +66,6 @@ export function useDeleteClient() {
   });
 }
 
-export function useMoveClient() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, direction }: { id: string; direction: number }) =>
-      apiClients.move(id, direction),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["clients"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["globalSearch"] });
-    },
-  });
-}
 
 // ---- Jobs ----
 export function useJobs(clientId?: string, status?: string, search?: string) {
@@ -142,13 +130,29 @@ export function useDeleteJob() {
   });
 }
 
-export function useMoveJob() {
+
+export function useBulkUpdateJobs() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, direction }: { id: string; direction: number }) =>
-      apiJobs.move(id, direction),
+    mutationFn: ({ ids, status }: { ids: string[]; status: string }) =>
+      apiJobs.bulkUpdateStatus(ids, status),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["dashboard"] });
+      qc.invalidateQueries({ queryKey: ["globalSearch"] });
+    },
+  });
+}
+
+export function useBulkDeleteJobs() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => apiJobs.bulkRemove(ids),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["jobs"] });
+      qc.invalidateQueries({ queryKey: ["clients"] });
+      qc.invalidateQueries({ queryKey: ["candidates"] });
+      qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
       qc.invalidateQueries({ queryKey: ["dashboard"] });
       qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },

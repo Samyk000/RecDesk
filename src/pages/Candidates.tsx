@@ -14,7 +14,6 @@ import {
   useBulkUpdateCandidates,
   useBulkDeleteCandidates,
   useInfiniteCandidatesWithJob,
-  useCreateCandidate,
   useDeleteCandidate,
 } from "../hooks/useQueries";
 import { InfiniteScrollTrigger } from "../components/common/InfiniteScrollTrigger";
@@ -41,10 +40,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import { ChangeJobDialog } from "../components/candidates/ChangeJobDialog";
+import { apiCandidates } from "../lib/api";
 import { getCandidateSubStageBadge } from "../lib/candidateUtils";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, formatDateShort, nameInitials, timeAgo, titleCase } from "../lib/utils";
-import type { CandidateWithJob } from "../types";
+import type { Candidate, CandidateWithJob } from "../types";
 
 const DETAIL_STATUSES = new Set(["submitted", "interview", "placed", "rejected"]);
 
@@ -62,7 +63,8 @@ export function Candidates() {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
-  const [status, setStatus] = useState(() => params.get("status") || "all");
+  const status = params.get("status") || "all";
+  const [copyCandidateTarget, setCopyCandidateTarget] = useState<Candidate | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
   const [formOpen, setFormOpen] = useState(false);
@@ -74,30 +76,15 @@ export function Candidates() {
   const [deleting, setDeleting] = useState<CandidateWithJob | null>(null);
   const bulkUpdate = useBulkUpdateCandidates();
   const bulkDelete = useBulkDeleteCandidates();
-  const createCandidate = useCreateCandidate();
   const deleteCandidate = useDeleteCandidate();
 
   const [hideRejected, setHideRejected] = useState(() => {
-    const initialStatus = new URLSearchParams(window.location.search).get("status");
-    if (initialStatus && initialStatus !== "all") {
-      return false;
-    }
     return localStorage.getItem("recdesk_hide_rejected") === "true";
   });
 
   useEffect(() => {
     localStorage.setItem("recdesk_hide_rejected", hideRejected.toString());
   }, [hideRejected]);
-
-  useEffect(() => {
-    const s = params.get("status");
-    if (s && s !== status) {
-      setStatus(s);
-      if (s !== "all") {
-        setHideRejected(false);
-      }
-    }
-  }, [params]);
 
   const {
     data,
@@ -183,38 +170,20 @@ export function Candidates() {
     });
   }
 
-  const handleDuplicate = async (e: React.MouseEvent, c: CandidateWithJob) => {
+  const handleOpenCopyDialog = async (e: React.MouseEvent, c: CandidateWithJob) => {
     e.stopPropagation();
     try {
-      const dup = await createCandidate.mutateAsync({
-        job_id: c.job_id,
-        name: c.name,
-        email: c.email ?? null,
-        phone: c.phone ?? null,
-        location: c.location ?? null,
-        current_title: c.current_title ?? null,
-        current_company: c.current_company ?? null,
-        experience_years: c.experience_years ?? null,
-        resume_path: c.resume_path ?? null,
-        linkedin_url: c.linkedin_url ?? null,
-        recruiter_notes: c.recruiter_notes ?? null,
-        match_score: c.match_score ?? null,
-        submission_status: "in_touch",
-        candidate_status: "active",
-        screening_answers: c.screening_answers ?? null,
-        submission_details: c.submission_details ?? null,
-      });
-      toast.success(`Duplicated "${c.name}" — ready for new role/client`);
-      openPanel(dup.id);
+      // Fetch full candidate record so submission_details (dossier table) is guaranteed to be present
+      const fullCand = await apiCandidates.get(c.id);
+      setCopyCandidateTarget(fullCand);
     } catch {
-      toast.error("Failed to duplicate candidate");
+      toast.error("Failed to load candidate details for duplication");
     }
   };
 
   const filtered = status !== "all" || search.length > 0;
 
   function handleFilterChange(newStatus: string) {
-    setStatus(newStatus);
     const next = new URLSearchParams(params);
     if (newStatus === "all") {
       next.delete("status");
@@ -225,7 +194,6 @@ export function Candidates() {
   }
 
   function clearFilters() {
-    setStatus("all");
     setSearch("");
     const next = new URLSearchParams(params);
     next.delete("status");
@@ -521,12 +489,12 @@ export function Candidates() {
                                   size="icon"
                                   variant="ghost"
                                   className="h-6 w-6 text-fg-subtle hover:text-primary hover:bg-primary/10 cursor-pointer"
-                                  onClick={(e) => handleDuplicate(e, c)}
+                                  onClick={(e) => handleOpenCopyDialog(e, c)}
                                 >
                                   <Copy className="h-3.5 w-3.5" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Duplicate Candidate</TooltipContent>
+                              <TooltipContent>Duplicate to Job</TooltipContent>
                             </Tooltip>
 
                             <Tooltip>
@@ -611,6 +579,19 @@ export function Candidates() {
           description={`Are you sure you want to delete ${selection.selected.size} candidate(s)? This action cannot be undone.`}
           confirmLabel="Delete"
           onConfirm={handleBulkDelete}
+        />
+      )}
+      {copyCandidateTarget && (
+        <ChangeJobDialog
+          candidate={copyCandidateTarget}
+          open={!!copyCandidateTarget}
+          onOpenChange={(open) => {
+            if (!open) setCopyCandidateTarget(null);
+          }}
+          initialMode="copy"
+          onSuccess={() => {
+            setCopyCandidateTarget(null);
+          }}
         />
       )}
     </div>

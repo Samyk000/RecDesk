@@ -87,7 +87,6 @@ pub fn import_json(
     let tx = conn.transaction()?;
 
     if replace {
-        let _ = tx.execute("DROP TABLE IF EXISTS reminders", []);
         tx.execute("DELETE FROM candidates", [])?;
         tx.execute("DELETE FROM jobs", [])?;
         tx.execute("DELETE FROM clients", [])?;

@@ -115,16 +115,12 @@ export function SidebarInterviews() {
     return saved === null ? true : saved === "true";
   });
 
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
   useEffect(() => {
     localStorage.setItem("recdesk_interviews_collapsed", collapsed.toString());
   }, [collapsed]);
 
   const handleToggle = () => {
-    setIsTransitioning(true);
     setCollapsed((prev) => !prev);
-    setTimeout(() => setIsTransitioning(false), 320);
   };
 
   // Filter candidates in interview status
@@ -132,10 +128,8 @@ export function SidebarInterviews() {
     if (!candidates) return [];
 
     const list = candidates.filter((c) => c.submission_status === "interview");
-    if (collapsed) return list;
-
-    // Sort chronologically (earliest/upcoming first, TBD last) only when open
-    return list.sort((a, b) => {
+    // Sort chronologically (earliest/upcoming first, TBD last)
+    return [...list].sort((a, b) => {
       const timeA = getInterviewTimestamp(a.interview_at);
       const timeB = getInterviewTimestamp(b.interview_at);
       if (!timeA && !timeB) return 0;
@@ -143,8 +137,7 @@ export function SidebarInterviews() {
       if (!timeB) return -1;
       return timeA - timeB;
     });
-  }, [candidates, collapsed]);
-
+  }, [candidates]);
 
   const handleOpenCandidate = (candidate: CandidateWithJob) => {
     navigate(`/candidates?candidate=${candidate.id}`);
@@ -189,14 +182,7 @@ export function SidebarInterviews() {
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           {/* High-contrast scrollable card container */}
-          <div
-            className={cn(
-              "mt-1.5 max-h-[190px] space-y-1.5 px-0.5 pb-1 scroll-smooth overscroll-contain",
-              isTransitioning || collapsed
-                ? "overflow-hidden"
-                : "overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            )}
-          >
+          <div className="mt-1.5 max-h-[190px] space-y-1.5 px-0.5 pb-1 overflow-y-auto scroll-smooth overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {upcoming.length === 0 ? (
               <div className="mx-0.5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 py-3 text-center text-fg-subtle">
                 <CalendarBlank className="h-4 w-4 text-fg-subtle" />

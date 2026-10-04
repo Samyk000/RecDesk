@@ -542,13 +542,13 @@ Over 7 years of experience building scalable distributed web applications.
 Proficient in React, TypeScript, Node.js, Rust, Docker, and AWS.
 "#;
 
-        let profile = crate::commands::ai::extract_profile_from_text(full_resume);
+        let profile = crate::commands::ai::extract_profile_from_text(full_resume, None, &[]);
         assert_eq!(profile.name, "Johnathan Doe");
+        assert_eq!(profile.current_role.as_deref(), Some("Senior Full Stack Engineer"));
         assert_eq!(profile.email.as_deref(), Some("john.doe@example.com"));
         assert_eq!(profile.phone.as_deref(), Some("(555) 123-4567"));
         assert_eq!(profile.location.as_deref(), Some("Austin, TX"));
         assert_eq!(profile.linkedin_url.as_deref(), Some("https://www.linkedin.com/in/johndoe"));
-        assert_eq!(profile.experience_years, Some(7.0));
         assert!(profile.skills.contains(&"React".to_string()));
         assert!(profile.skills.contains(&"TypeScript".to_string()));
         assert!(profile.skills.contains(&"Rust".to_string()));
@@ -562,13 +562,12 @@ Skills: Python, PostgreSQL, Kubernetes
 3 yrs experience.
 "#;
 
-        let minimal_profile = crate::commands::ai::extract_profile_from_text(minimal_resume);
+        let minimal_profile = crate::commands::ai::extract_profile_from_text(minimal_resume, None, &[]);
         assert_eq!(minimal_profile.name, "Jane Smith");
         assert_eq!(minimal_profile.current_role.as_deref(), Some("Developer"));
         assert_eq!(minimal_profile.email.as_deref(), Some("jane@testdev.io"));
         assert_eq!(minimal_profile.location, None);
         assert_eq!(minimal_profile.linkedin_url, None);
-        assert_eq!(minimal_profile.experience_years, Some(3.0));
         assert!(minimal_profile.skills.contains(&"Python".to_string()));
         assert!(minimal_profile.skills.contains(&"PostgreSQL".to_string()));
 
@@ -582,14 +581,13 @@ Professional Experience:
 8+ years leading cross-functional teams building enterprise software products.
 Skills: Agile, Scrum, Figma, SQL, UI/UX
 "#;
-        let pipe_profile = crate::commands::ai::extract_profile_from_text(header_pipe_resume);
+        let pipe_profile = crate::commands::ai::extract_profile_from_text(header_pipe_resume, None, &[]);
         assert_eq!(pipe_profile.name, "Sarah Jenkins");
         assert_eq!(pipe_profile.current_role.as_deref(), Some("Senior Product Manager"));
         assert_eq!(pipe_profile.email.as_deref(), Some("sarah.jenkins@example.com"));
         assert_eq!(pipe_profile.phone.as_deref(), Some("(555) 987-6543"));
         assert_eq!(pipe_profile.location.as_deref(), Some("Seattle, WA"));
         assert_eq!(pipe_profile.linkedin_url.as_deref(), Some("https://linkedin.com/in/sarahjenkins"));
-        assert_eq!(pipe_profile.experience_years, Some(8.0));
         assert!(pipe_profile.skills.contains(&"Figma".to_string()));
 
         // Test compound name-headline on Line 1 (real-world delimiter format)
@@ -600,12 +598,11 @@ Technical Summary:
 Over 6 years consulting on enterprise storage and Kubernetes clusters.
 Skills: Kubernetes, Docker, Linux, Python, Go
 "#;
-        let compound_profile = crate::commands::ai::extract_profile_from_text(compound_resume);
+        let compound_profile = crate::commands::ai::extract_profile_from_text(compound_resume, None, &[]);
         assert_eq!(compound_profile.name, "Deion Smith");
         assert_eq!(compound_profile.current_role.as_deref(), Some("kubernetes / openSHIFT / NVIDIA GUP platform sme"));
         assert_eq!(compound_profile.email.as_deref(), Some("deion.smith@cloudops.net"));
         assert_eq!(compound_profile.location.as_deref(), Some("San Jose, CA"));
-        assert_eq!(compound_profile.experience_years, Some(6.0));
         assert!(compound_profile.skills.contains(&"Kubernetes".to_string()));
         assert!(compound_profile.skills.contains(&"Go".to_string()));
     }

@@ -1,4 +1,4 @@
-import { useEffect, useState, lazy, Suspense } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   ArrowCounterClockwise,
@@ -73,6 +73,8 @@ import { ResetStatusConfirmDialog } from "./ResetStatusConfirmDialog";
 import {
   toCandidateInput,
   syncCandidateFieldsToSubmissionDetails,
+  getPayRateFromSubmissionDetails,
+  setPayRateInSubmissionDetails,
   parseInterviewRounds,
   serializeInterviewRounds,
   getActiveInterviewSchedule,
@@ -155,6 +157,11 @@ function CandidatePanelBody({
   // Show "Feedback Call" icon when on interview status OR if feedback was recorded
   const hasFeedbackRecorded = hasInterviewFeedback(candidate);
   const showFeedbackIcon = candidate.submission_status === "interview" || hasFeedbackRecorded;
+
+  const payRate = useMemo(
+    () => getPayRateFromSubmissionDetails(candidate.submission_details),
+    [candidate.submission_details]
+  );
 
   async function saveField(patch: Partial<CandidateInput>) {
     if (patch.submission_status && patch.submission_status !== candidate.submission_status) {
@@ -550,7 +557,7 @@ function CandidatePanelBody({
         </div>
       </div>
 
-      <div className="flex-1 space-y-4 overflow-y-auto p-4 scrollbar-thin">
+      <div className="flex flex-1 flex-col space-y-3 overflow-y-auto p-4 scrollbar-thin">
 
         {/* Row 1: Name, Title */}
         <div className="grid grid-cols-2 gap-3">
@@ -576,23 +583,35 @@ function CandidatePanelBody({
           />
         </div>
 
-        {/* Row 3: Location, LinkedIn */}
+        {/* Row 3: Location, Pay Rate */}
         <div className="grid grid-cols-2 gap-3">
           <InlineField
             label="Location"
             value={candidate.location ?? ""}
             onSave={(v) => saveField({ location: v || null })}
           />
+          <InlineField
+            label="Pay Rate"
+            value={payRate}
+            placeholder="e.g. $80/hr or $120k/yr"
+            onSave={(v) => {
+              const updatedDetails = setPayRateInSubmissionDetails(
+                candidate.submission_details,
+                v
+              );
+              saveField({ submission_details: updatedDetails });
+            }}
+          />
+        </div>
+
+        {/* Row 4: LinkedIn, Resume */}
+        <div className="grid grid-cols-2 gap-3">
           <LinkedInField
             value={candidate.linkedin_url ?? ""}
             onSave={(v) => saveField({ linkedin_url: v || null })}
             onOpen={openLinkedIn}
             onCopy={copyLinkedIn}
           />
-        </div>
-
-        {/* Row 4: Resume, Status */}
-        <div className="grid grid-cols-2 gap-3">
           <div className="min-w-0 space-y-1.5">
             <p className="text-xs text-fg-subtle">Resume</p>
             {candidate.resume_path ? (
@@ -677,187 +696,188 @@ function CandidatePanelBody({
               </Button>
             )}
           </div>
-
-          <div className="min-w-0 space-y-1.5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs text-fg-subtle">Status</p>
-              <div className="flex items-center gap-1.5">
-                {previousStatusSnapshot && previousStatusSnapshot.submission_status !== candidate.submission_status && (
-                  <button
-                    type="button"
-                    onClick={handleRestoreStatus}
-                    title={`Restore previous status: ${titleCase(previousStatusSnapshot.submission_status)}`}
-                    className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-primary transition-colors hover:bg-primary/10"
-                  >
-                    <ArrowCounterClockwise className="h-3 w-3" />
-                    <span>Restore</span>
-                  </button>
-                )}
-                {status !== "sourced" && (
-                  <button
-                    type="button"
-                    onClick={() => setShowResetConfirm(true)}
-                    title="Clear status and reset to Sourced"
-                    className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500 cursor-pointer"
-                  >
-                    <X className="h-3 w-3" />
-                    <span>Reset</span>
-                  </button>
-                )}
-              </div>
-            </div>
-            <SubmissionStatusSelect
-              value={status}
-              triggerClassName="h-8 w-full text-xs"
-              onValueChange={(v) => {
-                if (v === candidate.submission_status) return;
-
-                if (isBackwardTransition(candidate.submission_status, v)) {
-                  setBackwardTargetStatus(v);
-                } else if (v === "sourced") {
-                  setShowResetConfirm(true);
-                } else if (v === "submitted") {
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "submitted",
-                    client_feedback: candidate.client_feedback || "internal",
-                    submitted_at: candidate.submitted_at || new Date().toISOString(),
-                  };
-                  saveField(patch);
-                } else if (v === "interview") {
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "interview",
-                    client_feedback: "client",
-                    submitted_at: candidate.submitted_at || new Date().toISOString(),
-                    interview_at: candidate.interview_at || new Date().toISOString(),
-                  };
-                  saveField(patch);
-                } else if (v === "placed") {
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "placed",
-                    client_feedback: "client",
-                    submitted_at: candidate.submitted_at || new Date().toISOString(),
-                    placed_at: candidate.placed_at || new Date().toISOString(),
-                  };
-                  saveField(patch);
-                } else if (v === "rejected") {
-                  const existing = parseRejectionDetail(candidate.rejection_reason);
-                  const origin =
-                    candidate.submission_status === "interview"
-                      ? "interview"
-                      : candidate.submission_status === "submitted"
-                        ? (candidate.client_feedback === "internal" ? "internal" : "client_screening")
-                        : existing.origin || "general";
-
-                  const detail: RejectionDetail = {
-                    ...existing,
-                    origin,
-                    rejected_at: existing.rejected_at || new Date().toISOString(),
-                  };
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "rejected",
-                    rejection_reason: serializeRejectionDetail(detail),
-                  };
-                  saveField(patch);
-                } else {
-                  const patch: Partial<CandidateInput> = { submission_status: v };
-                  saveField(patch);
-                }
-              }}
-            />
-            {(status === "submitted" ||
-              status === "interview" ||
-              status === "placed" ||
-              status === "rejected" ||
-              status === "not_interested") && (
-                <div className="animate-[fade-up_0.25s_ease-out] pt-1">
-                  {status === "submitted" && (
-                    <SubmissionSubStageSection
-                      candidate={candidate}
-                      onSave={saveField}
-                    />
-                  )}
-                  {status === "interview" && (
-                    <div className="space-y-1.5">
-                      {candidate.submitted_at && (
-                        <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-2.5 py-1 text-[11px] text-fg-subtle">
-                          <span>External Submission:</span>
-                          <span className="font-semibold text-fg tabular-nums">
-                            {formatDateAbbr(candidate.submitted_at)}
-                          </span>
-                        </div>
-                      )}
-                      <InterviewRoundsManager
-                        rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
-                        onChange={(newRounds) => {
-                          saveField({
-                            interview_status: serializeInterviewRounds(newRounds),
-                            interview_at: getActiveInterviewSchedule(newRounds),
-                          });
-                        }}
-                        onSelectAndPlace={() => {
-                          saveField({
-                            submission_status: "placed",
-                            client_feedback: "client",
-                            submitted_at: candidate.submitted_at || new Date().toISOString(),
-                            placed_at: new Date().toISOString(),
-                          });
-                          toast.success("Candidate marked as Placed!");
-                        }}
-                        onRejectRound={(rNum) => {
-                          const detail: RejectionDetail = {
-                            origin: "interview",
-                            round_number: rNum,
-                            category: "Interview feedback",
-                            reason: null,
-                            rejected_at: new Date().toISOString(),
-                          };
-                          saveField({
-                            submission_status: "rejected",
-                            client_feedback: "client",
-                            submitted_at: candidate.submitted_at || new Date().toISOString(),
-                            rejection_reason: serializeRejectionDetail(detail),
-                          });
-                          toast.success(`Candidate marked as Rejected after Round ${rNum}`);
-                        }}
-                      />
-                    </div>
-                  )}
-                  {status === "placed" && (
-                    <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
-                      <PlacedDatePicker
-                        value={candidate.placed_at}
-                        onChange={(val) => saveField({ placed_at: val })}
-                      />
-                      {clientName && (
-                        <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
-                          <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                          <span className="truncate">
-                            Client: <strong className="font-semibold">{clientName}</strong>
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  {status === "rejected" && (
-                    <RejectionDetailsCard candidate={candidate} onSave={saveField} />
-                  )}
-                  {status === "not_interested" && (
-                    <NotInterestedDetailsCard candidate={candidate} onSave={saveField} />
-                  )}
-                </div>
-              )}
-          </div>
         </div>
 
-        {/* Comments */}
-        <div className="mt-2 space-y-1.5 border-t border-border pt-6">
-          <p className="text-xs text-fg-subtle">Comments</p>
+        {/* Row 5: Status (Full width) */}
+        <div className="w-full space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-fg-subtle">Status</p>
+            <div className="flex items-center gap-1.5">
+              {previousStatusSnapshot && previousStatusSnapshot.submission_status !== candidate.submission_status && (
+                <button
+                  type="button"
+                  onClick={handleRestoreStatus}
+                  title={`Restore previous status: ${titleCase(previousStatusSnapshot.submission_status)}`}
+                  className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-primary transition-colors hover:bg-primary/10"
+                >
+                  <ArrowCounterClockwise className="h-3 w-3" />
+                  <span>Restore</span>
+                </button>
+              )}
+              {status !== "sourced" && (
+                <button
+                  type="button"
+                  onClick={() => setShowResetConfirm(true)}
+                  title="Clear status and reset to Sourced"
+                  className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500 cursor-pointer"
+                >
+                  <X className="h-3 w-3" />
+                  <span>Reset</span>
+                </button>
+              )}
+            </div>
+          </div>
+          <SubmissionStatusSelect
+            value={status}
+            triggerClassName="h-8 w-full text-xs"
+            onValueChange={(v) => {
+              if (v === candidate.submission_status) return;
+
+              if (isBackwardTransition(candidate.submission_status, v)) {
+                setBackwardTargetStatus(v);
+              } else if (v === "sourced") {
+                setShowResetConfirm(true);
+              } else if (v === "submitted") {
+                const patch: Partial<CandidateInput> = {
+                  submission_status: "submitted",
+                  client_feedback: candidate.client_feedback || "internal",
+                  submitted_at: candidate.submitted_at || new Date().toISOString(),
+                };
+                saveField(patch);
+              } else if (v === "interview") {
+                const patch: Partial<CandidateInput> = {
+                  submission_status: "interview",
+                  client_feedback: "client",
+                  submitted_at: candidate.submitted_at || new Date().toISOString(),
+                  interview_at: candidate.interview_at || new Date().toISOString(),
+                };
+                saveField(patch);
+              } else if (v === "placed") {
+                const patch: Partial<CandidateInput> = {
+                  submission_status: "placed",
+                  client_feedback: "client",
+                  submitted_at: candidate.submitted_at || new Date().toISOString(),
+                  placed_at: candidate.placed_at || new Date().toISOString(),
+                };
+                saveField(patch);
+              } else if (v === "rejected") {
+                const existing = parseRejectionDetail(candidate.rejection_reason);
+                const origin =
+                  candidate.submission_status === "interview"
+                    ? "interview"
+                    : candidate.submission_status === "submitted"
+                      ? (candidate.client_feedback === "internal" ? "internal" : "client_screening")
+                      : existing.origin || "general";
+
+                const detail: RejectionDetail = {
+                  ...existing,
+                  origin,
+                  rejected_at: existing.rejected_at || new Date().toISOString(),
+                };
+                const patch: Partial<CandidateInput> = {
+                  submission_status: "rejected",
+                  rejection_reason: serializeRejectionDetail(detail),
+                };
+                saveField(patch);
+              } else {
+                const patch: Partial<CandidateInput> = { submission_status: v };
+                saveField(patch);
+              }
+            }}
+          />
+          {(status === "submitted" ||
+            status === "interview" ||
+            status === "placed" ||
+            status === "rejected" ||
+            status === "not_interested") && (
+              <div className="animate-[fade-up_0.25s_ease-out] pt-1">
+                {status === "submitted" && (
+                  <SubmissionSubStageSection
+                    candidate={candidate}
+                    onSave={saveField}
+                  />
+                )}
+                {status === "interview" && (
+                  <div className="space-y-1.5">
+                    {candidate.submitted_at && (
+                      <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-2.5 py-1 text-[11px] text-fg-subtle">
+                        <span>External Submission:</span>
+                        <span className="font-semibold text-fg tabular-nums">
+                          {formatDateAbbr(candidate.submitted_at)}
+                        </span>
+                      </div>
+                    )}
+                    <InterviewRoundsManager
+                      rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
+                      onChange={(newRounds) => {
+                        saveField({
+                          interview_status: serializeInterviewRounds(newRounds),
+                          interview_at: getActiveInterviewSchedule(newRounds),
+                        });
+                      }}
+                      onSelectAndPlace={() => {
+                        saveField({
+                          submission_status: "placed",
+                          client_feedback: "client",
+                          submitted_at: candidate.submitted_at || new Date().toISOString(),
+                          placed_at: new Date().toISOString(),
+                        });
+                        toast.success("Candidate marked as Placed!");
+                      }}
+                      onRejectRound={(rNum) => {
+                        const detail: RejectionDetail = {
+                          origin: "interview",
+                          round_number: rNum,
+                          category: "Interview feedback",
+                          reason: null,
+                          rejected_at: new Date().toISOString(),
+                        };
+                        saveField({
+                          submission_status: "rejected",
+                          client_feedback: "client",
+                          submitted_at: candidate.submitted_at || new Date().toISOString(),
+                          rejection_reason: serializeRejectionDetail(detail),
+                        });
+                        toast.success(`Candidate marked as Rejected after Round ${rNum}`);
+                      }}
+                    />
+                  </div>
+                )}
+                {status === "placed" && (
+                  <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
+                    <PlacedDatePicker
+                      value={candidate.placed_at}
+                      onChange={(val) => saveField({ placed_at: val })}
+                    />
+                    {clientName && (
+                      <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
+                        <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                        <span className="truncate">
+                          Client: <strong className="font-semibold">{clientName}</strong>
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                {status === "rejected" && (
+                  <RejectionDetailsCard candidate={candidate} onSave={saveField} />
+                )}
+                {status === "not_interested" && (
+                  <NotInterestedDetailsCard candidate={candidate} onSave={saveField} />
+                )}
+              </div>
+            )}
+        </div>
+
+        {/* Notes / Comments */}
+        <div className="flex flex-1 flex-col min-h-[160px] border-t border-border pt-2.5">
           <RichTextEditor
             key={candidate.id}
             value={candidate.recruiter_notes ?? ""}
             onChange={(html) => saveField({ recruiter_notes: html || null })}
             placeholder="Notes about this candidate…"
-            minHeight={300}
+            fill
+            minHeight={160}
           />
         </div>
       </div>
@@ -950,10 +970,12 @@ function InlineField({
   label,
   value,
   onSave,
+  placeholder,
 }: {
   label: string;
   value: string;
   onSave: (v: string) => void;
+  placeholder?: string;
 }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => {
@@ -966,6 +988,7 @@ function InlineField({
       <Input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        placeholder={placeholder}
         className="h-8 text-[13px]"
         onBlur={() => {
           const t = draft.trim();

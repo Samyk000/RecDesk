@@ -319,8 +319,22 @@ fn extract_candidate_role(lines: &[&str], candidate_name: &str) -> Option<String
             continue;
         }
 
+        // Handle compound header line: "Alex Rivera | Senior Frontend Architect" or "Deion Smith – Platform SME"
+        let target_role_str = if lower.starts_with(&name_lower) {
+            let remainder = trimmed[candidate_name.len()..].trim();
+            let stripped = remainder.trim_start_matches(&['|', '–', '—', '-', ':'][..]).trim();
+            if !stripped.is_empty() {
+                stripped
+            } else {
+                continue;
+            }
+        } else {
+            trimmed
+        };
+        let target_lower = target_role_str.to_lowercase();
+
         // Check for explicit prefix: "Title: Senior DevOps Engineer"
-        if let Some(cap) = RE_TITLE_PREFIX.captures(trimmed) {
+        if let Some(cap) = RE_TITLE_PREFIX.captures(target_role_str) {
             if let Some(t_match) = cap.get(2) {
                 let val = t_match.as_str().trim();
                 if !val.is_empty() && val.len() < 80 {
@@ -330,8 +344,8 @@ fn extract_candidate_role(lines: &[&str], candidate_name: &str) -> Option<String
         }
 
         // Check if line contains a recognizable title keyword and is concise
-        if title_keywords.iter().any(|k| lower.contains(k)) && trimmed.len() < 80 && !is_likely_location(trimmed) {
-            return Some(clean_role_title(trimmed));
+        if title_keywords.iter().any(|k| target_lower.contains(k)) && target_role_str.len() < 80 && !is_likely_location(target_role_str) {
+            return Some(clean_role_title(target_role_str));
         }
     }
 

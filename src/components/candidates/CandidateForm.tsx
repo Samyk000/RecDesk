@@ -20,7 +20,7 @@ import {
 } from "../ui/select";
 import { useCreateCandidate, useJobs, useAttachResume } from "../../hooks/useQueries";
 import { SUBMISSION_STATUSES } from "../../lib/constants";
-import { errorMessage } from "../../lib/utils";
+import { cn, errorMessage } from "../../lib/utils";
 import { StatusSelectItem } from "./StatusSelectItem";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
@@ -58,22 +58,33 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
   const [interviewAt, setInterviewAt] = useState("");
   const [placedAt, setPlacedAt] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [includeInactiveJobs, setIncludeInactiveJobs] = useState(false);
+
+  const eligibleJobs = useMemo(() => {
+    if (!allJobs) return [];
+    if (includeInactiveJobs) return allJobs;
+    return allJobs.filter((j) => j.status === "active");
+  }, [allJobs, includeInactiveJobs]);
 
   const roles = useMemo(() => {
-    if (!allJobs) return [];
+    if (!eligibleJobs) return [];
     const map = new Map<string, JobWithStats>();
-    for (const j of allJobs) {
-      if (!map.has(j.title)) map.set(j.title, j);
+    for (const j of eligibleJobs) {
+      if (!map.has(j.title)) {
+        map.set(j.title, j);
+      } else if (map.get(j.title)?.status !== "active" && j.status === "active") {
+        map.set(j.title, j);
+      }
     }
     return Array.from(map.values());
-  }, [allJobs]);
+  }, [eligibleJobs]);
 
   const clientsForRole = useMemo(() => {
-    if (!allJobs || !selectedRole) return [];
-    const filtered = allJobs.filter((j) => j.title === selectedRole);
+    if (!eligibleJobs || !selectedRole) return [];
+    const filtered = eligibleJobs.filter((j) => j.title === selectedRole);
     const unique = new Map(filtered.map((j) => [j.client_name, j]));
     return Array.from(unique.values());
-  }, [allJobs, selectedRole]);
+  }, [eligibleJobs, selectedRole]);
 
   useEffect(() => {
     if (!open) return;
@@ -92,18 +103,19 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     setPlacedAt("");
     setRejectionReason("");
     setStagedResumePath(null);
+    setIncludeInactiveJobs(false);
   }, [open, jobId]);
 
   useEffect(() => {
-    if (!selectedRole || !selectedClient || !allJobs) {
+    if (!selectedRole || !selectedClient || !eligibleJobs) {
       if (!jobId) setSelectedJobId("");
       return;
     }
-    const match = allJobs.find(
+    const match = eligibleJobs.find(
       (j) => j.title === selectedRole && j.client_name === selectedClient,
     );
     if (match) setSelectedJobId(match.id);
-  }, [selectedRole, selectedClient, allJobs, jobId]);
+  }, [selectedRole, selectedClient, eligibleJobs, jobId]);
 
   function handleApplyExtracted(profile: ExtractedCandidateProfile, sourceFilePath?: string) {
     if (profile.name) setName(profile.name);
@@ -212,7 +224,20 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
             {!jobId && (
               <div className="grid grid-cols-2 gap-4">
                 <div className="min-w-0 space-y-1.5">
-                  <Label>Job Role *</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Job Role *</Label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIncludeInactiveJobs(!includeInactiveJobs);
+                        setSelectedRole("");
+                        setSelectedClient("");
+                      }}
+                      className="text-[11px] font-medium text-fg-subtle hover:text-fg transition-colors cursor-pointer"
+                    >
+                      {includeInactiveJobs ? "Active only" : "+ Include hold/closed"}
+                    </button>
+                  </div>
                   <Select
                     value={selectedRole}
                     onValueChange={(v) => {
@@ -226,7 +251,21 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
                     <SelectContent>
                       {roles.map((r) => (
                         <SelectItem key={r.title} value={r.title} title={r.title}>
-                          <span className="truncate block">{r.title}</span>
+                          <div className="flex items-center justify-between gap-2 w-full min-w-0">
+                            <span className="truncate">{r.title}</span>
+                            {includeInactiveJobs && r.status !== "active" && (
+                              <span
+                                className={cn(
+                                  "rounded px-1.5 py-0.2 text-[10px] font-medium shrink-0",
+                                  r.status === "on_hold"
+                                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                    : "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400",
+                                )}
+                              >
+                                {r.status === "on_hold" ? "Hold" : "Closed"}
+                              </span>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>
@@ -245,7 +284,21 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
                     <SelectContent>
                       {clientsForRole.map((c) => (
                         <SelectItem key={c.client_name} value={c.client_name} title={c.client_name}>
-                          <span className="truncate block">{c.client_name}</span>
+                          <div className="flex items-center justify-between gap-2 w-full min-w-0">
+                            <span className="truncate">{c.client_name}</span>
+                            {includeInactiveJobs && c.status !== "active" && (
+                              <span
+                                className={cn(
+                                  "rounded px-1.5 py-0.2 text-[10px] font-medium shrink-0",
+                                  c.status === "on_hold"
+                                    ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                                    : "bg-zinc-500/15 text-zinc-600 dark:text-zinc-400",
+                                )}
+                              >
+                                {c.status === "on_hold" ? "Hold" : "Closed"}
+                              </span>
+                            )}
+                          </div>
                         </SelectItem>
                       ))}
                     </SelectContent>

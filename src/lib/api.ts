@@ -25,7 +25,6 @@ export const apiClients = {
   create: (input: ClientInput) => call<Client>("create_client", { input }),
   update: (id: string, input: ClientInput) => call<Client>("update_client", { id, input }),
   remove: (id: string) => call<void>("delete_client", { id }),
-  move: (id: string, direction: number) => call<void>("move_client", { id, direction }),
 };
 
 // ---- Jobs ----
@@ -36,7 +35,9 @@ export const apiJobs = {
   create: (input: JobInput) => call<JobWithStats>("create_job", { input }),
   update: (id: string, input: JobInput) => call<JobWithStats>("update_job", { id, input }),
   remove: (id: string) => call<void>("delete_job", { id }),
-  move: (id: string, direction: number) => call<void>("move_job", { id, direction }),
+  bulkUpdateStatus: (ids: string[], status: string) =>
+    call<void>("bulk_update_jobs", { ids, status }),
+  bulkRemove: (ids: string[]) => call<number>("delete_jobs", { ids }),
 };
 
 // ---- Candidates ----

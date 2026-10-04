@@ -58,16 +58,12 @@ export function SidebarSubmissions() {
     return saved === null ? true : saved === "true";
   });
 
-  const [isTransitioning, setIsTransitioning] = useState(false);
-
   useEffect(() => {
     localStorage.setItem("recdesk_submissions_collapsed", collapsed.toString());
   }, [collapsed]);
 
   const handleToggle = () => {
-    setIsTransitioning(true);
     setCollapsed((prev) => !prev);
-    setTimeout(() => setIsTransitioning(false), 320);
   };
 
   // Strictly filter external submissions across the lifecycle:
@@ -77,9 +73,7 @@ export function SidebarSubmissions() {
     if (!candidates) return [];
 
     const list = candidates.filter((c) => isExternalSubmission(c));
-    if (collapsed) return list;
-
-    return list.sort((a, b) => {
+    return [...list].sort((a, b) => {
       const timeA = getSubmissionTimestamp(a.submitted_at);
       const timeB = getSubmissionTimestamp(b.submitted_at);
       if (timeB !== timeA) {
@@ -89,8 +83,7 @@ export function SidebarSubmissions() {
       const updatedB = b.last_updated ? new Date(b.last_updated).getTime() : 0;
       return updatedB - updatedA;
     });
-  }, [candidates, collapsed]);
-
+  }, [candidates]);
 
   const handleOpenCandidate = (candidate: CandidateWithJob) => {
     navigate(`/candidates?candidate=${candidate.id}`);
@@ -135,14 +128,7 @@ export function SidebarSubmissions() {
       >
         <div className="flex min-h-0 flex-col overflow-hidden">
           {/* Scrollable clean card container */}
-          <div
-            className={cn(
-              "mt-1.5 max-h-[190px] space-y-1 px-0.5 pb-1 scroll-smooth overscroll-contain",
-              isTransitioning || collapsed
-                ? "overflow-hidden"
-                : "overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-            )}
-          >
+          <div className="mt-1.5 max-h-[190px] space-y-1 px-0.5 pb-1 overflow-y-auto scroll-smooth overscroll-contain [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {submittedList.length === 0 ? (
               <div className="mx-0.5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 py-3 text-center text-fg-subtle">
                 <CalendarBlank className="h-4 w-4 text-fg-subtle" />

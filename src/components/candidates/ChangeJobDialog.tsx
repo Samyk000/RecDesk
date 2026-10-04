@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   ArrowsLeftRight,
   Briefcase,
@@ -27,6 +27,7 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess?: (newJobId: string, action: "move" | "copy") => void;
+  initialMode?: "move" | "copy";
 }
 
 export function ChangeJobDialog({
@@ -34,6 +35,7 @@ export function ChangeJobDialog({
   open,
   onOpenChange,
   onSuccess,
+  initialMode = "move",
 }: Props) {
   const queryClient = useQueryClient();
   const { data: allJobs, isLoading: jobsLoading } = useJobs();
@@ -41,7 +43,17 @@ export function ChangeJobDialog({
   const updateCandidate = useUpdateCandidate();
   const createCandidate = useCreateCandidate();
 
-  const [mode, setMode] = useState<"move" | "copy">("move");
+  const [mode, setMode] = useState<"move" | "copy">(initialMode);
+
+  // Sync mode whenever dialog opens or initialMode changes
+  useEffect(() => {
+    if (open) {
+      setMode(initialMode);
+      setSearch("");
+      setProcessingId(null);
+    }
+  }, [open, initialMode]);
+
   const [search, setSearch] = useState("");
   const [includeClosed, setIncludeClosed] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -118,7 +130,6 @@ export function ChangeJobDialog({
         queryClient.invalidateQueries({ queryKey: ["candidates"] });
         queryClient.invalidateQueries({ queryKey: ["candidatesWithJob"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-        queryClient.invalidateQueries({ queryKey: ["reminders"] });
 
         toast.success(`Moved ${candidate.name} to "${targetJob.title}"`, {
           action: {

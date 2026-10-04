@@ -204,6 +204,78 @@ export function syncCandidateFieldsToSubmissionDetails(
   }
 }
 
+export function isPayRateRow(key: string, label: string): boolean {
+  const k = (key || "").toLowerCase().trim();
+  const l = (label || "").toLowerCase().trim();
+  return (
+    k === "pay_rate" ||
+    k === "salary" ||
+    k === "rate" ||
+    l.includes("pay rate") ||
+    l.includes("salary")
+  );
+}
+
+export function getPayRateFromSubmissionDetails(
+  submissionDetailsJson: string | null | undefined,
+): string {
+  if (!submissionDetailsJson) return "";
+  try {
+    const parsed = JSON.parse(submissionDetailsJson);
+    if (Array.isArray(parsed)) {
+      const found = parsed.find((row: any) => isPayRateRow(row.key, row.label));
+      return found?.value ?? "";
+    }
+  } catch {
+    // ignore
+  }
+  return "";
+}
+
+export function setPayRateInSubmissionDetails(
+  existingSubmissionDetailsJson: string | null | undefined,
+  newPayRate: string,
+): string {
+  const defaultPayRow = {
+    id: "pay_rate",
+    key: "pay_rate",
+    label: "Pay Rate/Salary:",
+    value: newPayRate,
+  };
+
+  if (!existingSubmissionDetailsJson) {
+    return JSON.stringify([defaultPayRow]);
+  }
+
+  try {
+    const parsed = JSON.parse(existingSubmissionDetailsJson);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      let found = false;
+      const updated = parsed.map((row: any) => {
+        if (isPayRateRow(row.key, row.label)) {
+          found = true;
+          return { ...row, value: newPayRate };
+        }
+        return row;
+      });
+
+      if (!found) {
+        const locIdx = updated.findIndex((r: any) => isLocationRow(r.key, r.label));
+        if (locIdx !== -1) {
+          updated.splice(locIdx + 1, 0, defaultPayRow);
+        } else {
+          updated.push(defaultPayRow);
+        }
+      }
+      return JSON.stringify(updated);
+    }
+  } catch {
+    // fallback
+  }
+
+  return JSON.stringify([defaultPayRow]);
+}
+
 /**
  * Parses interview rounds from candidate.interview_status or builds initial round
  */

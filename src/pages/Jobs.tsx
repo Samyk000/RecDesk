@@ -1,17 +1,28 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Briefcase, Plus } from "@phosphor-icons/react";
-import { useJobs } from "../hooks/useQueries";
+import { Briefcase, Clock, ListChecks, Plus, Trash, X } from "@phosphor-icons/react";
+import { toast } from "sonner";
+import { useJobs, useBulkUpdateJobs, useBulkDeleteJobs } from "../hooks/useQueries";
 import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
+import { useSelection } from "../hooks/useSelection";
 import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { SearchInput } from "../components/common/SearchInput";
 import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../components/ui/select";
 import { JOB_STATUSES, jobPalette } from "../lib/constants";
-import { cn, timeAgo, titleCase } from "../lib/utils";
+import { cn, errorMessage, timeAgo, titleCase } from "../lib/utils";
 import { useDebounce } from "../hooks/useDebounce";
 import type { JobWithStats } from "../types";
 
@@ -34,6 +45,8 @@ export function Jobs() {
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
   const [formOpen, setFormOpen] = useState(false);
+  const [selectMode, setSelectMode] = useState(false);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const { sortKey, sortDir, toggleSort } = useTableSort<JobSortKey>("updated_at");
   const { data, isLoading } = useJobs(
     undefined,
@@ -41,6 +54,40 @@ export function Jobs() {
     debounced || undefined,
   );
   const sortedJobs = useSortedRows(data, sortKey, sortDir, COMPARE_JOBS);
+  const selection = useSelection(
+    sortedJobs.map((j) => j.id),
+    `${status}|${debounced}|${selectMode}`,
+  );
+  const bulkUpdate = useBulkUpdateJobs();
+  const bulkDelete = useBulkDeleteJobs();
+
+  function handleBulkStatus(nextStatus: string) {
+    if (!selection.selected.size) return;
+    const ids = Array.from(selection.selected);
+    bulkUpdate.mutate(
+      { ids, status: nextStatus },
+      {
+        onSuccess: () => {
+          toast.success(`Updated ${ids.length} job(s) to ${titleCase(nextStatus)}`);
+          selection.clear();
+        },
+        onError: (err) => toast.error(errorMessage(err)),
+      },
+    );
+  }
+
+  function handleBulkDelete() {
+    if (!selection.selected.size) return;
+    const ids = Array.from(selection.selected);
+    bulkDelete.mutate(ids, {
+      onSuccess: () => {
+        toast.success(`Deleted ${ids.length} job(s)`);
+        selection.clear();
+        setBulkDeleteOpen(false);
+      },
+      onError: (err) => toast.error(errorMessage(err)),
+    });
+  }
 
   useEffect(() => {
     if (params.get("new")) {
@@ -102,7 +149,91 @@ export function Jobs() {
             />
           ))}
         </div>
+
+        <div className="ml-auto flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs font-medium text-fg-muted hover:border-amber-500/40 hover:bg-amber-500/5 hover:text-fg transition-all cursor-pointer shadow-2xs"
+              >
+                <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
+                <span className="hidden sm:inline">Auto-hold: 2w</span>
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="bottom"
+              align="end"
+              className="max-w-xs p-3 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 pointer-events-none"
+            >
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
+                <Clock className="h-4 w-4 text-amber-500 shrink-0" />
+                <span>14-Day Auto-Hold Policy</span>
+              </div>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-fg-muted font-normal">
+                Active jobs with no candidate activity or updates for <strong>14 days (2 weeks)</strong> automatically move to <strong className="text-amber-500 font-medium">On Hold</strong> to keep your pipeline clean and focused.
+              </p>
+              <p className="mt-1.5 text-[10px] text-fg-subtle border-t border-border/50 pt-1.5 font-medium">
+                Any candidate submission or job update resets the 14-day timer.
+              </p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Button
+            size="icon"
+            variant="ghost"
+            title={selectMode ? "Exit select mode" : "Select jobs"}
+            onClick={() => {
+              setSelectMode(!selectMode);
+              if (selectMode) selection.clear();
+            }}
+            className={selectMode ? "bg-surface-active text-fg" : "text-fg-muted"}
+          >
+            <ListChecks className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
+
+      {selectMode && selection.selected.size > 0 && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-1.5 text-xs">
+          <span className="font-medium text-fg">{selection.selected.size} selected</span>
+          <div className="mx-2 h-4 w-px bg-border" />
+          <Select onValueChange={handleBulkStatus}>
+            <SelectTrigger className="h-7 w-32 text-xs">
+              <SelectValue placeholder="Set status…" />
+            </SelectTrigger>
+            <SelectContent>
+              {JOB_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  <span className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: jobPalette(s).dot }} />
+                    {titleCase(s)}
+                  </span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setBulkDeleteOpen(true)}
+            className="h-7 text-xs text-red-500 hover:bg-red-500/10 hover:text-red-500 cursor-pointer"
+            title="Delete selected jobs"
+          >
+            <Trash className="h-3.5 w-3.5 mr-1" />
+            Delete
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={selection.clear}
+            className="h-7 text-xs text-fg-subtle hover:text-fg ml-auto cursor-pointer"
+          >
+            <X className="h-3.5 w-3.5 mr-1" />
+            Clear
+          </Button>
+        </div>
+      )}
 
       <div className="flex min-h-0 flex-1 flex-col">
         {isLoading ? (
@@ -127,6 +258,16 @@ export function Jobs() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface text-left">
+                    {selectMode && (
+                      <th className="sticky top-0 z-10 bg-surface px-4 py-2.5 w-10">
+                        <input
+                          type="checkbox"
+                          checked={selection.allSelected}
+                          onChange={selection.toggleAll}
+                          className="rounded border-border accent-primary cursor-pointer"
+                        />
+                      </th>
+                    )}
                     <th
                       onClick={() => toggleSort("title")}
                       className="group sticky top-0 z-10 bg-surface px-4 py-2.5 text-xs font-semibold text-fg-muted cursor-pointer select-none hover:text-fg transition-colors"
@@ -180,9 +321,28 @@ export function Jobs() {
                   {sortedJobs.map((job) => (
                     <tr
                       key={job.id}
-                      onClick={() => navigate(`/jobs/${job.id}`)}
-                      className="group cursor-pointer transition-colors hover:bg-surface-hover"
+                      onClick={() => {
+                        if (selectMode) {
+                          selection.toggle(job.id);
+                        } else {
+                          navigate(`/jobs/${job.id}`);
+                        }
+                      }}
+                      className={cn(
+                        "group cursor-pointer transition-colors hover:bg-surface-hover",
+                        selectMode && selection.selected.has(job.id) && "bg-surface-active/50",
+                      )}
                     >
+                      {selectMode && (
+                        <td className="px-4 py-2.5 w-10" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="checkbox"
+                            checked={selection.selected.has(job.id)}
+                            onChange={() => selection.toggle(job.id)}
+                            className="rounded border-border accent-primary cursor-pointer"
+                          />
+                        </td>
+                      )}
                       <td className="px-4 py-2.5 text-[13px] font-medium text-fg group-hover:text-primary transition-colors">
                         <div className="truncate max-w-[280px]">
                           {job.title}
@@ -223,6 +383,17 @@ export function Jobs() {
       </div>
 
       <JobFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      {bulkDeleteOpen && (
+        <ConfirmDialog
+          open={bulkDeleteOpen}
+          onOpenChange={setBulkDeleteOpen}
+          title="Delete jobs"
+          description={`Are you sure you want to delete ${selection.selected.size} job(s) and their associated candidates? This action cannot be undone.`}
+          confirmLabel="Delete"
+          destructive
+          onConfirm={handleBulkDelete}
+        />
+      )}
     </div>
   );
 }

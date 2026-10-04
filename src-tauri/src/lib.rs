@@ -37,14 +37,14 @@ pub fn run() {
             commands::client::create_client,
             commands::client::update_client,
             commands::client::delete_client,
-            commands::client::move_client,
             // jobs
             commands::job::get_jobs,
             commands::job::get_job,
             commands::job::create_job,
             commands::job::update_job,
             commands::job::delete_job,
-            commands::job::move_job,
+            commands::job::bulk_update_jobs,
+            commands::job::delete_jobs,
             // candidates
             commands::candidate::get_candidates,
             commands::candidate::get_candidate,

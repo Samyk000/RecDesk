@@ -13,12 +13,14 @@ import { PageLoader } from "../components/common/Spinner";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DetailDrawer } from "../components/common/DetailDrawer";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
+import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import {
   extractCalendarEvents,
   getMonthMatrix,
   getCalendarAnalytics,
   formatDateKey,
   type CalendarEvent,
+  type CalendarEventOutcome,
   type CalendarAnalyticsScope,
 } from "../lib/calendarUtils";
 import {
@@ -46,6 +48,71 @@ const MONTH_NAMES = [
 ];
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function OutcomeIndicator({ outcome }: { outcome: CalendarEventOutcome }) {
+  const dotBg =
+    outcome.dotColor === "red"
+      ? "bg-red-500 ring-red-500/30"
+      : outcome.dotColor === "emerald"
+        ? "bg-emerald-500 ring-emerald-500/30"
+        : outcome.dotColor === "violet"
+          ? "bg-violet-500 ring-violet-500/30"
+          : outcome.dotColor === "amber"
+            ? "bg-amber-500 ring-amber-500/30"
+            : "bg-neutral-400 ring-neutral-400/30";
+
+  const headerColor =
+    outcome.dotColor === "red"
+      ? "text-red-600 dark:text-red-400"
+      : outcome.dotColor === "emerald"
+        ? "text-emerald-600 dark:text-emerald-400"
+        : outcome.dotColor === "violet"
+          ? "text-violet-600 dark:text-violet-400"
+          : outcome.dotColor === "amber"
+            ? "text-amber-600 dark:text-amber-400"
+            : "text-fg-muted";
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={(e) => e.stopPropagation()}
+          className="flex h-4 w-4 items-center justify-center rounded-full hover:bg-surface-hover/80 transition-all cursor-help"
+          aria-label={outcome.title}
+        >
+          <span
+            className={cn(
+              "h-2 w-2 rounded-full ring-2 transition-transform hover:scale-125 shrink-0",
+              dotBg,
+            )}
+          />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent
+        side="top"
+        align="end"
+        className="max-w-[260px] p-2.5 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 pointer-events-none"
+      >
+        <div className="flex items-center gap-1.5 text-xs font-semibold">
+          <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dotBg)} />
+          <span className={headerColor}>{outcome.title}</span>
+        </div>
+        {outcome.remarks && (
+          <p className="mt-1 text-[11px] leading-relaxed text-fg/80 font-normal bg-surface-hover/70 rounded px-2 py-1 border border-border/50 break-words">
+            "{outcome.remarks}"
+          </p>
+        )}
+        {outcome.date && (
+          <div className="mt-1.5 flex items-center justify-between text-[9.5px] text-fg-subtle border-t border-border/50 pt-1 font-medium">
+            <span>Recorded date:</span>
+            <span className="tabular-nums font-mono">{outcome.date}</span>
+          </div>
+        )}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export function Calendar() {
   const { data: candidates, isLoading } = useCandidatesWithJob();
@@ -339,7 +406,7 @@ export function Calendar() {
         </div>
 
         {/* Analytics Velocity Ribbon */}
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-3">
           {/* 1. Submissions metric */}
           <div
             onClick={() => setFilterType(filterType === "submission" ? "all" : "submission")}
@@ -404,22 +471,6 @@ export function Calendar() {
               </p>
               <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium truncate">
                 Successful placements
-              </p>
-            </div>
-          </div>
-
-          {/* 4. Rejected metric */}
-          <div className="flex items-center gap-2.5 rounded-lg border border-red-500/20 bg-red-500/5 px-3 py-1.5 shadow-2xs">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-red-500/15 text-red-600 dark:text-red-400 font-bold text-xs">
-              {analytics.totalRejected}
-            </span>
-            <div className="min-w-0">
-              <p className="text-[11px] font-semibold text-fg flex items-center gap-1">
-                <span>Rejections</span>
-                <span className="text-[9.5px] font-medium text-red-600/80 dark:text-red-400/80">({scopeLabel})</span>
-              </p>
-              <p className="text-[10px] text-fg-muted truncate">
-                Screening & interview dropoffs
               </p>
             </div>
           </div>
@@ -653,11 +704,14 @@ export function Calendar() {
 
                   <div className="flex items-center gap-2 shrink-0">
                     <div className="flex flex-col items-end gap-1">
-                      <StatusBadge
-                        status={ev.candidate.submission_status}
-                        subStage={ev.subStage}
-                        className="scale-90 origin-right"
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge
+                          status={ev.type === "submission" ? "submitted" : ev.type === "interview" ? "interview" : "placed"}
+                          subStage={ev.subStage}
+                          className="scale-90 origin-right"
+                        />
+                        <OutcomeIndicator outcome={ev.eventOutcome} />
+                      </div>
                       <div className="flex items-center gap-1 text-[10px] font-medium tabular-nums text-fg-subtle">
                         {viewScope === "month" && (
                           <span>{ev.dateKey} · </span>

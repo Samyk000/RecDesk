@@ -22,9 +22,9 @@ pub fn get_clients(
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let sql = match &search {
         Some(_) => format!(
-            "{CLIENT_SELECT} WHERE c.name LIKE ?1 ESCAPE '\\' OR COALESCE(c.company,'') LIKE ?1 ESCAPE '\\' OR COALESCE(c.email,'') LIKE ?1 ESCAPE '\\' ORDER BY c.sort_order, c.name"
+            "{CLIENT_SELECT} WHERE c.name LIKE ?1 ESCAPE '\\' OR COALESCE(c.company,'') LIKE ?1 ESCAPE '\\' OR COALESCE(c.email,'') LIKE ?1 ESCAPE '\\' ORDER BY c.created_at DESC, c.name ASC"
         ),
-        None => format!("{CLIENT_SELECT} ORDER BY c.sort_order, c.name"),
+        None => format!("{CLIENT_SELECT} ORDER BY c.created_at DESC, c.name ASC"),
     };
     let mut stmt = conn.prepare(&sql)?;
     let rows = match search {
@@ -122,32 +122,5 @@ pub fn update_client(
 pub fn delete_client(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     conn.execute("DELETE FROM clients WHERE id = ?1", params![id])?;
-    Ok(())
-}
-
-#[tauri::command]
-pub fn move_client(state: State<'_, AppState>, id: String, direction: i64) -> AppResult<()> {
-    let mut conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let mut ids: Vec<String> = conn
-        .prepare("SELECT id FROM clients ORDER BY sort_order, name")?
-        .query_map([], |r| r.get(0))?
-        .collect::<Result<_, rusqlite::Error>>()?;
-    let pos = ids
-        .iter()
-        .position(|x| *x == id)
-        .ok_or_else(|| AppError::Msg("Client not found".into()))?;
-    let target = pos as i64 + direction;
-    if target < 0 || target >= ids.len() as i64 {
-        return Ok(());
-    }
-    ids.swap(pos, target as usize);
-    let tx = conn.transaction()?;
-    for (i, cid) in ids.iter().enumerate() {
-        tx.execute(
-            "UPDATE clients SET sort_order = ?1 WHERE id = ?2",
-            params![i as i64, cid],
-        )?;
-    }
-    tx.commit()?;
     Ok(())
 }

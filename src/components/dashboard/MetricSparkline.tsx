@@ -12,12 +12,13 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
 
-  // 14 data points fallback if trend is not loaded yet
+  // Fallback to today's day of month if trend is not loaded yet
   const points = useMemo(() => {
     if (trend?.points && trend.points.length > 0) {
       return trend.points;
     }
-    return Array.from({ length: 14 }).map((_, i) => ({
+    const today = new Date().getDate();
+    return Array.from({ length: Math.max(today, 1) }).map((_, i) => ({
       date: "",
       label: `Day ${i + 1}`,
       count: 0,
@@ -35,6 +36,12 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
   const chartHeight = height - paddingY * 2;
 
   const coordinates = useMemo(() => {
+    if (points.length === 1) {
+      const p = points[0];
+      const ratio = p.count / maxVal;
+      const y = Number((height - paddingY - ratio * chartHeight).toFixed(1));
+      return [{ x: width / 2, y, ...p }];
+    }
     const stepX = width / Math.max(points.length - 1, 1);
     return points.map((p, i) => {
       const x = Number((i * stepX).toFixed(1));
@@ -44,12 +51,21 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
     });
   }, [points, maxVal, width, height, paddingY, chartHeight]);
 
-  // Smooth Catmull-Rom to Cubic Bezier curve
+  // Smooth Catmull-Rom to Cubic Bezier curve, with clean linear handling for 1-2 points
   const { linePath, areaPath } = useMemo(() => {
     if (coordinates.length === 0) return { linePath: "", areaPath: "" };
     if (coordinates.length === 1) {
       const p = coordinates[0];
-      return { linePath: `M 0,${p.y} L ${width},${p.y}`, areaPath: "" };
+      const d = `M 0,${p.y} L ${width},${p.y}`;
+      const area = p.count > 0 ? `${d} L ${width},${height} L 0,${height} Z` : "";
+      return { linePath: d, areaPath: area };
+    }
+    if (coordinates.length === 2) {
+      const p0 = coordinates[0];
+      const p1 = coordinates[1];
+      const d = `M ${p0.x},${p0.y} L ${p1.x},${p1.y}`;
+      const area = `${d} L ${p1.x},${height} L ${p0.x},${height} Z`;
+      return { linePath: d, areaPath: area };
     }
 
     let d = `M ${coordinates[0].x},${coordinates[0].y}`;
@@ -75,7 +91,11 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
   }, [coordinates, width, height]);
 
   const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-    if (!svgRef.current) return;
+    if (!svgRef.current || coordinates.length === 0) return;
+    if (coordinates.length === 1) {
+      setHoverIndex(0);
+      return;
+    }
     const rect = svgRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const ratio = Math.max(0, Math.min(1, x / rect.width));
@@ -100,7 +120,7 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
       >
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={color} stopOpacity="0.28" />
+            <stop offset="0%" stopColor={color} stopOpacity="0.20" />
             <stop offset="100%" stopColor={color} stopOpacity="0" />
           </linearGradient>
         </defs>
@@ -113,7 +133,7 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
           d={linePath}
           fill="none"
           stroke={color}
-          strokeWidth="1.8"
+          strokeWidth="1.35"
           strokeLinecap="round"
           strokeLinejoin="round"
           className="transition-all duration-300"
@@ -129,23 +149,23 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
               x2={activeCoord.x}
               y2={height - 2}
               stroke={color}
-              strokeWidth="1"
+              strokeWidth="0.8"
               strokeDasharray="2 2"
-              strokeOpacity="0.4"
+              strokeOpacity="0.35"
             />
             {/* Outer halo */}
             <circle
               cx={activeCoord.x}
               cy={activeCoord.y}
-              r="4.5"
+              r="3.8"
               fill={color}
-              fillOpacity="0.25"
+              fillOpacity="0.2"
             />
             {/* Center dot */}
             <circle
               cx={activeCoord.x}
               cy={activeCoord.y}
-              r="2.2"
+              r="1.8"
               fill={color}
               stroke="#ffffff"
               strokeWidth="1"
@@ -177,7 +197,7 @@ export function MetricSparkline({ trend, color, metricName }: MetricSparklinePro
             </span>
             <span>·</span>
             <span>
-              Month: <strong className="font-semibold text-fg tabular-nums">{trend?.this_month ?? 0}</strong>
+              MTD: <strong className="font-semibold text-fg tabular-nums">{trend?.this_month ?? 0}</strong>
             </span>
           </div>
         </div>

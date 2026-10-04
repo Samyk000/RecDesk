@@ -27,6 +27,18 @@ fn fetch_job(conn: &rusqlite::Connection, id: &str) -> AppResult<JobWithStats> {
         })
 }
 
+pub fn auto_hold_stale_jobs(conn: &rusqlite::Connection) -> AppResult<usize> {
+    let ts = now();
+    let affected = conn.execute(
+        "UPDATE jobs
+         SET status = 'on_hold', updated_at = ?1
+         WHERE status = 'active'
+           AND updated_at < datetime('now', '-14 days')",
+        params![ts],
+    )?;
+    Ok(affected)
+}
+
 #[tauri::command]
 pub fn get_jobs(
     state: State<'_, AppState>,
@@ -35,6 +47,7 @@ pub fn get_jobs(
     search: Option<String>,
 ) -> AppResult<Vec<JobWithStats>> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let _ = auto_hold_stale_jobs(&conn);
     let mut conditions: Vec<String> = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -206,28 +219,53 @@ pub fn delete_job(state: State<'_, AppState>, id: String) -> AppResult<()> {
 }
 
 #[tauri::command]
-pub fn move_job(state: State<'_, AppState>, id: String, direction: i64) -> AppResult<()> {
-    let mut conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let mut ids: Vec<String> = conn
-        .prepare("SELECT id FROM jobs ORDER BY sort_order, updated_at DESC")?
-        .query_map([], |r| r.get(0))?
-        .collect::<Result<_, rusqlite::Error>>()?;
-    let pos = ids
-        .iter()
-        .position(|x| *x == id)
-        .ok_or_else(|| AppError::Msg("Job not found".into()))?;
-    let target = pos as i64 + direction;
-    if target < 0 || target >= ids.len() as i64 {
+pub fn bulk_update_jobs(
+    state: State<'_, AppState>,
+    ids: Vec<String>,
+    status: String,
+) -> AppResult<()> {
+    if ids.is_empty() {
         return Ok(());
     }
-    ids.swap(pos, target as usize);
+    let mut conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let status_raw = status.trim().to_lowercase();
+    let normalized_status = match status_raw.as_str() {
+        "on_hold" => "on_hold",
+        "closed" => "closed",
+        _ => "active",
+    };
+    let ts = now();
     let tx = conn.transaction()?;
-    for (i, jid) in ids.iter().enumerate() {
-        tx.execute(
-            "UPDATE jobs SET sort_order = ?1 WHERE id = ?2",
-            params![i as i64, jid],
+    {
+        let mut stmt = tx.prepare(
+            "UPDATE jobs SET status = ?1, updated_at = ?2, closed_at = CASE WHEN ?1 = 'closed' THEN COALESCE(closed_at, ?2) ELSE NULL END WHERE id = ?3",
         )?;
+        for id in &ids {
+            stmt.execute(params![normalized_status, ts, id])?;
+        }
     }
     tx.commit()?;
     Ok(())
 }
+
+#[tauri::command]
+pub fn delete_jobs(state: State<'_, AppState>, ids: Vec<String>) -> AppResult<usize> {
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
+    let sql = format!(
+        "DELETE FROM jobs WHERE id IN ({})",
+        placeholders.join(",")
+    );
+    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    for id in &ids {
+        p.push(Box::new(id.clone()));
+    }
+    let affected =
+        conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
+    Ok(affected)
+}
+
+

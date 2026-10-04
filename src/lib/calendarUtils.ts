@@ -1,7 +1,18 @@
 import type { CandidateWithJob } from "../types";
 import { parseInterviewRounds, parseRejectionDetail, isExternalSubmission, getSubmissionTimestamp } from "./candidateUtils";
+import { formatDate } from "./utils";
 
 export type CalendarEventType = "submission" | "interview" | "placement";
+
+export type CalendarOutcomeDotColor = "red" | "emerald" | "violet" | "amber" | "gray";
+
+export interface CalendarEventOutcome {
+  status: string;
+  dotColor: CalendarOutcomeDotColor;
+  title: string;
+  remarks: string | null;
+  date: string | null;
+}
 
 export interface CalendarEvent {
   id: string;
@@ -15,6 +26,7 @@ export interface CalendarEvent {
   status: string;
   subStage: string | null;
   outcome?: "pending" | "passed" | "rejected" | "placed";
+  eventOutcome: CalendarEventOutcome;
 }
 
 export interface DayCell {
@@ -92,6 +104,94 @@ export function formatTimeFromIso(iso: string | null | undefined): string {
 }
 
 /**
+ * Determines the live outcome indicator for a calendar event based on candidate's current pipeline state
+ */
+export function getEventOutcome(
+  candidate: CandidateWithJob,
+  eventType: CalendarEventType,
+  roundNumber?: number,
+): CalendarEventOutcome {
+  const currentStatus = candidate.submission_status;
+
+  if (currentStatus === "rejected") {
+    const rejDetail = parseRejectionDetail(candidate.rejection_reason);
+    let title = "Rejected";
+    if (rejDetail.origin === "client_screening") {
+      title = "Rejected · Client Screening";
+    } else if (rejDetail.origin === "interview") {
+      title = rejDetail.round_number
+        ? `Rejected · Post Round ${rejDetail.round_number}`
+        : "Rejected · Post Interview";
+    } else if (rejDetail.origin === "internal") {
+      title = "Rejected · Internal Review";
+    } else {
+      title = "Rejected · General";
+    }
+
+    const remarks = rejDetail.reason?.trim() || null;
+    const dateRaw = rejDetail.rejected_at || candidate.last_updated;
+    const date = dateRaw ? formatDate(dateRaw) : null;
+
+    return {
+      status: "rejected",
+      dotColor: "red",
+      title,
+      remarks,
+      date,
+    };
+  }
+
+  if (currentStatus === "placed") {
+    const dateRaw = candidate.placed_at || candidate.last_updated;
+    return {
+      status: "placed",
+      dotColor: "emerald",
+      title: "Placed with Client",
+      remarks: "Candidate placed successfully",
+      date: dateRaw ? formatDate(dateRaw) : null,
+    };
+  }
+
+  if (currentStatus === "interview") {
+    const dateRaw = candidate.interview_at || candidate.last_updated;
+    const remarks =
+      eventType === "interview" && roundNumber
+        ? `Round ${roundNumber} in progress`
+        : candidate.interview_at
+          ? `Interview scheduled (${formatDate(candidate.interview_at)})`
+          : "Candidate in interview stage";
+
+    return {
+      status: "interview",
+      dotColor: "violet",
+      title: "In Interview Process",
+      remarks,
+      date: dateRaw ? formatDate(dateRaw) : null,
+    };
+  }
+
+  if (currentStatus === "not_interested") {
+    return {
+      status: "not_interested",
+      dotColor: "gray",
+      title: "Not Interested / Withdrawn",
+      remarks: candidate.rejection_reason?.trim() || "Candidate withdrawn",
+      date: formatDate(candidate.last_updated),
+    };
+  }
+
+  // Active submittal awaiting client feedback
+  const dateRaw = candidate.submitted_at || candidate.last_updated;
+  return {
+    status: currentStatus,
+    dotColor: "amber",
+    title: "In Review · Client Feedback Pending",
+    remarks: "Submitted to client, awaiting screening feedback",
+    date: dateRaw ? formatDate(dateRaw) : null,
+  };
+}
+
+/**
  * Extracts external submissions, interview rounds, and placements for the calendar
  */
 export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarEvent[] {
@@ -137,9 +237,10 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
             rawDate: rawDate,
             formattedTime: formatTimeFromIso(rawDate),
             candidate: cand,
-            status: cand.submission_status,
+            status: "submitted",
             subStage: "External",
             outcome,
+            eventOutcome: getEventOutcome(cand, "submission"),
           });
         }
       }
@@ -150,8 +251,6 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
     // ==========================================
     const rounds = parseInterviewRounds(cand.interview_status, cand.interview_at);
     const isInterviewStage = cand.submission_status === "interview";
-    const isInterviewRejection =
-      cand.submission_status === "rejected" && rejDetail.origin === "interview";
 
     let createdInterviewEvent = false;
 
@@ -173,23 +272,23 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
             candidate: cand,
             roundNumber: round.round_number,
             roundName: round.round_name,
-            status: cand.submission_status,
+            status: "interview",
             subStage: `Round ${round.round_number}`,
             outcome: isRejectedAfterThisRound
               ? "rejected"
               : cand.submission_status === "placed"
                 ? "placed"
                 : "pending",
+            eventOutcome: getEventOutcome(cand, "interview", round.round_number),
           });
           createdInterviewEvent = true;
         }
       }
     });
 
-    // Fallback if candidate is in interview status or was rejected in interview, but rounds don't have scheduled_at
-    if (!createdInterviewEvent && (isInterviewStage || isInterviewRejection)) {
-      const rawDate =
-        cand.interview_at || rejDetail.rejected_at || cand.last_updated || cand.date_added;
+    // Fallback ONLY if candidate is currently in interview status and has an interview_at date
+    if (!createdInterviewEvent && isInterviewStage && cand.interview_at?.trim()) {
+      const rawDate = cand.interview_at;
       const dateKey = formatDateKey(rawDate);
       if (dateKey) {
         events.push({
@@ -199,11 +298,12 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
           rawDate: rawDate,
           formattedTime: formatTimeFromIso(rawDate),
           candidate: cand,
-          roundNumber: rejDetail.round_number || 1,
-          roundName: rejDetail.round_number ? `Round ${rejDetail.round_number}` : "Round 1: Screening",
-          status: cand.submission_status,
-          subStage: rejDetail.round_number ? `Round ${rejDetail.round_number}` : "Round 1",
-          outcome: cand.submission_status === "rejected" ? "rejected" : "pending",
+          roundNumber: 1,
+          roundName: "Round 1: Screening",
+          status: "interview",
+          subStage: "Round 1",
+          outcome: "pending",
+          eventOutcome: getEventOutcome(cand, "interview", 1),
         });
       }
     }
@@ -224,6 +324,7 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
           status: "placed",
           subStage: "Placed",
           outcome: "placed",
+          eventOutcome: getEventOutcome(cand, "placement"),
         });
       }
     }
