@@ -998,12 +998,12 @@ function CandidatePanelBody({
                   });
                   toast.success("Candidate marked as Placed!");
                 }}
-                onRejectRound={(rNum) => {
+                onRejectRound={(rNum, rejectionMsg) => {
                   const detail: RejectionDetail = {
                     origin: "interview",
                     round_number: rNum,
                     category: "Interview feedback",
-                    reason: null,
+                    reason: rejectionMsg?.trim() || null,
                     rejected_at: new Date().toISOString(),
                   };
                   saveField({

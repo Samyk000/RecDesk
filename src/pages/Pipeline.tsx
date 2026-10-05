@@ -615,12 +615,29 @@ export function Pipeline() {
                                   {remainder.length > 0 && (
                                     <Tooltip>
                                       <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center rounded px-1 py-0.2 text-[9.5px] font-medium bg-surface-hover text-fg-subtle border border-border cursor-default">
+                                        <span className="inline-flex items-center rounded px-1 py-0.2 text-[9.5px] font-medium bg-surface-hover text-fg-subtle border border-border cursor-default hover:border-primary/40 hover:text-primary transition-colors">
                                           +{remainder.length}
                                         </span>
                                       </TooltipTrigger>
-                                      <TooltipContent side="top" className="text-xs">
-                                        {remainder.join(", ")}
+                                      <TooltipContent
+                                        side="top"
+                                        className="max-w-[260px] p-2 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 text-left"
+                                      >
+                                        <div className="mb-1.5 flex items-center justify-between border-b border-border/60 pb-1">
+                                          <span className="text-[10.5px] font-semibold text-fg-subtle">
+                                            Additional Skills (+{remainder.length})
+                                          </span>
+                                        </div>
+                                        <div className="flex flex-wrap gap-1 max-h-[160px] overflow-y-auto [scrollbar-width:thin]">
+                                          {remainder.map((sk) => (
+                                            <span
+                                              key={sk}
+                                              className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary border border-primary/20"
+                                            >
+                                              {sk}
+                                            </span>
+                                          ))}
+                                        </div>
                                       </TooltipContent>
                                     </Tooltip>
                                   )}

@@ -9,7 +9,7 @@ interface Props {
   rounds: InterviewRound[];
   onChange: (rounds: InterviewRound[]) => void;
   onSelectAndPlace?: () => void;
-  onRejectRound?: (roundNumber: number) => void;
+  onRejectRound?: (roundNumber: number, reason?: string) => void;
 }
 
 export function InterviewRoundsManager({
@@ -19,6 +19,8 @@ export function InterviewRoundsManager({
   onRejectRound,
 }: Props) {
   const [activeIdx, setActiveIdx] = useState(0);
+  const [rejectingRound, setRejectingRound] = useState<number | null>(null);
+  const [rejectionNotes, setRejectionNotes] = useState("");
 
   const currentIdx = activeIdx >= rounds.length ? Math.max(0, rounds.length - 1) : activeIdx;
   const activeRound = rounds[currentIdx] || {
@@ -120,26 +122,75 @@ export function InterviewRoundsManager({
         onChange={handleUpdateSchedule}
       />
 
-      {/* Minimal Place & Reject Round Actions */}
-      <div className="flex items-center justify-between pt-0.5 border-t border-primary/10">
-        <button
-          type="button"
-          onClick={onSelectAndPlace}
-          className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
-        >
-          <Sparkle className="h-2.5 w-2.5" />
-          <span>Place</span>
-        </button>
+      {/* Minimal Rejection Input Box or Actions */}
+      {rejectingRound !== null ? (
+        <div className="mt-1 space-y-1.5 rounded-md border border-red-500/30 bg-red-500/5 p-2 animate-[fade-in_0.15s_ease-out]">
+          <div className="flex items-center justify-between">
+            <span className="text-[10.5px] font-semibold text-red-600 dark:text-red-400 flex items-center gap-1">
+              <XCircle className="h-3 w-3" />
+              Reject Round {rejectingRound}
+            </span>
+            <span className="text-[9.5px] text-fg-subtle">Rejection feedback / notes</span>
+          </div>
 
-        <button
-          type="button"
-          onClick={() => onRejectRound?.(activeRound.round_number)}
-          className="flex items-center gap-1 text-[10px] font-semibold text-red-500 hover:underline cursor-pointer"
-        >
-          <XCircle className="h-2.5 w-2.5" />
-          <span>Reject Round {activeRound.round_number}</span>
-        </button>
-      </div>
+          <textarea
+            rows={2}
+            value={rejectionNotes}
+            onChange={(e) => setRejectionNotes(e.target.value)}
+            placeholder="Type reason or interview feedback (shown on calendar hover)…"
+            className="w-full rounded border border-border/80 bg-surface px-2 py-1 text-xs text-fg placeholder:text-fg-subtle/60 outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500/40 resize-none"
+            autoFocus
+          />
+
+          <div className="flex items-center justify-end gap-1.5 pt-0.5">
+            <button
+              type="button"
+              onClick={() => {
+                setRejectingRound(null);
+                setRejectionNotes("");
+              }}
+              className="rounded px-2 py-0.5 text-[10.5px] font-medium text-fg-muted hover:bg-surface-hover cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onRejectRound?.(rejectingRound, rejectionNotes);
+                setRejectingRound(null);
+                setRejectionNotes("");
+              }}
+              className="rounded bg-red-600 hover:bg-red-700 px-2.5 py-0.5 text-[10.5px] font-semibold text-white shadow-xs transition-colors cursor-pointer"
+            >
+              Confirm Rejection
+            </button>
+          </div>
+        </div>
+      ) : (
+        /* Minimal Place & Reject Round Actions */
+        <div className="flex items-center justify-between pt-0.5 border-t border-primary/10">
+          <button
+            type="button"
+            onClick={onSelectAndPlace}
+            className="flex items-center gap-1 text-[10px] font-semibold text-emerald-600 dark:text-emerald-400 hover:underline cursor-pointer"
+          >
+            <Sparkle className="h-2.5 w-2.5" />
+            <span>Place</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setRejectingRound(activeRound.round_number);
+              setRejectionNotes("");
+            }}
+            className="flex items-center gap-1 text-[10px] font-semibold text-red-500 hover:underline cursor-pointer"
+          >
+            <XCircle className="h-2.5 w-2.5" />
+            <span>Reject Round {activeRound.round_number}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

@@ -558,12 +558,45 @@ export function Calendar() {
                       </div>
                     )}
                     {intCount > 0 && (
-                      <div className="flex items-center gap-1 rounded bg-violet-500/10 px-1 py-0.5 text-[9.5px] font-medium text-violet-700 dark:text-violet-300 truncate">
-                        <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
-                        <span className="truncate">
-                          {intCount} Interview{intCount > 1 ? "s" : ""}
-                        </span>
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 rounded bg-violet-500/10 px-1 py-0.5 text-[9.5px] font-medium text-violet-700 dark:text-violet-300 truncate cursor-default">
+                            <span className="h-1.5 w-1.5 rounded-full bg-violet-500 shrink-0" />
+                            <span className="truncate">
+                              {intCount} Interview{intCount > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="max-w-[280px] p-2.5 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 text-left"
+                        >
+                          <p className="text-[11px] font-bold text-fg mb-1 pb-1 border-b border-border/50">
+                            Interviews ({cell.dateKey})
+                          </p>
+                          <div className="space-y-1.5">
+                            {cell.events
+                              .filter((e) => e.type === "interview")
+                              .map((ev) => (
+                                <div key={ev.id} className="text-xs">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-semibold text-fg truncate">
+                                      {ev.candidate.name}
+                                    </span>
+                                    <span className="text-[9.5px] font-bold text-violet-600 dark:text-violet-400 shrink-0">
+                                      {ev.subStage}
+                                    </span>
+                                  </div>
+                                  {ev.eventOutcome.remarks && (
+                                    <p className="mt-0.5 text-[10px] text-red-600 dark:text-red-400 font-medium italic bg-red-500/10 rounded px-1.5 py-0.5 border border-red-500/20 break-words">
+                                      "{ev.eventOutcome.remarks}"
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     {plcCount > 0 && (
                       <div className="flex items-center gap-1 rounded bg-emerald-500/10 px-1 py-0.5 text-[9.5px] font-medium text-emerald-700 dark:text-emerald-300 truncate">
@@ -705,6 +738,11 @@ export function Calendar() {
                           </>
                         )}
                       </p>
+                      {ev.eventOutcome.remarks && (
+                        <p className="mt-1 text-[10.5px] text-red-600 dark:text-red-400 font-normal italic bg-red-500/10 rounded px-1.5 py-0.5 border border-red-500/20 truncate max-w-[280px]" title={ev.eventOutcome.remarks}>
+                          "{ev.eventOutcome.remarks}"
+                        </p>
+                      )}
                     </div>
                   </div>
 

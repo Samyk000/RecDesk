@@ -49,7 +49,9 @@ function formatInterviewSchedule(iso: string | null | undefined): {
   const [h24, m24] = [d.getHours(), d.getMinutes()];
   const period = h24 >= 12 ? "PM" : "AM";
   const hour12 = h24 % 12 === 0 ? 12 : h24 % 12;
-  const timeFormatted = `${hour12}:${String(m24).padStart(2, "0")} ${period}`;
+  const timeFormatted = `${hour12}:${String(m24).padStart(2, "0")}${period}`;
+  const defaultTz = (localStorage.getItem("recdesk_default_tz") as string) || "EST";
+  const finalTz = tz || defaultTz;
 
   const hasTime =
     dateTimePart.includes("T") ||
@@ -61,7 +63,7 @@ function formatInterviewSchedule(iso: string | null | undefined): {
     return {
       dateLabel: "Today",
       timeLabel: hasTime ? timeFormatted : "",
-      tz,
+      tz: finalTz,
       isToday: true,
       isTomorrow: false,
       isPast: false,
@@ -72,7 +74,7 @@ function formatInterviewSchedule(iso: string | null | undefined): {
     return {
       dateLabel: "Tomorrow",
       timeLabel: hasTime ? timeFormatted : "",
-      tz,
+      tz: finalTz,
       isToday: false,
       isTomorrow: true,
       isPast: false,
@@ -87,7 +89,7 @@ function formatInterviewSchedule(iso: string | null | undefined): {
     return {
       dateLabel: dateStr,
       timeLabel: hasTime ? timeFormatted : "",
-      tz,
+      tz: finalTz,
       isToday: false,
       isTomorrow: false,
       isPast: true,
@@ -98,7 +100,7 @@ function formatInterviewSchedule(iso: string | null | undefined): {
   return {
     dateLabel: dateStr,
     timeLabel: hasTime ? timeFormatted : "",
-    tz,
+    tz: finalTz,
     isToday: false,
     isTomorrow: false,
     isPast: false,
@@ -152,15 +154,15 @@ export function SidebarInterviews() {
       }
     });
 
-    // Sort chronologically (earliest/upcoming first, TBD last)
+    // Sort chronologically with most recent interview on top, TBD at the bottom
     return items.sort((a, b) => {
       const timeA = getInterviewTimestamp(a.scheduledAt);
       const timeB = getInterviewTimestamp(b.scheduledAt);
-      if (!timeA && !timeB) return a.roundNumber - b.roundNumber;
+      if (!timeA && !timeB) return b.roundNumber - a.roundNumber;
       if (!timeA) return 1;
       if (!timeB) return -1;
-      if (timeA !== timeB) return timeA - timeB;
-      return a.roundNumber - b.roundNumber;
+      if (timeA !== timeB) return timeB - timeA;
+      return b.roundNumber - a.roundNumber;
     });
   }, [candidates]);
 
@@ -241,7 +243,7 @@ export function SidebarInterviews() {
                       </span>
                       <span
                         className={cn(
-                          "shrink-0 tabular-nums font-medium",
+                          "shrink-0 tabular-nums font-medium text-right whitespace-nowrap text-[9.5px]",
                           schedule.isToday
                             ? "text-emerald-600 dark:text-emerald-400 font-semibold"
                             : schedule.isTomorrow
@@ -251,6 +253,7 @@ export function SidebarInterviews() {
                       >
                         {schedule.dateLabel}
                         {schedule.timeLabel ? `, ${schedule.timeLabel}` : ""}
+                        {schedule.timeLabel && schedule.tz ? ` ${schedule.tz}` : ""}
                       </span>
                     </div>
                   </button>
