@@ -81,6 +81,7 @@ export interface InterviewFeedback {
   q5_competing_interviews_and_rating?: string;
   q6_offer_acceptance_permission?: string;
   q7_decision_timeline?: string;
+  custom_questions?: Record<string, string>;
 }
 
 export interface Candidate {

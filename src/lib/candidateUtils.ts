@@ -270,7 +270,11 @@ export function parseInterviewRounds(
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed as InterviewRound[];
+        const rounds = parsed as InterviewRound[];
+        if (rounds[0] && !rounds[0].scheduled_at && fallbackInterviewAt) {
+          rounds[0].scheduled_at = fallbackInterviewAt;
+        }
+        return rounds;
       }
       if (typeof raw === "string" && !raw.startsWith("{") && !raw.startsWith("[")) {
         return [

@@ -89,6 +89,9 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        if (!value && selectedDate) {
+          emitChange(selectedDate, selectedTime, selectedTz);
+        }
         setOpen(false);
       }
     }
@@ -96,7 +99,7 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
       document.addEventListener("mousedown", handleClickOutside);
     }
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [open, value, selectedDate, selectedTime, selectedTz]);
 
   const emitChange = (date: string, time: string, tz: USTimezone) => {
     if (!date) {
@@ -315,7 +318,10 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
           {/* Done button */}
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={() => {
+              emitChange(selectedDate, selectedTime, selectedTz);
+              setOpen(false);
+            }}
             className="w-full rounded-md bg-primary py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer shadow-xs"
           >
             Done

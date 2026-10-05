@@ -105,6 +105,14 @@ function formatInterviewSchedule(iso: string | null | undefined): {
   };
 }
 
+interface SidebarInterviewItem {
+  id: string;
+  candidate: CandidateWithJob;
+  roundNumber: number;
+  roundName: string;
+  scheduledAt?: string | null;
+}
+
 export function SidebarInterviews() {
   const navigate = useNavigate();
   const { data: candidates } = useCandidatesWithJob();
@@ -123,19 +131,36 @@ export function SidebarInterviews() {
     setCollapsed((prev) => !prev);
   };
 
-  // Filter candidates in interview status
+  // Extract all interview rounds for candidates in interview status
   const upcoming = useMemo(() => {
     if (!candidates) return [];
 
-    const list = candidates.filter((c) => c.submission_status === "interview");
+    const items: SidebarInterviewItem[] = [];
+
+    candidates.forEach((cand) => {
+      if (cand.submission_status === "interview") {
+        const rounds = parseInterviewRounds(cand.interview_status, cand.interview_at);
+        rounds.forEach((round) => {
+          items.push({
+            id: `${cand.id}_r${round.round_number}`,
+            candidate: cand,
+            roundNumber: round.round_number,
+            roundName: round.round_name,
+            scheduledAt: round.scheduled_at || (round.round_number === 1 ? cand.interview_at : null),
+          });
+        });
+      }
+    });
+
     // Sort chronologically (earliest/upcoming first, TBD last)
-    return [...list].sort((a, b) => {
-      const timeA = getInterviewTimestamp(a.interview_at);
-      const timeB = getInterviewTimestamp(b.interview_at);
-      if (!timeA && !timeB) return 0;
+    return items.sort((a, b) => {
+      const timeA = getInterviewTimestamp(a.scheduledAt);
+      const timeB = getInterviewTimestamp(b.scheduledAt);
+      if (!timeA && !timeB) return a.roundNumber - b.roundNumber;
       if (!timeA) return 1;
       if (!timeB) return -1;
-      return timeA - timeB;
+      if (timeA !== timeB) return timeA - timeB;
+      return a.roundNumber - b.roundNumber;
     });
   }, [candidates]);
 
@@ -189,32 +214,30 @@ export function SidebarInterviews() {
                 <span className="mt-1 text-[11px] font-medium">No upcoming interviews</span>
               </div>
             ) : (
-              upcoming.map((cand) => {
-                const schedule = formatInterviewSchedule(cand.interview_at);
-                const rounds = parseInterviewRounds(cand.interview_status, cand.interview_at);
-                const roundNum = rounds.length || 1;
+              upcoming.map((item) => {
+                const schedule = formatInterviewSchedule(item.scheduledAt);
 
                 return (
                   <button
-                    key={cand.id}
+                    key={item.id}
                     type="button"
-                    onClick={() => handleOpenCandidate(cand)}
+                    onClick={() => handleOpenCandidate(item.candidate)}
                     className="group relative flex w-full flex-col rounded-md border border-border/70 bg-surface/90 px-2.5 py-1.5 text-left transition-all duration-150 hover:border-primary/50 hover:bg-surface-hover active:scale-[0.99] cursor-pointer shadow-2xs overflow-hidden"
                   >
                     {/* Line 1: Candidate Name + Round Tag (Guaranteed no overflow) */}
                     <div className="flex w-full items-center justify-between gap-1.5 min-w-0 overflow-hidden">
                       <span className="truncate text-[11.5px] font-semibold text-fg group-hover:text-primary transition-colors min-w-0 flex-1">
-                        {cand.name}
+                        {item.candidate.name}
                       </span>
                       <span className="shrink-0 max-w-[50px] truncate rounded bg-primary/10 text-primary border border-primary/20 px-1.5 py-0.5 text-[9px] font-bold tabular-nums tracking-wide">
-                        R{roundNum}
+                        R{item.roundNumber}
                       </span>
                     </div>
 
                     {/* Line 2: Client Company + Date / Time */}
                     <div className="mt-1 flex w-full items-center justify-between gap-1 text-[10px] min-w-0 overflow-hidden">
                       <span className="truncate text-fg-muted font-normal min-w-0 flex-1">
-                        {cand.client_name || "Direct Client"}
+                        {item.candidate.client_name || "Direct Client"}
                       </span>
                       <span
                         className={cn(

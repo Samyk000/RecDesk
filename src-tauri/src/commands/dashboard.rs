@@ -52,17 +52,44 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
         [],
         |r| r.get(0),
     )?;
-    let interview_candidates: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM candidates 
-         WHERE submission_status IN ('interview', 'placed')
-            OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
-            OR (submission_status = 'rejected' AND (
-                rejection_reason LIKE '%\"interview\"%'
-                OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
-            ))",
-        [],
-        |r| r.get(0),
-    )?;
+    let interview_candidates: i64 = {
+        let mut stmt = conn.prepare(
+            "SELECT interview_status, interview_at, submission_status, rejection_reason FROM candidates",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((
+                r.get::<_, Option<String>>(0)?,
+                r.get::<_, Option<String>>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+            ))
+        })?;
+
+        let mut count: i64 = 0;
+        for row in rows {
+            let (int_status, int_at, sub_status, rej_reason) = row?;
+            let has_int_at = int_at.as_deref().map(|s| !s.trim().is_empty()).unwrap_or(false);
+            let rej = rej_reason.as_deref().unwrap_or("");
+            let is_interview_candidate = matches!(sub_status.as_str(), "interview" | "placed")
+                || has_int_at
+                || (sub_status == "rejected" && rej.contains("\"interview\""));
+
+            if !is_interview_candidate {
+                continue;
+            }
+
+            if let Some(raw) = int_status.as_deref() {
+                if let Ok(serde_json::Value::Array(arr)) = serde_json::from_str::<serde_json::Value>(raw) {
+                    if !arr.is_empty() {
+                        count += arr.len() as i64;
+                        continue;
+                    }
+                }
+            }
+            count += 1;
+        }
+        count
+    };
     let placed_candidates: i64 = conn.query_row(
         "SELECT COUNT(*) FROM candidates WHERE submission_status = 'placed'",
         [],
@@ -138,7 +165,7 @@ pub(crate) fn compute_all_trends(
 ) -> AppResult<(MetricTrend, MetricTrend, MetricTrend, MetricTrend)> {
     let mut stmt = conn.prepare(
         "SELECT date_added, last_updated, submitted_at, interview_at, placed_at,
-                submission_status, rejection_reason
+                submission_status, rejection_reason, interview_status
          FROM candidates",
     )?;
 
@@ -156,11 +183,12 @@ pub(crate) fn compute_all_trends(
             r.get::<_, Option<String>>(4)?,
             r.get::<_, String>(5)?,
             r.get::<_, Option<String>>(6)?,
+            r.get::<_, Option<String>>(7)?,
         ))
     })?;
 
     for row in rows {
-        let (date_added, last_updated, submitted_at, interview_at, placed_at, status, rej_raw) =
+        let (date_added, last_updated, submitted_at, interview_at, placed_at, status, rej_raw, int_status) =
             row?;
         let rej = rej_raw.as_deref().unwrap_or("");
         let submitted_ne = nonempty(submitted_at.as_deref()).is_some();
@@ -188,14 +216,37 @@ pub(crate) fn compute_all_trends(
             || interview_ne
             || (status == "rejected" && rej.contains("\"interview\""))
         {
-            bump(
-                &mut int_counts,
-                &trend_day(
-                    interview_at.as_deref(),
-                    submitted_at.as_deref(),
-                    date_added.as_deref(),
-                ),
-            );
+            let mut bumped_round = false;
+            if let Some(raw) = int_status.as_deref() {
+                if let Ok(serde_json::Value::Array(arr)) = serde_json::from_str::<serde_json::Value>(raw) {
+                    for item in arr {
+                        if let Some(sched) = item.get("scheduled_at").and_then(|v| v.as_str()) {
+                            if !sched.trim().is_empty() {
+                                bump(
+                                    &mut int_counts,
+                                    &trend_day(
+                                        Some(sched),
+                                        submitted_at.as_deref(),
+                                        date_added.as_deref(),
+                                    ),
+                                );
+                                bumped_round = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !bumped_round {
+                bump(
+                    &mut int_counts,
+                    &trend_day(
+                        interview_at.as_deref(),
+                        submitted_at.as_deref(),
+                        date_added.as_deref(),
+                    ),
+                );
+            }
         }
 
         if status == "placed" {

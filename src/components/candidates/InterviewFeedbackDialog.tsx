@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
+  ArrowCounterClockwise,
   Check,
   CircleNotch,
   Copy,
+  PencilSimple,
   PhoneCall,
   Plus,
   Trash,
@@ -13,7 +15,7 @@ import { useDebounce } from "../../hooks/useDebounce";
 import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Spinner } from "../common/Spinner";
-import { errorMessage } from "../../lib/utils";
+import { cn, errorMessage } from "../../lib/utils";
 import { toCandidateInput } from "../../lib/candidateUtils";
 import type { Candidate, InterviewFeedback } from "../../types";
 
@@ -21,6 +23,25 @@ interface Props {
   candidateId: string;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+}
+
+export const DEFAULT_FEEDBACK_QUESTIONS: Record<string, string> = {
+  q1: "How did the interview go & what was the duration of it?",
+  q2: "Topics discussed during the interview:",
+  q3: "Did they like the scope of work and the team/manager’s approach?",
+  q4: "Did the manager check for availability to start?",
+  q5: "Are you interviewing with other companies? If yes, how would you rate this role?",
+  q6: "If the client hiring team calls us to make an offer, do we have your permission to accept and secure the offer on the call on your behalf, or should we call you again for approval?",
+  q7: "Decision timeline:",
+};
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
 }
 
 export function parseInterviewFeedback(raw?: string | null): InterviewFeedback {
@@ -104,7 +125,22 @@ function InterviewFeedbackBody({
     q5_competing_interviews_and_rating: initialFeedback.q5_competing_interviews_and_rating ?? "",
     q6_offer_acceptance_permission: initialFeedback.q6_offer_acceptance_permission ?? "",
     q7_decision_timeline: initialFeedback.q7_decision_timeline ?? "",
+    custom_questions: initialFeedback.custom_questions,
   }));
+
+  const [isEditingQuestions, setIsEditingQuestions] = useState(false);
+  const [questions, setQuestions] = useState<Record<string, string>>(() => {
+    let localSaved: Record<string, string> = {};
+    try {
+      const raw = localStorage.getItem("recdesk_feedback_questions");
+      if (raw) localSaved = JSON.parse(raw);
+    } catch {}
+    return {
+      ...DEFAULT_FEEDBACK_QUESTIONS,
+      ...localSaved,
+      ...(initialFeedback.custom_questions || {}),
+    };
+  });
 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [hasCopied, setHasCopied] = useState(false);
@@ -116,6 +152,12 @@ function InterviewFeedbackBody({
   // Sync state if candidate id changes
   useEffect(() => {
     const fresh = parseInterviewFeedback(candidate.interview_feedback);
+    let localSaved: Record<string, string> = {};
+    try {
+      const raw = localStorage.getItem("recdesk_feedback_questions");
+      if (raw) localSaved = JSON.parse(raw);
+    } catch {}
+
     setFeedback({
       q1_duration_and_vibe: fresh.q1_duration_and_vibe ?? "",
       q2_topics:
@@ -127,6 +169,13 @@ function InterviewFeedbackBody({
       q5_competing_interviews_and_rating: fresh.q5_competing_interviews_and_rating ?? "",
       q6_offer_acceptance_permission: fresh.q6_offer_acceptance_permission ?? "",
       q7_decision_timeline: fresh.q7_decision_timeline ?? "",
+      custom_questions: fresh.custom_questions,
+    });
+
+    setQuestions({
+      ...DEFAULT_FEEDBACK_QUESTIONS,
+      ...localSaved,
+      ...(fresh.custom_questions || {}),
     });
   }, [candidate.id]);
 
@@ -182,71 +231,186 @@ function InterviewFeedbackBody({
     });
   }
 
-  // Format Copy
-  function handleCopyFormatted() {
-    const f = feedbackRef.current;
-    const lines: string[] = [];
+  // Question label editing handlers
+  function handleQuestionChange(key: string, val: string) {
+    setQuestions((prev) => {
+      const next = { ...prev, [key]: val };
+      try {
+        localStorage.setItem("recdesk_feedback_questions", JSON.stringify(next));
+      } catch {}
+      setFeedback((fb) => ({
+        ...fb,
+        custom_questions: next,
+      }));
+      return next;
+    });
+  }
 
-    lines.push("Feedback call with the candidate after interview:");
-    lines.push(`Candidate: ${candidate.name}`);
+  function handleResetQuestions() {
+    setQuestions({ ...DEFAULT_FEEDBACK_QUESTIONS });
+    try {
+      localStorage.removeItem("recdesk_feedback_questions");
+    } catch {}
+    setFeedback((fb) => ({
+      ...fb,
+      custom_questions: { ...DEFAULT_FEEDBACK_QUESTIONS },
+    }));
+    toast.success("Questions reset to default template");
+  }
+
+  // Format Copy: Questions styled in clean bold red (#dc2626) with minimal rich HTML & clean plain text
+  async function handleCopyFormatted() {
+    const f = feedbackRef.current;
+    const q = questions;
+
+    const validTopics = (f.q2_topics || []).filter((t) => t.trim().length > 0);
+    const topicsHtml =
+      validTopics.length > 0
+        ? `<ul style="margin: 4px 0 12px 18px; padding: 0; color: #1f2937; font-size: 13.5px; line-height: 1.5;">${validTopics
+            .map((t) => `<li style="margin-bottom: 2px;">${escapeHtml(t.trim())}</li>`)
+            .join("")}</ul>`
+        : `<div style="color: #4b5563; font-size: 13.5px; margin: 4px 0 12px 0;">- N/A</div>`;
+
+    const topicsPlain =
+      validTopics.length > 0
+        ? validTopics.map((t) => `- ${t.trim()}`).join("\n")
+        : "- N/A";
+
+    const q1Title = q.q1?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q1;
+    const q2Title = q.q2?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q2;
+    const q3Title = q.q3?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q3;
+    const q4Title = q.q4?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q4;
+    const q5Title = q.q5?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q5;
+    const q6Title = q.q6?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q6;
+    const q7Title = q.q7?.trim() || DEFAULT_FEEDBACK_QUESTIONS.q7;
+
+    const q1Ans = f.q1_duration_and_vibe?.trim() || "N/A";
+    const q3Ans = f.q3_scope_and_team?.trim() || "N/A";
+    const q4Ans = f.q4_availability_to_start?.trim() || "N/A";
+    const q5Ans = f.q5_competing_interviews_and_rating?.trim() || "N/A";
+    const q6Ans = f.q6_offer_acceptance_permission?.trim() || "N/A";
+    const q7Ans =
+      f.q7_decision_timeline?.trim() ||
+      "He would be able to make a decision on the call or within the same day/a few hours.";
+
+    // Plain text representation (clean and minimal)
+    const plainLines: string[] = [
+      "Feedback call with the candidate after interview:",
+      `Candidate: ${candidate.name}`,
+    ];
     if (jobTitle) {
-      lines.push(`Role: ${jobTitle}${clientName ? ` (${clientName})` : ""}`);
+      plainLines.push(`Role: ${jobTitle}${clientName ? ` (${clientName})` : ""}`);
     }
     if (candidate.interview_at) {
-      lines.push(`Interview Date: ${candidate.interview_at}`);
+      plainLines.push(`Interview Date: ${candidate.interview_at}`);
     }
-    lines.push("");
+    plainLines.push("");
+    plainLines.push(`1- ${q1Title}`);
+    plainLines.push(q1Ans);
+    plainLines.push("");
+    plainLines.push(`2- ${q2Title}`);
+    plainLines.push(topicsPlain);
+    plainLines.push("");
+    plainLines.push(`3- ${q3Title}`);
+    plainLines.push(q3Ans);
+    plainLines.push("");
+    plainLines.push(`4- ${q4Title}`);
+    plainLines.push(q4Ans);
+    plainLines.push("");
+    plainLines.push(`5- ${q5Title}`);
+    plainLines.push(q5Ans);
+    plainLines.push("");
+    plainLines.push(`6- ${q6Title}`);
+    plainLines.push(q6Ans);
+    plainLines.push("");
+    plainLines.push(`7- ${q7Title}`);
+    plainLines.push(q7Ans);
 
-    // Q1
-    lines.push("1- How did the interview go & what was the duration of it?");
-    lines.push(f.q1_duration_and_vibe?.trim() || "N/A");
-    lines.push("");
+    const plainText = plainLines.join("\n");
 
-    // Q2
-    lines.push("2- Topics discussed during the interview:");
-    const validTopics = (f.q2_topics || []).filter((t) => t.trim().length > 0);
-    if (validTopics.length > 0) {
-      validTopics.forEach((t) => lines.push(`- ${t.trim()}`));
-    } else {
-      lines.push("- N/A");
+    // Rich HTML representation: Questions rendered in red color (#dc2626)
+    const html = `
+<div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 13.5px; line-height: 1.5; color: #1f2937;">
+  <div style="margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid #e5e7eb;">
+    <div style="font-size: 15px; font-weight: 700; color: #111827; margin-bottom: 4px;">Feedback Call With Candidate</div>
+    <div style="color: #374151; font-size: 13px;"><strong>Candidate:</strong> ${escapeHtml(candidate.name)}</div>
+    ${jobTitle ? `<div style="color: #374151; font-size: 13px;"><strong>Role:</strong> ${escapeHtml(jobTitle)}${clientName ? ` (${escapeHtml(clientName)})` : ""}</div>` : ""}
+    ${candidate.interview_at ? `<div style="color: #374151; font-size: 13px;"><strong>Interview Date:</strong> ${escapeHtml(candidate.interview_at)}</div>` : ""}
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">1- ${escapeHtml(q1Title)}</div>
+    <div style="color: #1f2937; font-size: 13px; line-height: 1.5; margin-left: 2px;">${escapeHtml(q1Ans)}</div>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">2- ${escapeHtml(q2Title)}</div>
+    ${topicsHtml}
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">3- ${escapeHtml(q3Title)}</div>
+    <div style="color: #1f2937; font-size: 13px; line-height: 1.5; margin-left: 2px;">${escapeHtml(q3Ans)}</div>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">4- ${escapeHtml(q4Title)}</div>
+    <div style="color: #1f2937; font-size: 13px; line-height: 1.5; margin-left: 2px;">${escapeHtml(q4Ans)}</div>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">5- ${escapeHtml(q5Title)}</div>
+    <div style="color: #1f2937; font-size: 13px; line-height: 1.5; margin-left: 2px;">${escapeHtml(q5Ans)}</div>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">6- ${escapeHtml(q6Title)}</div>
+    <div style="color: #1f2937; font-size: 13px; line-height: 1.5; margin-left: 2px;">${escapeHtml(q6Ans)}</div>
+  </div>
+
+  <div style="margin-bottom: 12px;">
+    <div style="color: #dc2626; font-weight: 600; font-size: 13.5px; margin-bottom: 3px;">7- ${escapeHtml(q7Title)}</div>
+    <div style="color: #1f2937; font-size: 13px; line-height: 1.5; margin-left: 2px;">${escapeHtml(q7Ans)}</div>
+  </div>
+</div>`.trim();
+
+    try {
+      if (typeof ClipboardItem !== "undefined" && navigator.clipboard?.write) {
+        const htmlBlob = new Blob([html], { type: "text/html" });
+        const textBlob = new Blob([plainText], { type: "text/plain" });
+        await navigator.clipboard.write([
+          new ClipboardItem({
+            "text/html": htmlBlob,
+            "text/plain": textBlob,
+          }),
+        ]);
+        setHasCopied(true);
+        toast.success("Post-interview feedback copied to clipboard!");
+        setTimeout(() => setHasCopied(false), 2500);
+        return;
+      }
+    } catch {
+      // Async Clipboard API fallback
     }
-    lines.push("");
 
-    // Q3
-    lines.push("3- Did they like the scope of work and the team/manager’s approach?");
-    lines.push(f.q3_scope_and_team?.trim() || "N/A");
-    lines.push("");
-
-    // Q4
-    lines.push("4- Did the manager check for availability to start?");
-    lines.push(f.q4_availability_to_start?.trim() || "N/A");
-    lines.push("");
-
-    // Q5
-    lines.push("5- Are you interviewing with other companies? If yes, how would you rate this role?");
-    lines.push(f.q5_competing_interviews_and_rating?.trim() || "N/A");
-    lines.push("");
-
-    // Q6
-    lines.push(
-      "6- If the client hiring team calls us to make an offer, do we have your permission to accept and secure the offer on the call on your behalf, or should we call you again for approval?",
-    );
-    lines.push(f.q6_offer_acceptance_permission?.trim() || "N/A");
-    lines.push("");
-
-    // Q7
-    lines.push("7- Decision timeline:");
-    lines.push(
-      f.q7_decision_timeline?.trim() ||
-        "He would be able to make a decision on the call or within the same day/a few hours.",
-    );
-
-    const fullText = lines.join("\n");
-    navigator.clipboard.writeText(fullText).then(() => {
+    try {
+      const listener = (ev: ClipboardEvent) => {
+        ev.preventDefault();
+        ev.clipboardData?.setData("text/html", html);
+        ev.clipboardData?.setData("text/plain", plainText);
+      };
+      document.addEventListener("copy", listener);
+      document.execCommand("copy");
+      document.removeEventListener("copy", listener);
       setHasCopied(true);
       toast.success("Post-interview feedback copied to clipboard!");
       setTimeout(() => setHasCopied(false), 2500);
-    });
+    } catch {
+      await navigator.clipboard.writeText(plainText);
+      setHasCopied(true);
+      toast.success("Post-interview feedback copied to clipboard!");
+      setTimeout(() => setHasCopied(false), 2500);
+    }
   }
 
   return (
@@ -294,6 +458,21 @@ function InterviewFeedbackBody({
             )}
           </div>
 
+          {/* Minimal Edit Questions toggle */}
+          <Button
+            size="sm"
+            variant={isEditingQuestions ? "secondary" : "outline"}
+            className={cn(
+              "h-8 gap-1.5 text-xs font-medium cursor-pointer transition-colors",
+              isEditingQuestions && "border-primary/50 bg-primary/10 text-primary font-semibold",
+            )}
+            onClick={() => setIsEditingQuestions((prev) => !prev)}
+            title="Edit question text labels"
+          >
+            <PencilSimple className="h-3.5 w-3.5" />
+            <span>{isEditingQuestions ? "Done Editing" : "Edit Questions"}</span>
+          </Button>
+
           <Button
             size="sm"
             variant="outline"
@@ -315,13 +494,45 @@ function InterviewFeedbackBody({
         </div>
       </div>
 
-      {/* Questions Scrollable Body - Compact single-line inputs */}
+      {/* Questions Scrollable Body */}
       <div className="min-h-0 flex-1 overflow-y-auto p-5 space-y-3.5 scrollbar-thin">
+        {/* Subtle helper banner when in editing mode */}
+        {isEditingQuestions && (
+          <div className="flex items-center justify-between rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 text-xs text-fg-muted animate-[fade-in_0.15s_ease-out]">
+            <div className="flex items-center gap-2">
+              <PencilSimple className="h-3.5 w-3.5 text-primary shrink-0" />
+              <span>Editing question labels. Changes are saved automatically.</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetQuestions}
+              className="flex items-center gap-1 text-[11px] font-semibold text-primary hover:underline cursor-pointer shrink-0"
+            >
+              <ArrowCounterClockwise className="h-3 w-3" />
+              <span>Reset to Default</span>
+            </button>
+          </div>
+        )}
+
         {/* Question 1 */}
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-surface/40 p-3">
-          <label className="block text-xs font-semibold text-fg">
-            1- How did the interview go & what was the duration of it?
-          </label>
+          {isEditingQuestions ? (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs font-bold text-red-500">1-</span>
+              <input
+                type="text"
+                value={questions.q1 ?? ""}
+                onChange={(e) => handleQuestionChange("q1", e.target.value)}
+                placeholder="Question 1 wording..."
+                className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          ) : (
+            <label className="block text-xs font-semibold text-fg">
+              <span className="text-red-500 dark:text-red-400 font-bold mr-1">1-</span>
+              {questions.q1 || DEFAULT_FEEDBACK_QUESTIONS.q1}
+            </label>
+          )}
           <input
             type="text"
             value={feedback.q1_duration_and_vibe ?? ""}
@@ -336,14 +547,28 @@ function InterviewFeedbackBody({
         {/* Question 2 */}
         <div className="space-y-2 rounded-lg border border-border/60 bg-surface/40 p-3">
           <div className="flex items-center justify-between">
-            <label className="block text-xs font-semibold text-fg">
-              2- Topics discussed during the interview:
-            </label>
+            {isEditingQuestions ? (
+              <div className="flex items-center gap-1.5 flex-1 mr-2">
+                <span className="shrink-0 text-xs font-bold text-red-500">2-</span>
+                <input
+                  type="text"
+                  value={questions.q2 ?? ""}
+                  onChange={(e) => handleQuestionChange("q2", e.target.value)}
+                  placeholder="Question 2 wording..."
+                  className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            ) : (
+              <label className="block text-xs font-semibold text-fg">
+                <span className="text-red-500 dark:text-red-400 font-bold mr-1">2-</span>
+                {questions.q2 || DEFAULT_FEEDBACK_QUESTIONS.q2}
+              </label>
+            )}
             <Button
               type="button"
               variant="ghost"
               size="sm"
-              className="h-6 gap-1 px-2 text-[11px] text-primary hover:bg-primary/10"
+              className="h-6 gap-1 px-2 text-[11px] text-primary hover:bg-primary/10 shrink-0"
               onClick={handleAddTopic}
             >
               <Plus className="h-3 w-3" />
@@ -383,9 +608,23 @@ function InterviewFeedbackBody({
 
         {/* Question 3 */}
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-surface/40 p-3">
-          <label className="block text-xs font-semibold text-fg">
-            3- Did they like the scope of work and the team/manager’s approach?
-          </label>
+          {isEditingQuestions ? (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs font-bold text-red-500">3-</span>
+              <input
+                type="text"
+                value={questions.q3 ?? ""}
+                onChange={(e) => handleQuestionChange("q3", e.target.value)}
+                placeholder="Question 3 wording..."
+                className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          ) : (
+            <label className="block text-xs font-semibold text-fg">
+              <span className="text-red-500 dark:text-red-400 font-bold mr-1">3-</span>
+              {questions.q3 || DEFAULT_FEEDBACK_QUESTIONS.q3}
+            </label>
+          )}
           <input
             type="text"
             value={feedback.q3_scope_and_team ?? ""}
@@ -399,9 +638,23 @@ function InterviewFeedbackBody({
 
         {/* Question 4 */}
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-surface/40 p-3">
-          <label className="block text-xs font-semibold text-fg">
-            4- Did the manager check for availability to start?
-          </label>
+          {isEditingQuestions ? (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs font-bold text-red-500">4-</span>
+              <input
+                type="text"
+                value={questions.q4 ?? ""}
+                onChange={(e) => handleQuestionChange("q4", e.target.value)}
+                placeholder="Question 4 wording..."
+                className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          ) : (
+            <label className="block text-xs font-semibold text-fg">
+              <span className="text-red-500 dark:text-red-400 font-bold mr-1">4-</span>
+              {questions.q4 || DEFAULT_FEEDBACK_QUESTIONS.q4}
+            </label>
+          )}
           <input
             type="text"
             value={feedback.q4_availability_to_start ?? ""}
@@ -415,9 +668,23 @@ function InterviewFeedbackBody({
 
         {/* Question 5 */}
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-surface/40 p-3">
-          <label className="block text-xs font-semibold text-fg">
-            5- Are you interviewing with other companies? If yes, how would you rate this role?
-          </label>
+          {isEditingQuestions ? (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs font-bold text-red-500">5-</span>
+              <input
+                type="text"
+                value={questions.q5 ?? ""}
+                onChange={(e) => handleQuestionChange("q5", e.target.value)}
+                placeholder="Question 5 wording..."
+                className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          ) : (
+            <label className="block text-xs font-semibold text-fg">
+              <span className="text-red-500 dark:text-red-400 font-bold mr-1">5-</span>
+              {questions.q5 || DEFAULT_FEEDBACK_QUESTIONS.q5}
+            </label>
+          )}
           <input
             type="text"
             value={feedback.q5_competing_interviews_and_rating ?? ""}
@@ -434,9 +701,23 @@ function InterviewFeedbackBody({
 
         {/* Question 6 */}
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-surface/40 p-3">
-          <label className="block text-xs font-semibold text-fg leading-relaxed">
-            6- If the client hiring team calls us to make an offer, do we have your permission to accept and secure the offer on the call on your behalf, or should we call you again for approval?
-          </label>
+          {isEditingQuestions ? (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs font-bold text-red-500">6-</span>
+              <input
+                type="text"
+                value={questions.q6 ?? ""}
+                onChange={(e) => handleQuestionChange("q6", e.target.value)}
+                placeholder="Question 6 wording..."
+                className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          ) : (
+            <label className="block text-xs font-semibold text-fg leading-relaxed">
+              <span className="text-red-500 dark:text-red-400 font-bold mr-1">6-</span>
+              {questions.q6 || DEFAULT_FEEDBACK_QUESTIONS.q6}
+            </label>
+          )}
           <input
             type="text"
             value={feedback.q6_offer_acceptance_permission ?? ""}
@@ -453,9 +734,23 @@ function InterviewFeedbackBody({
 
         {/* Question 7 */}
         <div className="space-y-1.5 rounded-lg border border-border/60 bg-surface/40 p-3">
-          <label className="block text-xs font-semibold text-fg">
-            7- Decision timeline:
-          </label>
+          {isEditingQuestions ? (
+            <div className="flex items-center gap-1.5">
+              <span className="shrink-0 text-xs font-bold text-red-500">7-</span>
+              <input
+                type="text"
+                value={questions.q7 ?? ""}
+                onChange={(e) => handleQuestionChange("q7", e.target.value)}
+                placeholder="Question 7 wording..."
+                className="h-7.5 w-full rounded border border-dashed border-primary/50 bg-surface px-2.5 text-xs font-semibold text-fg outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          ) : (
+            <label className="block text-xs font-semibold text-fg">
+              <span className="text-red-500 dark:text-red-400 font-bold mr-1">7-</span>
+              {questions.q7 || DEFAULT_FEEDBACK_QUESTIONS.q7}
+            </label>
+          )}
           <input
             type="text"
             value={feedback.q7_decision_timeline ?? ""}
@@ -470,7 +765,7 @@ function InterviewFeedbackBody({
 
       {/* Footer */}
       <div className="flex shrink-0 items-center justify-between border-t border-border bg-surface px-5 py-3 text-xs text-fg-subtle">
-        <span>All answers are continuously saved as you type.</span>
+        <span>All answers and customized questions are continuously saved as you type.</span>
         <Button size="sm" variant="primary" onClick={onClose}>
           Done
         </Button>

@@ -472,6 +472,8 @@ export function getCalendarAnalytics(
         r2Count++;
       } else if (ev.roundNumber && ev.roundNumber >= 3) {
         r3PlusCount++;
+      } else {
+        r1Count++;
       }
     } else if (ev.type === "placement") {
       placedCandidateIds.add(candId);
@@ -500,9 +502,11 @@ export function getCalendarAnalytics(
     });
   }
 
+  const totalInterviewEvents = r1Count + r2Count + r3PlusCount;
+
   return {
     totalSubmissions: submissionCandidateIds.size,
-    totalInterviews: interviewCandidateIds.size,
+    totalInterviews: totalInterviewEvents,
     round1Interviews: r1Count,
     round2Interviews: r2Count,
     round3PlusInterviews: r3PlusCount,
