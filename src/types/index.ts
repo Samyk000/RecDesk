@@ -51,9 +51,9 @@ export interface Job {
 }
 
 export interface JobInput {
-  client_id: string;
-  job_id: string;
-  title: string;
+  client_id?: string;
+  job_id?: string;
+  title?: string;
   location?: string | null;
   work_model?: string | null;
   contract_type?: string | null;
@@ -61,9 +61,9 @@ export interface JobInput {
   pay_rate?: string | null;
   status?: string | null;
   refined_jd?: string | null;
-  boolean_strings: BooleanString[];
+  boolean_strings?: BooleanString[];
   candidate_pitch?: string | null;
-  screening_questions: string[];
+  screening_questions?: string[];
   notes?: string | null;
   closed_at?: string | null;
 }
@@ -71,17 +71,6 @@ export interface JobInput {
 export interface JobWithStats extends Job {
   candidate_count: number;
   client_name: string;
-}
-
-export interface StatusHistoryEntry {
-  id: string;
-  from_status: string;
-  to_status: string;
-  changed_at: string;
-  submitted_at?: string | null;
-  interview_at?: string | null;
-  placed_at?: string | null;
-  rejection_reason?: string | null;
 }
 
 export interface InterviewFeedback {
@@ -240,8 +229,6 @@ export type CandidateSubmissionStatus =
   | "not_interested"
   | "rejected";
 
-export type SubmissionType = "internal" | "client";
-
 export type RejectionOrigin =
   | "internal"
   | "client_screening"
@@ -289,6 +276,7 @@ export interface ExtractedCandidateProfile {
   email?: string | null;
   phone?: string | null;
   current_role?: string | null;
+  experience_years?: number | null;
   skills: string[];
   location?: string | null;
   linkedin_url?: string | null;

@@ -1,13 +1,14 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
-  Copy,
-  EyeSlash,
+  ArrowsLeftRight,
+  BookmarksSimple,
   IdentificationCard,
+  ListChecks,
   Plus,
+  Tag,
   Trash,
   X,
-  ListChecks,
 } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
@@ -28,7 +29,6 @@ import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { StatusChangeDialog } from "../components/candidates/StatusChangeDialog";
-import { StatusFilter } from "../components/candidates/StatusFilter";
 import { SubmissionStatusSelect } from "../components/candidates/SubmissionStatusSelect";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
 import { DetailDrawer } from "../components/common/DetailDrawer";
@@ -40,9 +40,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../components/ui/select";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "../components/ui/dropdown";
 import { ChangeJobDialog } from "../components/candidates/ChangeJobDialog";
 import { apiCandidates } from "../lib/api";
-import { getCandidateSubStageBadge, getCandidateSkills } from "../lib/candidateUtils";
+import { getCandidateSkills } from "../lib/candidateUtils";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { Candidate, CandidateWithJob } from "../types";
@@ -55,14 +63,13 @@ type SortKey =
   | "job_title"
   | "client_name"
   | "location"
-  | "date_added"
   | "last_updated";
 
 const COMPARE: (a: CandidateWithJob, b: CandidateWithJob, key: SortKey) => number = (a, b, key) => {
   if (key === "candidate_title") {
     const tA = (a.current_title ?? "").trim();
     const tB = (b.current_title ?? "").trim();
-    if (!tA && !tB) return 0;
+    if (!tA && !tB) return a.name.localeCompare(b.name);
     if (!tA) return 1;
     if (!tB) return -1;
     return tA.localeCompare(tB);
@@ -75,36 +82,28 @@ const COMPARE: (a: CandidateWithJob, b: CandidateWithJob, key: SortKey) => numbe
   if (key === "job_title") return a.job_title.localeCompare(b.job_title);
   if (key === "client_name") return a.client_name.localeCompare(b.client_name);
   if (key === "location") return (a.location ?? "").localeCompare(b.location ?? "");
-  if (key === "date_added") return a.date_added.localeCompare(b.date_added);
   return a.last_updated.localeCompare(b.last_updated);
 };
 
-export function Candidates() {
+export function Pipeline() {
   const [params, setParams] = useSearchParams();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
-  const status = params.get("status") || "all";
-  const [copyCandidateTarget, setCopyCandidateTarget] = useState<Candidate | null>(null);
+  const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectMode, setSelectMode] = useState(false);
   const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
   const [formOpen, setFormOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [matchCandidateTarget, setMatchCandidateTarget] = useState<Candidate | null>(null);
   const [statusDialog, setStatusDialog] = useState<{
     candidate: CandidateWithJob;
     status: string;
   } | null>(null);
   const [deleting, setDeleting] = useState<CandidateWithJob | null>(null);
+
   const bulkUpdate = useBulkUpdateCandidates();
   const bulkDelete = useBulkDeleteCandidates();
   const deleteCandidate = useDeleteCandidate();
-
-  const [hideRejected, setHideRejected] = useState(() => {
-    return localStorage.getItem("recdesk_hide_rejected") === "true";
-  });
-
-  useEffect(() => {
-    localStorage.setItem("recdesk_hide_rejected", hideRejected.toString());
-  }, [hideRejected]);
 
   const {
     data,
@@ -114,28 +113,62 @@ export function Candidates() {
     fetchNextPage,
   } = useInfiniteCandidatesWithJob(
     debounced || undefined,
-    status === "all" ? undefined : status,
+    "pipeline",
   );
 
   const allLoadedCandidates = useMemo(() => {
     return data?.pages.flatMap((page) => page) ?? [];
   }, [data]);
 
-  const sorted = useSortedRows(allLoadedCandidates, sortKey, sortDir, COMPARE);
+  // Extract all unique skills across loaded pipelined candidates (case-insensitive deduplication)
+  const availableSkills = useMemo(() => {
+    const counts = new Map<string, { display: string; count: number }>();
+    for (const c of allLoadedCandidates) {
+      const skills = getCandidateSkills(c);
+      for (const s of skills) {
+        const lower = s.toLowerCase();
+        const existing = counts.get(lower);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          counts.set(lower, { display: s, count: 1 });
+        }
+      }
+    }
+    return Array.from(counts.values())
+      .map((entry) => [entry.display, entry.count] as [string, number])
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [allLoadedCandidates]);
 
-  const displayedCandidates = useMemo(() => {
-    if (!sorted) return [];
-    if (status === "rejected") return sorted;
-    if (!hideRejected) return sorted;
-    return sorted.filter(
-      (c) => c.submission_status !== "rejected" && c.submission_status !== "not_interested",
-    );
-  }, [sorted, hideRejected, status]);
+  // Filter candidates by multiple selected skills
+  const filteredCandidates = useMemo(() => {
+    return allLoadedCandidates.filter((c) => {
+      if (selectedSkills.length > 0) {
+        const candidateSkills = getCandidateSkills(c);
+        const matchesAll = selectedSkills.every((req) =>
+          candidateSkills.some((s) => s.toLowerCase() === req.toLowerCase()),
+        );
+        if (!matchesAll) return false;
+      }
+      return true;
+    });
+  }, [allLoadedCandidates, selectedSkills]);
+
+  const displayedCandidates = useSortedRows(filteredCandidates, sortKey, sortDir, COMPARE);
 
   const selection = useSelection(
     displayedCandidates.map((c) => c.id),
-    `${status}|${debounced}|${selectMode}|${hideRejected}`,
+    `${selectedSkills.join(",")}|${debounced}|${selectMode}`,
   );
+
+  function handleToggleSkill(skill: string) {
+    setSelectedSkills((prev) => {
+      if (prev.some((s) => s.toLowerCase() === skill.toLowerCase())) {
+        return prev.filter((s) => s.toLowerCase() !== skill.toLowerCase());
+      }
+      return [...prev, skill];
+    });
+  }
 
   function handleStatusChange(candidate: CandidateWithJob, nextStatus: string) {
     if (DETAIL_STATUSES.has(nextStatus)) {
@@ -190,34 +223,21 @@ export function Candidates() {
     });
   }
 
-  const handleOpenCopyDialog = async (e: React.MouseEvent, c: CandidateWithJob) => {
+  const handleOpenMatchDialog = async (e: React.MouseEvent, c: CandidateWithJob) => {
     e.stopPropagation();
     try {
-      // Fetch full candidate record so submission_details (dossier table) is guaranteed to be present
       const fullCand = await apiCandidates.get(c.id);
-      setCopyCandidateTarget(fullCand);
+      setMatchCandidateTarget(fullCand);
     } catch {
-      toast.error("Failed to load candidate details for duplication");
+      toast.error("Failed to load candidate details for job match");
     }
   };
 
-  const filtered = status !== "all" || search.length > 0;
-
-  function handleFilterChange(newStatus: string) {
-    const next = new URLSearchParams(params);
-    if (newStatus === "all") {
-      next.delete("status");
-    } else {
-      next.set("status", newStatus);
-    }
-    setParams(next, { replace: true });
-  }
+  const filtered = selectedSkills.length > 0 || search.length > 0;
 
   function clearFilters() {
     setSearch("");
-    const next = new URLSearchParams(params);
-    next.delete("status");
-    setParams(next, { replace: true });
+    setSelectedSkills([]);
   }
 
   function openPanel(id: string) {
@@ -237,7 +257,7 @@ export function Candidates() {
       <PageHeader
         title={
           <span className="flex items-center gap-2">
-            Candidates
+            Pipeline
             <span className="rounded-md bg-surface-active px-2 py-0.5 text-[13px] font-medium text-fg-muted">
               {displayedCandidates.length}
             </span>
@@ -251,41 +271,113 @@ export function Candidates() {
         }
       />
 
-      <div className="mb-4 flex items-center gap-2.5">
+      <div className="mb-4 flex flex-wrap items-center gap-2.5">
         <SearchInput
           value={search}
           onChange={setSearch}
-          placeholder="Search candidates…"
+          placeholder="Search pipeline…"
           className="w-full max-w-xs"
         />
-        <StatusFilter
-          value={status}
-          onValueChange={handleFilterChange}
-          filtered={filtered}
-          onClear={clearFilters}
-        />
 
-        {/* Minimal Hide Rejected & Not Interested Toggle Button with Minimal Tooltip */}
-        <Tooltip>
-          <TooltipTrigger asChild>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => setHideRejected((h) => !h)}
               className={cn(
-                "h-8 gap-1.5 px-2.5 text-xs transition-all cursor-pointer font-medium",
-                hideRejected
-                  ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border-amber-500/40 hover:bg-amber-500/20"
-                  : "text-fg-subtle hover:text-fg hover:bg-surface-hover border-border",
+                "h-8 gap-1.5 px-2.5 text-xs font-medium cursor-pointer transition-all",
+                selectedSkills.length > 0
+                  ? "border-primary/40 bg-primary/10 text-primary hover:bg-primary/20"
+                  : "border-border text-fg-subtle hover:bg-surface-hover hover:text-fg",
               )}
             >
-              <EyeSlash className="h-3.5 w-3.5" />
-              <span>Hide</span>
+              <Tag className="h-3.5 w-3.5" />
+              <span>
+                {selectedSkills.length === 0
+                  ? "Skills"
+                  : `${selectedSkills.length} skill${selectedSkills.length > 1 ? "s" : ""}`}
+              </span>
             </Button>
-          </TooltipTrigger>
-          <TooltipContent>Hide NI &amp; Rejected</TooltipContent>
-        </Tooltip>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56 max-h-72 overflow-y-auto p-1 scrollbar-thin">
+            <DropdownMenuLabel className="text-[11px] font-semibold uppercase tracking-wider text-fg-muted px-2 py-1">
+              Filter by skills
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {availableSkills.length === 0 ? (
+              <div className="px-2 py-2 text-xs text-fg-muted italic text-center">No skills found</div>
+            ) : (
+              availableSkills.map(([skill, count]) => {
+                const isSelected = selectedSkills.some(
+                  (s) => s.toLowerCase() === skill.toLowerCase(),
+                );
+                return (
+                  <DropdownMenuItem
+                    key={skill}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      handleToggleSkill(skill);
+                    }}
+                    className="flex items-center justify-between text-xs cursor-pointer py-1.5"
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => {}}
+                        className="h-3.5 w-3.5 rounded border-border accent-primary cursor-pointer"
+                      />
+                      <span className="truncate">{skill}</span>
+                    </div>
+                    <span className="text-[10px] text-fg-subtle tabular-nums">{count}</span>
+                  </DropdownMenuItem>
+                );
+              })
+            )}
+            {selectedSkills.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setSelectedSkills([])}
+                  className="justify-center text-xs text-red-500 font-medium py-1.5 focus:text-red-600 cursor-pointer"
+                >
+                  Clear skills ({selectedSkills.length})
+                </DropdownMenuItem>
+              </>
+            )}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        {/* Selected Skill Tags */}
+        {selectedSkills.map((sk) => (
+          <span
+            key={sk}
+            className="inline-flex items-center gap-1 rounded bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary border border-primary/20"
+          >
+            <span>{sk}</span>
+            <button
+              type="button"
+              onClick={() => handleToggleSkill(sk)}
+              className="text-primary hover:text-red-500 cursor-pointer"
+              aria-label={`Remove ${sk} filter`}
+            >
+              <X className="h-2.5 w-2.5" />
+            </button>
+          </span>
+        ))}
+
+        {filtered && (
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-8 w-8 text-fg-subtle hover:text-fg"
+            title="Clear filters"
+            onClick={clearFilters}
+          >
+            <X className="h-3.5 w-3.5" />
+          </Button>
+        )}
 
         <div className="ml-auto">
           <Button
@@ -339,15 +431,38 @@ export function Candidates() {
 
       <div className="flex min-h-0 flex-1 flex-col">
         {isLoading ? (
-          <PageLoader state="solving" label="Loading candidates…" />
+          <PageLoader state="solving" label="Loading pipeline candidates…" />
         ) : !displayedCandidates.length ? (
           <EmptyState
-            icon={<IdentificationCard className="h-5 w-5" />}
-            title="No candidates"
+            icon={
+              filtered ? (
+                <IdentificationCard className="h-5 w-5" />
+              ) : (
+                <BookmarksSimple className="h-5 w-5 text-indigo-500" />
+              )
+            }
+            title={filtered ? "No candidates found" : "No candidates in pipeline"}
             description={
-              debounced || status !== "all" || hideRejected
+              filtered
                 ? "Try adjusting your search or filters."
-                : "Candidates appear here when added to jobs."
+                : "Candidates saved to your pipeline appear here."
+            }
+            action={
+              filtered ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearFilters}
+                  className="text-xs"
+                >
+                  Clear Filters
+                </Button>
+              ) : (
+                <Button variant="primary" size="sm" onClick={() => setFormOpen(true)}>
+                  <Plus className="h-4 w-4" />
+                  New Candidate
+                </Button>
+              )
             }
           />
         ) : (
@@ -401,7 +516,9 @@ export function Candidates() {
                         Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 min-w-[155px] whitespace-nowrap bg-surface px-4 py-2 text-xs font-semibold text-fg-muted">Status</th>
+                    <th className="sticky top-0 z-10 min-w-[155px] whitespace-nowrap bg-surface px-4 py-2 text-xs font-semibold text-fg-muted">
+                      Status
+                    </th>
                     <th className="sticky top-0 z-10 min-w-[120px] whitespace-nowrap bg-surface px-3 py-2">
                       <button
                         onClick={() => toggleSort("location")}
@@ -418,12 +535,12 @@ export function Candidates() {
                         Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 w-16 bg-surface px-2 py-2" />
+                    <th className="sticky top-0 z-10 w-20 bg-surface px-2 py-2" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {displayedCandidates.map((c) => {
-                    const subStageBadge = getCandidateSubStageBadge(c);
+                    const skills = getCandidateSkills(c);
 
                     return (
                       <tr
@@ -479,7 +596,6 @@ export function Candidates() {
                         <td className="min-w-[150px] max-w-[200px] px-3 py-1.5">
                           <div className="flex items-center gap-1 flex-wrap">
                             {(() => {
-                              const skills = getCandidateSkills(c);
                               if (!skills || skills.length === 0) {
                                 return <span className="text-[11px] text-fg-muted">—</span>;
                               }
@@ -529,27 +645,10 @@ export function Candidates() {
                                 handleStatusChange(c, v);
                               }}
                             />
-                            {subStageBadge && (
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <span
-                                    className={cn(
-                                      "inline-flex h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold tracking-tight border shadow-2xs transition-transform hover:scale-105 cursor-default select-none",
-                                      subStageBadge.colorClass,
-                                    )}
-                                  >
-                                    {subStageBadge.shortLabel}
-                                  </span>
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="text-xs font-medium">
-                                  {subStageBadge.fullLabel}
-                                </TooltipContent>
-                              </Tooltip>
-                            )}
                           </div>
                         </td>
                         <td className="min-w-[120px] whitespace-nowrap px-3 py-1.5 text-[12px] text-zinc-700 dark:text-zinc-300">
-                          {c.location ?? "-"}
+                          {c.location ?? "—"}
                         </td>
                         <td className="whitespace-nowrap px-3 py-1.5 text-[12px] text-zinc-600 dark:text-zinc-300 tabular-nums">
                           {timeAgo(c.last_updated)}
@@ -561,13 +660,13 @@ export function Candidates() {
                                 <Button
                                   size="icon"
                                   variant="ghost"
-                                  className="h-6 w-6 text-fg-subtle hover:text-primary hover:bg-primary/10 cursor-pointer"
-                                  onClick={(e) => handleOpenCopyDialog(e, c)}
+                                  className="h-6 w-6 text-fg-subtle hover:text-indigo-600 hover:bg-indigo-500/10 cursor-pointer"
+                                  onClick={(e) => handleOpenMatchDialog(e, c)}
                                 >
-                                  <Copy className="h-3.5 w-3.5" />
+                                  <ArrowsLeftRight className="h-3.5 w-3.5" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>Duplicate to Job</TooltipContent>
+                              <TooltipContent>Match to Job</TooltipContent>
                             </Tooltip>
 
                             <Tooltip>
@@ -622,11 +721,13 @@ export function Candidates() {
       </div>
 
       <CandidateForm open={formOpen} onOpenChange={setFormOpen} />
+
       {params.get("candidate") && (
         <DetailDrawer onClose={closePanel}>
           <CandidateDetailPanel candidateId={params.get("candidate")!} onClose={closePanel} />
         </DetailDrawer>
       )}
+
       {statusDialog && (
         <StatusChangeDialog
           candidate={statusDialog.candidate}
@@ -634,6 +735,7 @@ export function Candidates() {
           onClose={() => setStatusDialog(null)}
         />
       )}
+
       {deleting && (
         <ConfirmDialog
           open={!!deleting}
@@ -644,6 +746,7 @@ export function Candidates() {
           onConfirm={handleDelete}
         />
       )}
+
       {bulkDeleteOpen && (
         <ConfirmDialog
           open={bulkDeleteOpen}
@@ -654,16 +757,18 @@ export function Candidates() {
           onConfirm={handleBulkDelete}
         />
       )}
-      {copyCandidateTarget && (
+
+      {matchCandidateTarget && (
         <ChangeJobDialog
-          candidate={copyCandidateTarget}
-          open={!!copyCandidateTarget}
+          candidate={matchCandidateTarget}
+          open={!!matchCandidateTarget}
           onOpenChange={(open) => {
-            if (!open) setCopyCandidateTarget(null);
+            if (!open) setMatchCandidateTarget(null);
           }}
-          initialMode="copy"
+          initialMode="move"
           onSuccess={() => {
-            setCopyCandidateTarget(null);
+            setMatchCandidateTarget(null);
+            toast.success("Candidate matched to job!");
           }}
         />
       )}

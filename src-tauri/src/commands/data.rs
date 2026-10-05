@@ -92,8 +92,13 @@ pub fn import_json(
         tx.execute("DELETE FROM clients", [])?;
     }
 
+    // Insert OR IGNORE skips rows that already exist — report what actually landed.
+    let mut inserted_clients = 0usize;
+    let mut inserted_jobs = 0usize;
+    let mut inserted_candidates = 0usize;
+
     for client in &envelope.clients {
-        tx.execute(
+        inserted_clients += tx.execute(
             "INSERT OR IGNORE INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order)
              VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
             params![
@@ -105,7 +110,7 @@ pub fn import_json(
     }
 
     for job in &envelope.jobs {
-        tx.execute(
+        inserted_jobs += tx.execute(
             "INSERT OR IGNORE INTO jobs (id, client_id, job_id, title, location, work_model, contract_type,
                 bill_rate, pay_rate, status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes,
                 created_at, updated_at, closed_at, sort_order)
@@ -121,7 +126,7 @@ pub fn import_json(
     }
 
     for candidate in &envelope.candidates {
-        tx.execute(
+        inserted_candidates += tx.execute(
             "INSERT OR IGNORE INTO candidates (id, job_id, name, email, phone, location, current_title,
                 current_company, experience_years, resume_path, linkedin_url, recruiter_notes, match_score,
                 submission_status, interview_status, client_feedback, candidate_status,
@@ -148,9 +153,9 @@ pub fn import_json(
     tx.commit()?;
 
     Ok(ImportSummary {
-        clients: envelope.clients.len(),
-        jobs: envelope.jobs.len(),
-        candidates: envelope.candidates.len(),
+        clients: inserted_clients,
+        jobs: inserted_jobs,
+        candidates: inserted_candidates,
         replaced: replace,
     })
 }

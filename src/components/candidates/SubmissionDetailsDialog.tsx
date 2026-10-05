@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowCounterClockwise,
   CaretDown,
@@ -286,6 +286,25 @@ function parseSubmissionRows(candidate: Candidate): SubmissionRowItem[] {
   }));
 }
 
+/// Skills row values are a JSON string array (legacy: comma/pipe separated).
+function parseSkillsValue(val: string): string[] {
+  if (!val.trim()) return [];
+  try {
+    const parsed = JSON.parse(val);
+    if (Array.isArray(parsed)) return parsed.map((s) => String(s)).filter(Boolean);
+  } catch {
+    // legacy plain-text value
+  }
+  return val
+    .split(/[,|]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function isSkillsRow(r: SubmissionRowItem): boolean {
+  return r.key === "skills" || r.id === "skills" || r.label.trim().toLowerCase() === "skills";
+}
+
 function formatCurrentTimestamp(): string {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
@@ -309,16 +328,32 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [hasCopied, setHasCopied] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
+  // Nothing is written until the user actually edits: opening the dialog used
+  // to fire an autosave because the default template rows differ from stored JSON.
+  const [dirty, setDirty] = useState(false);
+  // Read the freshest candidate inside the debounced effect instead of the
+  // render-time snapshot the effect closed over.
+  const candidateRef = useRef(candidate);
+  candidateRef.current = candidate;
 
   const debouncedRows = useDebounce(rows, 600);
 
   useEffect(() => {
     setRows(parseSubmissionRows(candidate));
+    setDirty(false);
   }, [candidate.id]);
+
+  // Handlers for modifying rows
+  const updateRows = (fn: (prev: SubmissionRowItem[]) => SubmissionRowItem[]) => {
+    setDirty(true);
+    setRows(fn);
+  };
 
   // Autosave when rows or content change
   useEffect(() => {
-    const prevRaw = candidate.submission_details || "[]";
+    if (!dirty) return;
+    const cand = candidateRef.current;
+    const prevRaw = cand.submission_details || "[]";
     const nextRaw = JSON.stringify(debouncedRows);
     if (prevRaw === nextRaw) return;
 
@@ -333,31 +368,31 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
       const val = (row.value || "").trim();
 
       if (isLegalNameRow(key, label)) {
-        if (val && val !== (candidate.name || "")) {
+        if (val && val !== (cand.name || "")) {
           fieldPatch.name = val;
         }
       } else if (isEmailRow(key, label)) {
-        if (val !== (candidate.email || "")) {
+        if (val !== (cand.email || "")) {
           fieldPatch.email = val || null;
         }
       } else if (isPhoneRow(key, label)) {
-        if (val !== (candidate.phone || "")) {
+        if (val !== (cand.phone || "")) {
           fieldPatch.phone = val || null;
         }
       } else if (isLocationRow(key, label)) {
-        if (val !== (candidate.location || "")) {
+        if (val !== (cand.location || "")) {
           fieldPatch.location = val || null;
         }
       } else if (isLinkedinRow(key, label)) {
-        if (val !== (candidate.linkedin_url || "")) {
+        if (val !== (cand.linkedin_url || "")) {
           fieldPatch.linkedin_url = val || null;
         }
       } else if (isCurrentTitleRow(key, label)) {
-        if (val !== (candidate.current_title || "")) {
+        if (val !== (cand.current_title || "")) {
           fieldPatch.current_title = val || null;
         }
       } else if (isCurrentCompanyRow(key, label)) {
-        if (val !== (candidate.current_company || "")) {
+        if (val !== (cand.current_company || "")) {
           fieldPatch.current_company = val || null;
         }
       }
@@ -366,8 +401,8 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     setSaveState("saving");
     updateCandidate.mutate(
       {
-        id: candidate.id,
-        input: toCandidateInput(candidate, fieldPatch),
+        id: cand.id,
+        input: toCandidateInput(cand, fieldPatch),
       },
       {
         onSuccess: () => {
@@ -380,17 +415,17 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
         },
       },
     );
-  }, [debouncedRows]);
+  }, [debouncedRows, dirty]);
 
   // Handlers for modifying rows
   const handleValueChange = (id: string, value: string) => {
-    setRows((prev) =>
+    updateRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, value } : r)),
     );
   };
 
   const handleLabelChange = (id: string, label: string) => {
-    setRows((prev) =>
+    updateRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, label } : r)),
     );
   };
@@ -404,13 +439,13 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
       value: "",
       type: "text",
     };
-    setRows((prev) => [...prev, newRow]);
+    updateRows((prev) => [...prev, newRow]);
     setEditingLabelId(newId);
     toast.success("Added new row to table");
   };
 
   const handleDeleteRow = (id: string) => {
-    setRows((prev) => prev.filter((r) => r.id !== id));
+    updateRows((prev) => prev.filter((r) => r.id !== id));
     toast.success("Row removed");
   };
 
@@ -422,7 +457,7 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
       return;
     }
     const targetIndex = direction === "up" ? index - 1 : index + 1;
-    setRows((prev) => {
+    updateRows((prev) => {
       const next = [...prev];
       const [moved] = next.splice(index, 1);
       next.splice(targetIndex, 0, moved);
@@ -441,7 +476,7 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
           : field.defaultVal,
         type: field.type || (field.label.length > 60 ? "textarea" : "text"),
       }));
-      setRows(defaults);
+      updateRows(() => defaults);
       toast.success("Table reset to standard template");
     }
   };
@@ -457,7 +492,10 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     // 1. Generate clean HTML table with compact fixed width for Word/Emails
     const rowsHtml = rows
       .map((r) => {
-        const val = (r.value || "").trim();
+        let val = (r.value || "").trim();
+        if (isSkillsRow(r)) {
+          val = parseSkillsValue(val).join(", ");
+        }
         const formattedLabel = r.label.replace(/\n/g, "<br/>");
         const formattedVal = val.replace(/\n/g, "<br/>") || "&nbsp;";
         return `<tr>
@@ -481,7 +519,10 @@ ${rowsHtml}
     // 2. Generate clean Plain Text table
     const plainRows = rows
       .map((r) => {
-        const val = (r.value || "").trim();
+        let val = (r.value || "").trim();
+        if (isSkillsRow(r)) {
+          val = parseSkillsValue(val).join(", ");
+        }
         return `${r.label}\t${val}`;
       })
       .join("\n");
@@ -631,7 +672,24 @@ ${rowsHtml}
                   {/* Right Column: Input / Details (65% width) */}
                   <div className="w-[65%] min-w-0 p-1.5 sm:p-2 relative flex items-center gap-1.5">
                     <div className="flex-1 min-w-0">
-                      {isRtr ? (
+                      {isSkillsRow(r) ? (
+                        <div className="flex flex-wrap items-center gap-1 py-0.5">
+                          {parseSkillsValue(val).length > 0 ? (
+                            parseSkillsValue(val).map((skill) => (
+                              <span
+                                key={skill}
+                                className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] font-medium text-fg"
+                              >
+                                {skill}
+                              </span>
+                            ))
+                          ) : (
+                            <span className="text-[11px] italic text-fg-subtle">
+                              No skills yet — add them in the Skills &amp; Tools panel.
+                            </span>
+                          )}
+                        </div>
+                      ) : isRtr ? (
                         <div className="flex items-center gap-1.5">
                           <input
                             type="text"

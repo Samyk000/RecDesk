@@ -11,6 +11,13 @@ import {
 } from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { StatusSelectItem } from "./StatusSelectItem";
 import { useBulkUpdateCandidates } from "../../hooks/useQueries";
 import { SUBMISSION_STATUSES, submissionPalette } from "../../lib/constants";
 import { errorMessage, titleCase } from "../../lib/utils";
@@ -20,7 +27,11 @@ import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
 import { BackwardStatusConfirmDialog } from "./BackwardStatusConfirmDialog";
 import { ResetStatusConfirmDialog } from "./ResetStatusConfirmDialog";
-import { isBackwardTransition, parseRejectionDetail, serializeRejectionDetail } from "../../lib/candidateUtils";
+import {
+  isBackwardTransition,
+  parseRejectionDetail,
+  serializeRejectionDetail,
+} from "../../lib/candidateUtils";
 import type { CandidatePatch, CandidateWithJob, RejectionDetail } from "../../types";
 
 interface Props {
@@ -69,14 +80,11 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
     const patch: CandidatePatch = { submission_status: status };
     if (status === "submitted") {
       patch.submitted_at = submittedAt || new Date().toISOString();
-      patch.client_feedback = candidate.client_feedback || "internal";
     } else if (status === "interview") {
       patch.interview_at = interviewAt || new Date().toISOString();
-      patch.client_feedback = "client";
       patch.submitted_at = candidate.submitted_at || submittedAt || new Date().toISOString();
     } else if (status === "placed") {
       patch.placed_at = placedAt || new Date().toISOString();
-      patch.client_feedback = "client";
       patch.submitted_at = candidate.submitted_at || submittedAt || new Date().toISOString();
     }
     if (status === "rejected") {
@@ -85,7 +93,7 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
         candidate.submission_status === "interview"
           ? "interview"
           : candidate.submission_status === "submitted"
-            ? (candidate.client_feedback === "internal" ? "internal" : "client_screening")
+            ? "client_screening"
             : existing.origin || "general";
 
       const detail: RejectionDetail = {
@@ -137,17 +145,16 @@ export function StatusChangeDialog({ candidate, initialStatus, onClose }: Props)
         <div className="space-y-4 px-6 py-5">
           <div className="space-y-1.5">
             <p className="text-xs text-fg-subtle">Status</p>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value)}
-              className="h-8 w-full rounded-md border border-border bg-surface px-3 text-[13px] text-fg outline-none focus:ring-1 focus:ring-primary cursor-pointer"
-            >
-              {SUBMISSION_STATUSES.map((s) => (
-                <option key={s} value={s}>
-                  {titleCase(s)}
-                </option>
-              ))}
-            </select>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger className="h-8 w-full text-[13px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {SUBMISSION_STATUSES.map((s) => (
+                  <StatusSelectItem key={s} value={s} />
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {status === "submitted" && (

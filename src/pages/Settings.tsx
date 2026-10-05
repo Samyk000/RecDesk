@@ -25,6 +25,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/toolti
 import { errorMessage, cn } from "../lib/utils";
 import type { ExcelImportValidation } from "../lib/excelImport";
 import { ExcelImportPreviewDialog } from "../components/common/ExcelImportPreviewDialog";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import type { ExportEnvelope, ThemeMode, ThemeName } from "../types";
 
 const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
@@ -50,6 +51,8 @@ export function Settings() {
   const [replace, setReplace] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [excelValidation, setExcelValidation] = useState<ExcelImportValidation | null>(null);
+  // JSON backups used to be imported (and erased) with zero confirmation.
+  const [pendingJson, setPendingJson] = useState<{ json: string; counts: string } | null>(null);
 
   function invalidateAllDataQueries() {
     qc.invalidateQueries({ queryKey: ["clients"] });
@@ -148,13 +151,20 @@ export function Settings() {
         const validation = parseExcelImport(bytes, existingClients, existingJobs);
         setExcelValidation(validation);
       } else {
-        // Read JSON text
+        // Read JSON text, then ask before anything is written
         const json = await readTextFile(path);
-        const summary = await apiData.import(json, replace);
-        invalidateAllDataQueries();
-        toast.success(
-          `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
-        );
+        let counts = "unknown number of records";
+        try {
+          const parsed = JSON.parse(json) as {
+            clients?: unknown[];
+            jobs?: unknown[];
+            candidates?: unknown[];
+          };
+          counts = `${parsed.clients?.length ?? 0} clients, ${parsed.jobs?.length ?? 0} jobs, ${parsed.candidates?.length ?? 0} candidates`;
+        } catch {
+          // backend validates the file; dialog still warns before importing
+        }
+        setPendingJson({ json, counts });
       }
     } catch (err) {
       toast.error(errorMessage(err));
@@ -181,6 +191,23 @@ export function Settings() {
     }
   }
 
+  async function confirmJsonImport() {
+    if (!pendingJson) return;
+    setBusy("confirming-json");
+    try {
+      const summary = await apiData.import(pendingJson.json, replace);
+      invalidateAllDataQueries();
+      setPendingJson(null);
+      toast.success(
+        `Imported ${summary.clients} clients, ${summary.jobs} jobs, ${summary.candidates} candidates`,
+      );
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <div className="px-6 pt-3.5 pb-6">
       <PageHeader
@@ -191,7 +218,7 @@ export function Settings() {
             <TooltipTrigger asChild>
               <div className="flex items-center gap-2 rounded-lg border border-border/80 bg-surface px-3 py-1.5 text-xs text-fg-muted shadow-2xs cursor-help transition-all hover:border-primary/40 hover:bg-surface-hover">
                 <Info className="h-3.5 w-3.5 text-primary shrink-0" />
-                <span className="font-semibold text-fg">RecDesk <span className="text-[11px] font-normal text-fg-subtle">v0.1.5</span></span>
+                <span className="font-semibold text-fg">RecDesk <span className="text-[11px] font-normal text-fg-subtle">v0.1.6</span></span>
                 <span className="text-border-strong">•</span>
                 <span className="text-[11px] text-fg-subtle">100% Offline & Private</span>
               </div>
@@ -285,7 +312,7 @@ export function Settings() {
             <div className="grid grid-cols-4 gap-1.5">
               {US_TIME_ZONES.map((tz) => {
                 const active = timeZones.includes(tz.zone);
-                return (
+  return (
                   <button
                     key={tz.zone}
                     onClick={() =>
@@ -443,6 +470,23 @@ export function Settings() {
           onConfirm={confirmExcelImport}
           onClose={() => setExcelValidation(null)}
           isImporting={busy === "confirming-excel"}
+        />
+      )}
+
+      {pendingJson && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setPendingJson(null)}
+          title="Import JSON backup?"
+          description={
+            replace
+              ? `This file contains ${pendingJson.counts}. Replace is ON: all existing clients, jobs, and candidates will be erased first.`
+              : `This file contains ${pendingJson.counts}. Existing records will be kept and merged.`
+          }
+          confirmLabel="Import"
+          destructive={replace}
+          loading={busy === "confirming-json"}
+          onConfirm={confirmJsonImport}
         />
       )}
     </div>

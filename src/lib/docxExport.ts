@@ -59,10 +59,21 @@ function parseHexColor(colorStr?: string): string | undefined {
   return undefined;
 }
 
-export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8Array> {
+export interface DocxExportOptions {
+  defaultFont?: string;
+}
+
+export async function convertHtmlToDocxBytes(
+  htmlContent: string,
+  options?: DocxExportOptions
+): Promise<Uint8Array> {
   const parser = new DOMParser();
   const doc = parser.parseFromString(htmlContent, "text/html");
   const paragraphs: Paragraph[] = [];
+
+  const defaultFontName = options?.defaultFont
+    ? options.defaultFont.split(",")[0].replace(/['"]/g, "").trim()
+    : "Calibri";
 
   function extractRuns(
     element: HTMLElement,
@@ -107,8 +118,8 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
               strike: fmt.strike,
               color: validatedColor,
               shading: validatedHighlight ? { fill: validatedHighlight } : undefined,
-              font: fmt.font || "Times New Roman",
-              size: fmt.size ?? 20,
+              font: fmt.font || defaultFontName,
+              size: fmt.size ?? 21,
             })
           );
         }
@@ -146,13 +157,13 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
       }
     }
 
-    traverse(element, { font: "Times New Roman", size: 21, ...baseFmt });
+    traverse(element, { font: defaultFontName, size: 21, ...baseFmt });
     return runs.length > 0
       ? runs
       : [
         new TextRun({
           text: element.textContent || "",
-          font: baseFmt.font || "Times New Roman",
+          font: baseFmt.font || defaultFontName,
           size: baseFmt.size ?? 21,
           bold: baseFmt.bold,
         }),
@@ -174,7 +185,7 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
       if (tag === "h1") {
         paragraphs.push(
           new Paragraph({
-            children: extractRuns(el, { bold: true, size: 38, font: "Times New Roman" }),
+            children: extractRuns(el, { bold: true, size: 38, font: defaultFontName }),
             alignment: align || AlignmentType.CENTER,
             spacing: { before: 0, after: 140 },
           })
@@ -182,7 +193,7 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
       } else if (tag === "h2") {
         paragraphs.push(
           new Paragraph({
-            children: extractRuns(el, { bold: true, size: 26, font: "Times New Roman" }),
+            children: extractRuns(el, { bold: true, size: 26, font: defaultFontName }),
             alignment: align || AlignmentType.LEFT,
             spacing: { before: 240, after: 60 },
           })
@@ -190,7 +201,7 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
       } else if (tag === "h3") {
         paragraphs.push(
           new Paragraph({
-            children: extractRuns(el, { bold: true, size: 23, font: "Times New Roman" }),
+            children: extractRuns(el, { bold: true, size: 23, font: defaultFontName }),
             alignment: align || AlignmentType.LEFT,
             spacing: { before: 160, after: 40 },
           })
@@ -207,14 +218,14 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
         const beforeSpacing = isLargeGap ? 200 : mtPx > 0 ? Math.round(mtPx * 15) : 0;
 
         if (isFlexSplit && el.children.length === 2) {
-          const leftRuns = extractRuns(el.children[0] as HTMLElement, { bold: true, size: 21 });
-          const rightRuns = extractRuns(el.children[1] as HTMLElement, { bold: true, size: 21 });
+          const leftRuns = extractRuns(el.children[0] as HTMLElement, { bold: true, size: 21, font: defaultFontName });
+          const rightRuns = extractRuns(el.children[1] as HTMLElement, { bold: true, size: 21, font: defaultFontName });
           paragraphs.push(
             new Paragraph({
               tabStops: [{ type: TabStopType.RIGHT, position: 10800 }],
               children: [
                 ...leftRuns,
-                new TextRun({ text: "\t", font: "Times New Roman", size: 21, bold: true }),
+                new TextRun({ text: "\t", font: defaultFontName, size: 21, bold: true }),
                 ...rightRuns,
               ],
               spacing: { before: 200, after: 30, line: 260 },
@@ -223,7 +234,7 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
         } else {
           paragraphs.push(
             new Paragraph({
-              children: extractRuns(el, { size: 21 }),
+              children: extractRuns(el, { size: 21, font: defaultFontName }),
               alignment: align,
               spacing: { before: beforeSpacing, after: 40, line: 260 },
             })
@@ -233,7 +244,7 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
         el.querySelectorAll(":scope > li").forEach((li) => {
           paragraphs.push(
             new Paragraph({
-              children: extractRuns(li as HTMLElement, { size: 21 }),
+              children: extractRuns(li as HTMLElement, { size: 21, font: defaultFontName }),
               bullet: { level: 0 },
               alignment: align,
               spacing: { after: 30 },
@@ -242,11 +253,11 @@ export async function convertHtmlToDocxBytes(htmlContent: string): Promise<Uint8
         });
       } else if (tag === "ol") {
         el.querySelectorAll(":scope > li").forEach((li, idx) => {
-          const runs = extractRuns(li as HTMLElement, { size: 21 });
+          const runs = extractRuns(li as HTMLElement, { size: 21, font: defaultFontName });
           paragraphs.push(
             new Paragraph({
               children: [
-                new TextRun({ text: `${idx + 1}. `, bold: true, font: "Times New Roman", size: 21 }),
+                new TextRun({ text: `${idx + 1}. `, bold: true, font: defaultFontName, size: 21 }),
                 ...runs,
               ],
               alignment: align,

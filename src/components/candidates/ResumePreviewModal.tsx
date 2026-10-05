@@ -49,6 +49,8 @@ export function ResumePreviewModal({
   const [scale, setScale] = useState(1.0);
   const [isEditing, setIsEditing] = useState(false);
   const [convertedHtml, setConvertedHtml] = useState<string | null>(null);
+  const [detectedFont, setDetectedFont] = useState<string | undefined>(undefined);
+  const [detectedFontSize, setDetectedFontSize] = useState<string | undefined>(undefined);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionStep, setConversionStep] = useState("Analyzing document…");
 
@@ -378,6 +380,8 @@ export function ResumePreviewModal({
           // Fast instant vector stream extraction
           setConversionStep("Reconstructing Word-like document…");
           setConvertedHtml(result.html);
+          setDetectedFont(result.primaryFont);
+          setDetectedFontSize(result.primaryFontSize);
           setIsEditing(true);
         }
       } catch (err) {
@@ -406,6 +410,8 @@ export function ResumePreviewModal({
     await loadFileBytes(savedPath);
     setIsEditing(false);
     setConvertedHtml(null);
+    setDetectedFont(undefined);
+    setDetectedFontSize(undefined);
   };
 
   const getFormatBadge = () => {
@@ -424,9 +430,13 @@ export function ResumePreviewModal({
         candidateName={candidateName}
         data={data}
         initialHtml={convertedHtml || undefined}
+        initialFont={detectedFont}
+        initialFontSize={detectedFontSize}
         onClose={() => {
           setIsEditing(false);
           setConvertedHtml(null);
+          setDetectedFont(undefined);
+          setDetectedFontSize(undefined);
         }}
         onSaved={handleEditorSaved}
       />

@@ -98,9 +98,20 @@ export function formatTimeFromIso(iso: string | null | undefined): string {
   if (!trimmed.includes("T") && !trimmed.includes(":") && !trimmed.includes(" ")) {
     return "";
   }
-  const d = new Date(trimmed);
-  if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  // Offset-aware stamps convert; tz-tagged strings ("2026-10-04T14:30 EST") and
+  // naive local stamps read their literal clock time instead of going through
+  // Date(), which rejects any abbreviation or IANA name.
+  if (/(?:Z|[+-]\d{2}:?\d{2})$/.test(trimmed)) {
+    const d = new Date(trimmed);
+    if (Number.isNaN(d.getTime())) return "";
+    return d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
+  const m = trimmed.match(/(\d{1,2}):(\d{2})/);
+  if (!m) return "";
+  return new Date(2000, 0, 1, Number(m[1]), Number(m[2])).toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
 }
 
 /**
@@ -201,24 +212,15 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
     const rejDetail = parseRejectionDetail(cand.rejection_reason);
 
     // ==========================================
-    // 1. EXTERNAL SUBMISSION EVENTS ONLY
-    // (Internal reviews are internal steps and excluded from client calendar)
+    // 1. EXTERNAL SUBMISSION EVENTS
     // ==========================================
-    const isInternalOnly =
-      (cand.submission_status === "submitted" && cand.client_feedback === "internal") ||
-      (cand.submission_status === "rejected" && rejDetail.origin === "internal");
+    const isSubmittedStage = cand.submission_status === "submitted";
+    const hasSubmissionDate = !!cand.submitted_at?.trim();
+    const isExt = isExternalSubmission(cand);
 
-    if (!isInternalOnly) {
-      const isSubmittedStage = cand.submission_status === "submitted";
-      const hasSubmissionDate = !!cand.submitted_at?.trim();
-      const isClientFeedback = cand.client_feedback === "client";
-      const isClientRejection =
-        cand.submission_status === "rejected" && rejDetail.origin === "client_screening";
-      const isExt = isExternalSubmission(cand);
-
-      if (isExt || isSubmittedStage || hasSubmissionDate || isClientFeedback || isClientRejection) {
-        const rawDate = cand.submitted_at || cand.date_added || cand.last_updated;
-        const dateKey = formatDateKey(rawDate);
+    if (isExt || isSubmittedStage || hasSubmissionDate) {
+      const rawDate = cand.submitted_at || cand.date_added || cand.last_updated;
+      const dateKey = formatDateKey(rawDate);
 
         if (dateKey) {
           const outcome =
@@ -238,13 +240,12 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
             formattedTime: formatTimeFromIso(rawDate),
             candidate: cand,
             status: "submitted",
-            subStage: "External",
+            subStage: null,
             outcome,
             eventOutcome: getEventOutcome(cand, "submission"),
           });
         }
       }
-    }
 
     // ==========================================
     // 2. INTERVIEW EVENTS

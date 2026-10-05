@@ -10,6 +10,7 @@ const Clients = lazy(() => import("./pages/Clients").then((m) => ({ default: m.C
 const ClientDetail = lazy(() => import("./pages/ClientDetail").then((m) => ({ default: m.ClientDetail })));
 const Candidates = lazy(() => import("./pages/Candidates").then((m) => ({ default: m.Candidates })));
 const Calendar = lazy(() => import("./pages/Calendar").then((m) => ({ default: m.Calendar })));
+const Pipeline = lazy(() => import("./pages/Pipeline").then((m) => ({ default: m.Pipeline })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
 
 const PageFallback = () => (
@@ -69,6 +70,14 @@ function App() {
           element={
             <Suspense fallback={<PageFallback />}>
               <Calendar />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/pipeline"
+          element={
+            <Suspense fallback={<PageFallback />}>
+              <Pipeline />
             </Suspense>
           }
         />

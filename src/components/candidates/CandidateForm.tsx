@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Lightning, FileText, X } from "@phosphor-icons/react";
+import { Lightning, FileText, X, Tag } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import {
 import { useCreateCandidate, useJobs, useAttachResume } from "../../hooks/useQueries";
 import { SUBMISSION_STATUSES } from "../../lib/constants";
 import { cn, errorMessage } from "../../lib/utils";
+import { setCandidateSkills } from "../../lib/candidateUtils";
 import { StatusSelectItem } from "./StatusSelectItem";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { InterviewSchedulePicker } from "./InterviewSchedulePicker";
@@ -54,6 +55,8 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
   const [selectedClient, setSelectedClient] = useState("");
   const [selectedJobId, setSelectedJobId] = useState(jobId ?? "");
   const [status, setStatus] = useState("sourced");
+  const [skills, setSkills] = useState<string[]>([]);
+  const [skillInput, setSkillInput] = useState("");
   const [submittedAt, setSubmittedAt] = useState("");
   const [interviewAt, setInterviewAt] = useState("");
   const [placedAt, setPlacedAt] = useState("");
@@ -94,6 +97,8 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     setPhone("");
     setLocation("");
     setLinkedin("");
+    setSkills([]);
+    setSkillInput("");
     setSelectedRole("");
     setSelectedClient("");
     setSelectedJobId(jobId ?? "");
@@ -125,6 +130,37 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     if (profile.phone) setPhone(profile.phone);
     if (profile.linkedin_url) setLinkedin(profile.linkedin_url);
     if (sourceFilePath) setStagedResumePath(sourceFilePath);
+    if (profile.skills && profile.skills.length > 0) {
+      setSkills((prev) => {
+        const combined = [...prev];
+        for (const s of profile.skills!) {
+          if (!combined.some((c) => c.toLowerCase() === s.toLowerCase())) {
+            combined.push(s);
+          }
+        }
+        return combined;
+      });
+    }
+  }
+
+  function handleAddSkillsFromInput(raw: string) {
+    const parts = raw
+      .split(/[,;|\n]+/)
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length === 0) return;
+    const updated = [...skills];
+    for (const p of parts) {
+      if (!updated.some((s) => s.toLowerCase() === p.toLowerCase())) {
+        updated.push(p);
+      }
+    }
+    setSkills(updated);
+    setSkillInput("");
+  }
+
+  function handleRemoveSkill(toRemove: string) {
+    setSkills(skills.filter((s) => s.toLowerCase() !== toRemove.toLowerCase()));
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -132,6 +168,11 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
     if (!selectedJobId) {
       toast.error("Please select a role and client");
       return;
+    }
+
+    let initialDetails: string | null = null;
+    if (skills.length > 0) {
+      initialDetails = setCandidateSkills(initialDetails, skills);
     }
 
     const input: CandidateInput = {
@@ -143,8 +184,9 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
       current_title: currentTitle.trim() || null,
       linkedin_url: linkedin.trim() || null,
       submission_status: status,
-      client_feedback: status === "submitted" ? "internal" : (status === "interview" || status === "placed") ? "client" : null,
+      client_feedback: null,
       candidate_status: "active",
+      submission_details: initialDetails,
       submitted_at: (status === "submitted" || status === "interview" || status === "placed") ? (submittedAt || new Date().toISOString()) : null,
       interview_at: status === "interview" ? interviewAt || new Date().toISOString() : null,
       placed_at: status === "placed" ? placedAt || new Date().toISOString() : null,
@@ -344,6 +386,59 @@ export function CandidateForm({ open, onOpenChange, jobId }: Props) {
                   placeholder="https://linkedin.com/in/…"
                 />
               </div>
+            </div>
+
+            {/* Skills & Technologies */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <Label className="flex items-center gap-1.5">
+                  <Tag className="h-3.5 w-3.5 text-primary" />
+                  Skills / Technologies
+                </Label>
+                <span className="text-[11px] text-fg-subtle">Separate with commas (e.g. AWS, Node, Python)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Input
+                  value={skillInput}
+                  onChange={(e) => setSkillInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleAddSkillsFromInput(skillInput);
+                    }
+                  }}
+                  placeholder="Type skills (e.g. AWS, Node, Python) and press Enter…"
+                  className="h-8 text-xs flex-1"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-8 text-xs shrink-0 cursor-pointer"
+                  onClick={() => handleAddSkillsFromInput(skillInput)}
+                >
+                  Add
+                </Button>
+              </div>
+              {skills.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1 max-h-24 overflow-y-auto scrollbar-thin">
+                  {skills.map((s) => (
+                    <span
+                      key={s}
+                      className="inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+                    >
+                      <span>{s}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSkill(s)}
+                        className="text-primary/60 hover:text-red-500 cursor-pointer p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-1.5">

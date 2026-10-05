@@ -82,7 +82,7 @@ export function JobFormDialog({ open, onOpenChange, jobId, defaultClientId }: Pr
       toast.error("Please select a client");
       return;
     }
-    if (!input.title.trim()) {
+    if (!input.title?.trim()) {
       toast.error("Job title is required");
       return;
     }

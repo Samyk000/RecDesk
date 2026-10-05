@@ -1,9 +1,11 @@
 use tauri::State;
 
-use crate::commands::candidate::CANDIDATE_SELECT;
+use std::collections::HashMap;
+
+use crate::commands::candidate::CANDIDATE_SELECT_SLIM;
 use crate::commands::job::JOB_SELECT;
 use crate::error::{AppError, AppResult};
-use crate::models::{Candidate, DashboardStats, JobWithStats, StatusCount};
+use crate::models::{Candidate, DashboardStats, JobWithStats, MetricTrend, StatusCount};
 use crate::rows::row_to_candidate;
 use crate::AppState;
 
@@ -73,12 +75,11 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     )?;
     let external_submissions: i64 = conn.query_row(
         "SELECT COUNT(*) FROM candidates 
-         WHERE (submission_status = 'submitted' AND (client_feedback IS NULL OR client_feedback != 'internal'))
-            OR submission_status IN ('interview', 'placed')
+         WHERE submission_status IN ('submitted', 'interview', 'placed')
             OR (submission_status = 'rejected' AND (
                 rejection_reason LIKE '%\"client_screening\"%' 
                 OR rejection_reason LIKE '%\"interview\"%'
-                OR (submitted_at IS NOT NULL AND TRIM(submitted_at) != '' AND (client_feedback IS NULL OR client_feedback != 'internal') AND (rejection_reason IS NULL OR rejection_reason NOT LIKE '%\"internal\"%'))
+                OR (submitted_at IS NOT NULL AND TRIM(submitted_at) != '')
             ))",
         [],
         |r| r.get(0),
@@ -87,40 +88,8 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     let candidates_by_status = status_counts(&conn, StatusTarget::CandidatesBySubmissionStatus)?;
     let jobs_by_status = status_counts(&conn, StatusTarget::JobsByStatus)?;
 
-    let candidates_trend = compute_metric_trend(
-        &conn,
-        "COALESCE(NULLIF(TRIM(date_added), ''), last_updated)",
-        "1=1",
-    )?;
-
-    let submissions_trend = compute_metric_trend(
-        &conn,
-        "COALESCE(NULLIF(TRIM(submitted_at), ''), date_added)",
-        "(submission_status = 'submitted' AND (client_feedback IS NULL OR client_feedback != 'internal'))
-         OR submission_status IN ('interview', 'placed')
-         OR (submission_status = 'rejected' AND (
-             rejection_reason LIKE '%\"client_screening\"%' 
-             OR rejection_reason LIKE '%\"interview\"%'
-             OR (submitted_at IS NOT NULL AND TRIM(submitted_at) != '' AND (client_feedback IS NULL OR client_feedback != 'internal') AND (rejection_reason IS NULL OR rejection_reason NOT LIKE '%\"internal\"%'))
-         ))",
-    )?;
-
-    let interviews_trend = compute_metric_trend(
-        &conn,
-        "COALESCE(NULLIF(TRIM(interview_at), ''), NULLIF(TRIM(submitted_at), ''), date_added)",
-        "submission_status IN ('interview', 'placed')
-         OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
-         OR (submission_status = 'rejected' AND (
-             rejection_reason LIKE '%\"interview\"%'
-             OR (interview_at IS NOT NULL AND TRIM(interview_at) != '')
-         ))",
-    )?;
-
-    let placed_trend = compute_metric_trend(
-        &conn,
-        "COALESCE(NULLIF(TRIM(placed_at), ''), NULLIF(TRIM(interview_at), ''), date_added)",
-        "submission_status = 'placed'",
-    )?;
+    let (candidates_trend, submissions_trend, interviews_trend, placed_trend) =
+        compute_all_trends(&conn)?;
 
     let recent_jobs: Vec<JobWithStats> = {
         let mut stmt = conn.prepare(&format!("{JOB_SELECT} WHERE j.status = 'active' ORDER BY j.created_at DESC, j.updated_at DESC LIMIT 8"))?;
@@ -132,7 +101,7 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
 
     let recent_candidates: Vec<Candidate> = {
         let mut stmt = conn.prepare(
-            &format!("{CANDIDATE_SELECT} WHERE c.submission_status NOT IN ('not_interested', 'rejected') ORDER BY c.last_updated DESC LIMIT 8"),
+            &format!("{CANDIDATE_SELECT_SLIM} WHERE c.submission_status NOT IN ('not_interested', 'rejected', 'pipeline') ORDER BY c.last_updated DESC LIMIT 8"),
         )?;
         let rows = stmt
             .query_map([], row_to_candidate)?
@@ -161,15 +130,118 @@ pub fn get_dashboard_stats(state: State<'_, AppState>) -> AppResult<DashboardSta
     })
 }
 
-fn compute_metric_trend(
+/// One table scan feeds all four trends. The previous version ran four
+/// separate `substr()` full scans with expression WHERE clauses no index
+/// could serve.
+pub(crate) fn compute_all_trends(
     conn: &rusqlite::Connection,
-    date_expr: &str,
-    where_clause: &str,
-) -> AppResult<crate::models::MetricTrend> {
-    use chrono::{Datelike, Duration, Utc};
-    use std::collections::HashMap;
+) -> AppResult<(MetricTrend, MetricTrend, MetricTrend, MetricTrend)> {
+    let mut stmt = conn.prepare(
+        "SELECT date_added, last_updated, submitted_at, interview_at, placed_at,
+                submission_status, rejection_reason
+         FROM candidates",
+    )?;
 
-    let now = Utc::now().date_naive();
+    let mut cand_counts: HashMap<String, i64> = HashMap::new();
+    let mut sub_counts: HashMap<String, i64> = HashMap::new();
+    let mut int_counts: HashMap<String, i64> = HashMap::new();
+    let mut plac_counts: HashMap<String, i64> = HashMap::new();
+
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, Option<String>>(0)?,
+            r.get::<_, Option<String>>(1)?,
+            r.get::<_, Option<String>>(2)?,
+            r.get::<_, Option<String>>(3)?,
+            r.get::<_, Option<String>>(4)?,
+            r.get::<_, String>(5)?,
+            r.get::<_, Option<String>>(6)?,
+        ))
+    })?;
+
+    for row in rows {
+        let (date_added, last_updated, submitted_at, interview_at, placed_at, status, rej_raw) =
+            row?;
+        let rej = rej_raw.as_deref().unwrap_or("");
+        let submitted_ne = nonempty(submitted_at.as_deref()).is_some();
+        let interview_ne = nonempty(interview_at.as_deref()).is_some();
+        let status = status.as_str();
+
+        bump(
+            &mut cand_counts,
+            &trend_day(date_added.as_deref(), last_updated.as_deref(), None),
+        );
+
+        if matches!(status, "submitted" | "interview" | "placed")
+            || (status == "rejected"
+                && (rej.contains("\"client_screening\"")
+                    || rej.contains("\"interview\"")
+                    || submitted_ne))
+        {
+            bump(
+                &mut sub_counts,
+                &trend_day(submitted_at.as_deref(), date_added.as_deref(), None),
+            );
+        }
+
+        if matches!(status, "interview" | "placed")
+            || interview_ne
+            || (status == "rejected" && rej.contains("\"interview\""))
+        {
+            bump(
+                &mut int_counts,
+                &trend_day(
+                    interview_at.as_deref(),
+                    submitted_at.as_deref(),
+                    date_added.as_deref(),
+                ),
+            );
+        }
+
+        if status == "placed" {
+            bump(
+                &mut plac_counts,
+                &trend_day(
+                    placed_at.as_deref(),
+                    interview_at.as_deref(),
+                    date_added.as_deref(),
+                ),
+            );
+        }
+    }
+
+    let now = chrono::Utc::now().date_naive();
+    Ok((
+        build_metric_trend(now, cand_counts),
+        build_metric_trend(now, sub_counts),
+        build_metric_trend(now, int_counts),
+        build_metric_trend(now, plac_counts),
+    ))
+}
+
+fn bump(counts: &mut HashMap<String, i64>, day: &str) {
+    *counts.entry(day.to_string()).or_insert(0) += 1;
+}
+
+fn nonempty(v: Option<&str>) -> Option<&str> {
+    v.map(str::trim).filter(|t| !t.is_empty())
+}
+
+/// Mirrors `substr(COALESCE(NULLIF(TRIM(a), ''), NULLIF(TRIM(b), ''), c), 1, 10)`.
+fn trend_day<'a>(first: Option<&'a str>, second: Option<&'a str>, third: Option<&'a str>) -> String {
+    let chosen = [first, second]
+        .into_iter()
+        .flatten()
+        .map(str::trim)
+        .find(|t| !t.is_empty())
+        .or(third)
+        .unwrap_or("");
+    chosen.get(..10).unwrap_or(chosen).to_string()
+}
+
+fn build_metric_trend(now: chrono::NaiveDate, day_counts: HashMap<String, i64>) -> MetricTrend {
+    use chrono::{Datelike, Duration};
+
     let current_day = now.day();
 
     // Strict Month-to-Date (MTD): Day 1 of current month up to Today
@@ -183,31 +255,7 @@ fn compute_metric_trend(
 
     let start_of_month = now.with_day(1).unwrap_or(now);
     let start_of_month_str = start_of_month.format("%Y-%m-%d").to_string();
-
-    let earliest_date = std::cmp::min(start_of_week, start_of_month);
-    let earliest_date_str = earliest_date.format("%Y-%m-%d").to_string();
     let today_str = now.format("%Y-%m-%d").to_string();
-
-    let sql = format!(
-        "SELECT substr({date_expr}, 1, 10) AS day, COUNT(*) AS cnt 
-         FROM candidates 
-         WHERE ({where_clause}) AND substr({date_expr}, 1, 10) >= ?1 AND substr({date_expr}, 1, 10) <= ?2 
-         GROUP BY day"
-    );
-
-    let mut stmt = conn.prepare(&sql)?;
-    let mut day_counts: HashMap<String, i64> = HashMap::new();
-    let rows = stmt.query_map([&earliest_date_str, &today_str], |r| {
-        let day: String = r.get(0)?;
-        let cnt: i64 = r.get(1)?;
-        Ok((day, cnt))
-    })?;
-
-    for row in rows {
-        if let Ok((day, cnt)) = row {
-            day_counts.insert(day, cnt);
-        }
-    }
 
     let mut points = Vec::with_capacity(dates.len());
     for d in dates {
@@ -232,9 +280,9 @@ fn compute_metric_trend(
         }
     }
 
-    Ok(crate::models::MetricTrend {
+    MetricTrend {
         this_week,
         this_month,
         points,
-    })
+    }
 }

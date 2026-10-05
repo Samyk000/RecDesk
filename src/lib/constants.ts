@@ -1,6 +1,7 @@
 export const SUBMISSION_STATUSES = [
   "sourced",
   "in_touch",
+  "pipeline",
   "submitted",
   "interview",
   "placed",
@@ -8,7 +9,7 @@ export const SUBMISSION_STATUSES = [
   "not_interested",
 ] as const;
 
-export const BULK_STATUSES = ["sourced", "in_touch", "placed", "not_interested"] as const;
+export const BULK_STATUSES = ["sourced", "in_touch", "pipeline", "placed", "not_interested"] as const;
 
 export const JOB_STATUSES = ["active", "on_hold", "closed"] as const;
 
@@ -21,56 +22,6 @@ export const US_TIME_ZONES = [
   { label: "CST", zone: "America/Chicago" },
   { label: "MST", zone: "America/Denver" },
   { label: "PST", zone: "America/Los_Angeles" },
-] as const;
-
-export const DEFAULT_ROUND_NAMES = [
-  "Round 1: Screening Call",
-  "Round 1: Technical Interview",
-  "Round 2: Technical Deep Dive",
-  "Round 2: Hiring Manager Round",
-  "Round 3: System Design / Team Fit",
-  "Final Round: Executive / Client Final",
-] as const;
-
-export const INTERNAL_REJECTION_REASONS = [
-  "Missing required technical skill",
-  "Experience level below requirement",
-  "Rate / Salary expectation above budget",
-  "Location / Work model mismatch",
-  "Communication / Articulation issue",
-  "Visa / Work authorization restriction",
-  "Manager preferred another candidate",
-  "Other manager decision",
-] as const;
-
-export const CLIENT_REJECTION_REASONS = [
-  "Client screened out resume",
-  "Client selected competing profile",
-  "Bill rate exceeded client ceiling",
-  "Position put on hold / cancelled by client",
-  "Client preferred local / onsite talent",
-  "Experience didn't match specific domain",
-  "Other client feedback",
-] as const;
-
-export const INTERVIEW_REJECTION_REASONS = [
-  "Technical problem-solving below bar",
-  "System design / Domain depth gap",
-  "Communication / Articulation in interview",
-  "Culture & team fit alignment",
-  "Client selected stronger finalist",
-  "Candidate withdrew after interview",
-  "Other interview feedback",
-] as const;
-
-export const NOT_INTERESTED_REASONS = [
-  "Accepted another competing offer",
-  "Compensation / Rate too low",
-  "Location / Relocation / Commute issue",
-  "Unhappy with work model (wants Remote)",
-  "Not interested in tech stack or project",
-  "No longer actively job seeking",
-  "Other candidate reason",
 ] as const;
 
 export type Palette = {
@@ -98,6 +49,14 @@ const SUBMISSION_PALETTE: Record<string, Palette> = {
     chip: "bg-blue-100 text-blue-800 dark:bg-blue-500/20 dark:text-blue-200",
     chipText: "text-blue-700 dark:text-blue-300",
     bar: "bg-blue-400",
+  },
+  pipeline: {
+    dot: "#6366f1",
+    badge: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300",
+    badgeText: "text-indigo-700 dark:text-indigo-300",
+    chip: "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/20 dark:text-indigo-200",
+    chipText: "text-indigo-700 dark:text-indigo-300",
+    bar: "bg-indigo-500",
   },
   submitted: {
     dot: "#f59e0b",
@@ -200,6 +159,7 @@ export function submissionPalette(status: string): Palette {
 }
 
 import {
+  BookmarksSimple,
   CalendarCheck,
   ChatCircle,
   CheckCircle,
@@ -213,6 +173,7 @@ import {
 const SUBMISSION_ICONS: Record<string, Icon> = {
   sourced: MagnifyingGlass,
   in_touch: ChatCircle,
+  pipeline: BookmarksSimple,
   submitted: PaperPlaneTilt,
   interview: CalendarCheck,
   placed: CheckCircle,

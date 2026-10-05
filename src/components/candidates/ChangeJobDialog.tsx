@@ -138,7 +138,19 @@ export function ChangeJobDialog({
               try {
                 await updateCandidate.mutateAsync({
                   id: candidate.id,
-                  input: toCandidateInput(previousCandidateState),
+                  // Undo the exact columns the move touched (sparse updates no
+                  // longer re-send the whole row).
+                  input: toCandidateInput(candidate, {
+                    job_id: previousCandidateState.job_id,
+                    screening_answers: previousCandidateState.screening_answers,
+                    submission_status: previousCandidateState.submission_status,
+                    interview_status: previousCandidateState.interview_status,
+                    interview_at: previousCandidateState.interview_at,
+                    submitted_at: previousCandidateState.submitted_at,
+                    placed_at: previousCandidateState.placed_at,
+                    rejection_reason: previousCandidateState.rejection_reason,
+                    match_score: previousCandidateState.match_score,
+                  }),
                 });
                 queryClient.invalidateQueries({ queryKey: ["job", oldJobId] });
                 queryClient.invalidateQueries({ queryKey: ["job", targetJob.id] });

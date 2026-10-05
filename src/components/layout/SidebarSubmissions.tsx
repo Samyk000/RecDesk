@@ -132,7 +132,7 @@ export function SidebarSubmissions() {
             {submittedList.length === 0 ? (
               <div className="mx-0.5 flex flex-col items-center justify-center rounded-lg border border-dashed border-border/80 py-3 text-center text-fg-subtle">
                 <CalendarBlank className="h-4 w-4 text-fg-subtle" />
-                <span className="mt-1 text-[11px] font-medium">No external submissions</span>
+                <span className="mt-1 text-[11px] font-medium">No submissions</span>
               </div>
             ) : (
               submittedList.map((cand) => {
@@ -155,8 +155,8 @@ export function SidebarSubmissions() {
                           Rejected
                         </span>
                       ) : (
-                        <span className="shrink-0 max-w-[65px] truncate rounded bg-amber-500/15 text-black dark:text-white border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
-                          External
+                        <span className="shrink-0 max-w-[65px] truncate rounded bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider">
+                          Submitted
                         </span>
                       )}
                     </div>

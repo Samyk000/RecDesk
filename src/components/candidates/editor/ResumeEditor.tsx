@@ -33,12 +33,12 @@ import { apiFiles } from "../../../lib/api";
 import { toast } from "sonner";
 import { errorMessage } from "../../../lib/utils";
 
-// Custom FontSize Extension for TipTap
+// Custom FontSize Extension for TipTap supporting textStyle, paragraphs and headings
 export const FontSize = Extension.create({
   name: "fontSize",
   addOptions() {
     return {
-      types: ["textStyle"],
+      types: ["textStyle", "paragraph", "heading"],
     };
   },
   addGlobalAttributes() {
@@ -69,14 +69,16 @@ interface Props {
   candidateName?: string;
   data: Uint8Array;
   initialHtml?: string;
+  initialFont?: string;
+  initialFontSize?: string;
   onClose: () => void;
   onSaved?: (savedFilePath: string) => void;
 }
 
 const FONT_FAMILIES = [
-  { label: "Times New Roman (Classic)", value: "Times New Roman, Times, serif" },
-  { label: "Arial (Modern Clean)", value: "Arial, Helvetica, sans-serif" },
   { label: "Calibri (Standard Word)", value: "Calibri, Candara, Segoe, sans-serif" },
+  { label: "Arial (Modern Clean)", value: "Arial, Helvetica, sans-serif" },
+  { label: "Times New Roman (Classic)", value: "Times New Roman, Times, serif" },
   { label: "Georgia (Editorial Serif)", value: "Georgia, serif" },
   { label: "Garamond (Executive Serif)", value: "Garamond, Baskerville, serif" },
   { label: "Plus Jakarta Sans", value: "Plus Jakarta Sans, sans-serif" },
@@ -86,16 +88,19 @@ const FONT_FAMILIES = [
 ];
 
 const FONT_SIZES = [
-  { label: "9 pt", value: "12px" },
-  { label: "10 pt", value: "13.33px" },
-  { label: "10.5 pt", value: "14px" },
-  { label: "11 pt (Default)", value: "14.66px" },
-  { label: "12 pt", value: "16px" },
-  { label: "14 pt", value: "18.66px" },
-  { label: "16 pt (Section Title)", value: "21.33px" },
-  { label: "18 pt (Name Heading)", value: "24px" },
-  { label: "20 pt", value: "26.66px" },
-  { label: "24 pt", value: "32px" },
+  { label: "9 pt", value: "9pt" },
+  { label: "9.5 pt", value: "9.5pt" },
+  { label: "10 pt", value: "10pt" },
+  { label: "10.5 pt", value: "10.5pt" },
+  { label: "11 pt (Default)", value: "11pt" },
+  { label: "11.5 pt", value: "11.5pt" },
+  { label: "12 pt", value: "12pt" },
+  { label: "13 pt", value: "13pt" },
+  { label: "14 pt", value: "14pt" },
+  { label: "16 pt (Section Title)", value: "16pt" },
+  { label: "18 pt (Heading)", value: "18pt" },
+  { label: "20 pt (Name Title)", value: "20pt" },
+  { label: "24 pt", value: "24pt" },
 ];
 
 const COLOR_PALETTE = [
@@ -118,13 +123,22 @@ const HIGHLIGHT_PALETTE = [
   { label: "Purple", color: "#e9d5ff" },
 ];
 
-export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClose, onSaved }: Props) {
+export function ResumeEditor({
+  filePath,
+  candidateName,
+  data,
+  initialHtml,
+  initialFont,
+  initialFontSize,
+  onClose,
+  onSaved,
+}: Props) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [scale, setScale] = useState(1.0);
-  const [selectedFont, setSelectedFont] = useState(FONT_FAMILIES[0].value);
-  const [selectedSize, setSelectedSize] = useState(FONT_SIZES[3].value);
+  const [selectedFont, setSelectedFont] = useState(initialFont || FONT_FAMILIES[0].value);
+  const [selectedSize, setSelectedSize] = useState(initialFontSize || FONT_SIZES[4].value);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -137,12 +151,12 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       StarterKit.configure({
         bulletList: {
           HTMLAttributes: {
-            class: "list-disc pl-6 my-2 space-y-1",
+            class: "list-disc pl-6 my-1 space-y-0.5",
           },
         },
         orderedList: {
           HTMLAttributes: {
-            class: "list-decimal pl-6 my-2 space-y-1",
+            class: "list-decimal pl-6 my-1 space-y-0.5",
           },
         },
       }),
@@ -152,7 +166,7 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       Color,
       Highlight.configure({ multicolor: true }),
       FontFamily.configure({
-        types: ["textStyle"],
+        types: ["textStyle", "paragraph", "heading"],
       }),
       TextAlign.configure({
         types: ["heading", "paragraph"],
@@ -167,11 +181,28 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
     },
     onSelectionUpdate: ({ editor }) => {
       const textStyleAttrs = editor.getAttributes("textStyle");
-      if (textStyleAttrs?.fontFamily) {
-        setSelectedFont(textStyleAttrs.fontFamily);
+      const paragraphAttrs = editor.getAttributes("paragraph");
+      const headingAttrs = editor.getAttributes("heading");
+
+      const currentFont = textStyleAttrs?.fontFamily || paragraphAttrs?.fontFamily || headingAttrs?.fontFamily;
+      if (currentFont) {
+        setSelectedFont(currentFont);
       }
-      if (textStyleAttrs?.fontSize) {
-        setSelectedSize(textStyleAttrs.fontSize);
+
+      const rawSize = textStyleAttrs?.fontSize || paragraphAttrs?.fontSize || headingAttrs?.fontSize;
+      if (rawSize) {
+        let normalized = rawSize;
+        if (rawSize.endsWith("px")) {
+          const pxVal = parseFloat(rawSize);
+          const ptVal = Math.round(pxVal * 0.75 * 2) / 2;
+          normalized = `${ptVal}pt`;
+        }
+        const matched = FONT_SIZES.find((s) => s.value === normalized || s.value === rawSize);
+        if (matched) {
+          setSelectedSize(matched.value);
+        } else {
+          setSelectedSize(normalized);
+        }
       }
     },
   });
@@ -187,24 +218,30 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       try {
         if (initialHtml) {
           if (!active) return;
+          if (initialFont) setSelectedFont(initialFont);
+          if (initialFontSize) setSelectedSize(initialFontSize);
           editor?.commands.setContent(initialHtml);
         } else {
           const safeBuffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
           if (ext === "docx") {
             try {
+              const { extractDocxToStyledHtml } = await import("../../../lib/docxParser");
+              const parsed = await extractDocxToStyledHtml(safeBuffer as ArrayBuffer);
+              if (!active) return;
+              if (parsed.primaryFont) {
+                setSelectedFont(parsed.primaryFont);
+              }
+              if (parsed.primaryFontSize) {
+                setSelectedSize(parsed.primaryFontSize);
+              }
+              editor?.commands.setContent(parsed.html);
+            } catch (docxErr) {
+              console.warn("High-fidelity docx parse fallback:", docxErr);
               const mammothModule = await import("mammoth");
               const mammoth = (mammothModule as any).default ?? mammothModule;
               const result = await mammoth.convertToHtml({ arrayBuffer: safeBuffer as ArrayBuffer });
               if (!active) return;
               editor?.commands.setContent(result?.value || "<p>Empty document</p>");
-            } catch (mammothErr) {
-              const text = new TextDecoder().decode(safeBuffer);
-              if (text.includes("<p>") || text.includes("<h1>") || text.includes("<div>")) {
-                if (!active) return;
-                editor?.commands.setContent(text);
-              } else {
-                throw mammothErr;
-              }
             }
           } else {
             // Text / markdown / fallback
@@ -296,7 +333,9 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
       if (ext === "docx" || ext === "pdf") {
         targetPath = ext === "pdf" ? filePath.replace(/\.pdf$/i, ".docx") : filePath;
         const { convertHtmlToDocxBytes } = await import("../../../lib/docxExport");
-        const bytes = await convertHtmlToDocxBytes(htmlContent);
+        const bytes = await convertHtmlToDocxBytes(htmlContent, {
+          defaultFont: selectedFont,
+        });
         await apiFiles.writeResumeBytes(targetPath, bytes);
       } else {
         // Text / markdown: extract plain text
@@ -944,10 +983,10 @@ export function ResumeEditor({ filePath, candidateName, data, initialHtml, onClo
           style={{ transform: scale !== 1.0 ? `scale(${scale})` : undefined }}
         >
           {/* Authentic MS Word Document Page (Exact 8.5in x 11in US Letter at 96 DPI) */}
-          <div className="w-full min-h-[1056px] rounded-xs bg-white px-[72px] py-[72px] text-slate-900 shadow-2xl border border-black/10">
+          <div className="w-full min-h-[1056px] rounded-xs bg-white px-[56px] py-[56px] text-slate-900 shadow-2xl border border-black/10">
             <EditorContent
               editor={editor}
-              className="tiptap prose prose-slate max-w-none focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus-visible:outline-none [&_.ProseMirror]:ring-0 [&_.ProseMirror]:border-none [&_.ProseMirror-focused]:outline-none [&_.ProseMirror-focused]:ring-0 [&_.ProseMirror-focused]:border-none [&_.ProseMirror-focused]:shadow-none text-[14px] leading-relaxed [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:border-b [&_h1]:border-slate-300 [&_h1]:pb-1 [&_h1]:mb-3 [&_h2]:text-lg [&_h2]:font-semibold [&_h2]:text-slate-800 [&_h2]:mt-4 [&_h2]:mb-1.5 [&_h3]:text-base [&_h3]:font-medium [&_h3]:mt-2 [&_p]:my-1.5 [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-2 [&_ul_li]:my-1 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-2 [&_ol_li]:my-1"
+              className="tiptap resume-word-document max-w-none focus:outline-none [&_.ProseMirror]:outline-none [&_.ProseMirror]:focus:outline-none [&_.ProseMirror]:focus-visible:outline-none [&_.ProseMirror]:ring-0 [&_.ProseMirror]:border-none [&_.ProseMirror-focused]:outline-none [&_.ProseMirror-focused]:ring-0 [&_.ProseMirror-focused]:border-none [&_.ProseMirror-focused]:shadow-none text-[14.66px] leading-[1.25] text-slate-900 [&_h1]:text-[22px] [&_h1]:font-bold [&_h1]:leading-tight [&_h1]:mb-1.5 [&_h1]:mt-0 [&_h2]:text-[16px] [&_h2]:font-bold [&_h2]:text-slate-900 [&_h2]:mt-3.5 [&_h2]:mb-1 [&_h2]:leading-snug [&_h3]:text-[14px] [&_h3]:font-semibold [&_h3]:text-slate-800 [&_h3]:mt-2 [&_h3]:mb-0.5 [&_p]:my-1 [&_p]:leading-[1.25] [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:my-1 [&_ul_li]:my-0.5 [&_ol]:list-decimal [&_ol]:pl-6 [&_ol]:my-1 [&_ol_li]:my-0.5 [&_table]:border-collapse [&_table]:w-full [&_td]:p-1 [&_td]:align-top"
               style={{ fontFamily: selectedFont }}
             />
           </div>

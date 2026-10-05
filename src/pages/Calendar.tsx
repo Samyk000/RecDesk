@@ -10,6 +10,8 @@ import {
 } from "@phosphor-icons/react";
 import { useCandidatesWithJob, useUpdateCandidate } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
+import { QueryErrorState } from "../components/common/QueryErrorState";
+import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DetailDrawer } from "../components/common/DetailDrawer";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
@@ -115,7 +117,7 @@ function OutcomeIndicator({ outcome }: { outcome: CalendarEventOutcome }) {
 }
 
 export function Calendar() {
-  const { data: candidates, isLoading } = useCandidatesWithJob();
+  const { data: candidates, isLoading, isError, refetch } = useCandidatesWithJob();
   const updateCandidate = useUpdateCandidate();
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
@@ -127,6 +129,7 @@ export function Calendar() {
   const [viewScope, setViewScope] = useState<"day" | "month">("day");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
+  const [pendingRemove, setPendingRemove] = useState<CalendarEvent | null>(null);
 
   // Extract all historical and scheduled events (external submissions & interviews)
   const allEvents = useMemo(() => {
@@ -228,9 +231,7 @@ export function Calendar() {
   }, [selectedDateKey, viewScope, currentDate]);
 
   // Handler to remove submission or interview entry added by mistake
-  const handleRemoveEntry = async (e: React.MouseEvent, ev: CalendarEvent) => {
-    e.stopPropagation();
-
+  const doRemoveEntry = async (ev: CalendarEvent) => {
     try {
       if (ev.type === "submission") {
         await updateCandidate.mutateAsync({
@@ -283,7 +284,12 @@ export function Calendar() {
     }
   };
 
-  if (isLoading) return <PageLoader label="Loading calendar events…" />;
+  if (isLoading || !candidates)
+    return isError ? (
+      <QueryErrorState label="calendar events" onRetry={refetch} />
+    ) : (
+      <PageLoader label="Loading calendar events…" />
+    );
 
   return (
     <div className="flex h-full flex-col px-6 pt-3 pb-4 overflow-hidden">
@@ -427,7 +433,7 @@ export function Calendar() {
                 <span className="text-[9.5px] font-medium text-amber-600/80 dark:text-amber-400/80">({scopeLabel})</span>
               </p>
               <p className="text-[10px] text-fg-muted truncate">
-                External client submissions
+                Client submissions
               </p>
             </div>
           </div>
@@ -730,7 +736,10 @@ export function Calendar() {
                     {/* Small X button to clear/remove accidental entry */}
                     <button
                       type="button"
-                      onClick={(e) => handleRemoveEntry(e, ev)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingRemove(ev);
+                      }}
                       className="flex h-5 w-5 items-center justify-center rounded text-fg-subtle opacity-40 hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
                       title="Remove this calendar entry"
                     >
@@ -752,6 +761,22 @@ export function Calendar() {
             onClose={() => setActiveCandidateId(null)}
           />
         </DetailDrawer>
+      )}
+
+      {pendingRemove && (
+        <ConfirmDialog
+          open
+          onOpenChange={(open) => !open && setPendingRemove(null)}
+          title="Remove this calendar entry?"
+          description={`${pendingRemove.type[0].toUpperCase()}${pendingRemove.type.slice(1)} entry for ${pendingRemove.candidate.name} on ${pendingRemove.dateKey} will be cleared from the candidate record.`}
+          confirmLabel="Remove"
+          destructive
+          onConfirm={() => {
+            const ev = pendingRemove;
+            setPendingRemove(null);
+            void doRemoveEntry(ev);
+          }}
+        />
       )}
     </div>
   );

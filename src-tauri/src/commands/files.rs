@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Component, Path, PathBuf};
 
 use rusqlite::params;
 use tauri::{AppHandle, Manager, State};
@@ -30,6 +30,7 @@ pub fn attach_resume(
     if !source.exists() {
         return Err(format!("Source file does not exist: {source_path}").into());
     }
+    validate_safe_path(&app, &source, false)?;
 
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let job_id: String = conn.query_row(
@@ -46,7 +47,8 @@ pub fn attach_resume(
         .to_string();
 
     let safe_candidate = candidate_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '_', "_");
-    let job_dir = resumes_dir(&app)?.join(&job_id);
+    let safe_job = job_id.replace(|c: char| !c.is_ascii_alphanumeric() && c != '_', "_");
+    let job_dir = resumes_dir(&app)?.join(&safe_job);
     std::fs::create_dir_all(&job_dir)?;
     let dest = job_dir.join(format!("{safe_candidate}_{filename}"));
 
@@ -56,10 +58,15 @@ pub fn attach_resume(
     std::fs::copy(&source, &dest)?;
 
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    conn.execute(
+    let affected = conn.execute(
         "UPDATE candidates SET resume_path = ?1, last_updated = ?2 WHERE id = ?3",
         params![dest.to_string_lossy().to_string(), crate::rows::now(), candidate_id],
     )?;
+    if affected == 0 {
+        // Candidate vanished between the lookup and the write — don't leave an orphan file.
+        let _ = std::fs::remove_file(&dest);
+        return Err("Candidate no longer exists".into());
+    }
     let cand = conn.query_row(
         &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&candidate_id],
@@ -107,9 +114,17 @@ pub fn rename_resume(
     new_filename: String,
 ) -> AppResult<Candidate> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    rename_resume_in(&conn, &candidate_id, &new_filename)
+}
+
+pub fn rename_resume_in(
+    conn: &rusqlite::Connection,
+    candidate_id: &str,
+    new_filename: &str,
+) -> AppResult<Candidate> {
     let old_path_str: Option<String> = conn.query_row(
         "SELECT resume_path FROM candidates WHERE id = ?1",
-        params![&candidate_id],
+        params![candidate_id],
         |r| r.get(0),
     )?;
 
@@ -134,7 +149,7 @@ pub fn rename_resume(
     // Sanitize new filename: strip invalid filesystem characters
     let mut clean_name = new_filename.trim().to_string();
     clean_name = clean_name.replace(['\\', '/', ':', '*', '?', '"', '<', '>', '|'], "_");
-    if clean_name.is_empty() {
+    if clean_name.is_empty() || clean_name == "." || clean_name == ".." {
         return Err("Filename cannot be empty".into());
     }
 
@@ -142,23 +157,84 @@ pub fn rename_resume(
     let target_filename = if !old_ext.is_empty() && !clean_name.to_lowercase().ends_with(&format!(".{}", old_ext.to_lowercase())) {
         format!("{clean_name}.{old_ext}")
     } else {
-        clean_name
+        clean_name.clone()
     };
 
-    let new_path = parent_dir.join(&target_filename);
+    let mut new_path = parent_dir.join(&target_filename);
 
-    if new_path != old_path {
-        if new_path.exists() {
-            let _ = std::fs::remove_file(&new_path);
-        }
-        std::fs::rename(&old_path, &new_path)
-            .map_err(|e| AppError::Msg(format!("Failed to rename file on disk: {e}")))?;
+    if new_path == old_path {
+        // File already has this exact target path; no rename needed
+        let cand = conn.query_row(
+            &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
+            params![&candidate_id],
+            row_to_candidate,
+        )?;
+        return Ok(cand);
     }
 
-    conn.execute(
+    if new_path.exists() {
+        let new_path_str = new_path.to_string_lossy().to_string();
+        let in_use_by_other: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM candidates WHERE resume_path = ?1 AND id != ?2",
+                params![&new_path_str, &candidate_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+
+        if in_use_by_other == 0 {
+            // It's an orphan or leftover file not owned by any active candidate. Safe to replace!
+            let _ = std::fs::remove_file(&new_path);
+        } else {
+            // Another active candidate is genuinely using this filename; auto-disambiguate with a counter
+            let stem = if !old_ext.is_empty()
+                && clean_name.to_lowercase().ends_with(&format!(".{}", old_ext.to_lowercase()))
+            {
+                clean_name[..clean_name.len() - old_ext.len() - 1].to_string()
+            } else {
+                clean_name.clone()
+            };
+
+            let mut counter = 1;
+            loop {
+                let disambiguated_name = if old_ext.is_empty() {
+                    format!("{stem} ({counter})")
+                } else {
+                    format!("{stem} ({counter}).{old_ext}")
+                };
+                let candidate_path = parent_dir.join(&disambiguated_name);
+                let cand_str = candidate_path.to_string_lossy().to_string();
+                let other_active: i64 = conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM candidates WHERE resume_path = ?1 AND id != ?2",
+                        params![&cand_str, &candidate_id],
+                        |r| r.get(0),
+                    )
+                    .unwrap_or(0);
+
+                if other_active == 0 {
+                    if candidate_path.exists() {
+                        let _ = std::fs::remove_file(&candidate_path);
+                    }
+                    new_path = candidate_path;
+                    break;
+                }
+                counter += 1;
+            }
+        }
+    }
+
+    std::fs::rename(&old_path, &new_path)
+        .map_err(|e| AppError::Msg(format!("Failed to rename file on disk: {e}")))?;
+
+    if let Err(e) = conn.execute(
         "UPDATE candidates SET resume_path = ?1, last_updated = ?2 WHERE id = ?3",
         params![new_path.to_string_lossy().to_string(), crate::rows::now(), candidate_id],
-    )?;
+    ) {
+        // Roll the on-disk rename back so DB and disk never disagree.
+        let _ = std::fs::rename(&new_path, &old_path);
+        return Err(e.into());
+    }
 
     let cand = conn.query_row(
         &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
@@ -168,33 +244,74 @@ pub fn rename_resume(
     Ok(cand)
 }
 
-fn validate_safe_path(path: &std::path::Path, is_write: bool) -> AppResult<()> {
-    if !path.is_absolute() {
-        return Err("File path must be an absolute path".into());
-    }
+/// Allowlist of document types that may cross the webview boundary.
+/// Only documents: no executables, scripts, or extension-less files (e.g. SSH keys).
+const ALLOWED_EXTENSIONS: &[&str] = &[
+    "pdf", "doc", "docx", "txt", "rtf", "md", "html", "htm", "csv", "json", "xlsx", "odt",
+];
 
+/// Drop `.` / `..` components lexically so traversal cannot dodge the root check.
+fn normalize(path: &Path) -> PathBuf {
+    let mut out = PathBuf::new();
+    for c in path.components() {
+        match c {
+            Component::ParentDir => {
+                out.pop();
+            }
+            Component::CurDir => {}
+            other => out.push(other.as_os_str()),
+        }
+    }
+    out
+}
+
+/// Component-wise prefix check, case-insensitive (Windows paths are).
+fn starts_with_ci(path: &Path, root: &Path) -> bool {
+    let mut parts = path.components();
+    for r in root.components() {
+        match parts.next() {
+            Some(p) if p.as_os_str().to_string_lossy().eq_ignore_ascii_case(&r.as_os_str().to_string_lossy()) => {}
+            _ => return false,
+        }
+    }
+    true
+}
+
+/// Pure containment/extension rule — `root` is the allowed tree (user home).
+/// Reads are canonicalized first, so symlinks cannot escape either.
+pub fn check_path(root: &Path, path: &Path, is_write: bool) -> AppResult<()> {
     let ext = path
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase())
         .unwrap_or_default();
 
-    // Block executable and script extensions
-    let blocked_extensions = [
-        "exe", "dll", "bat", "cmd", "ps1", "vbs", "msi", "sys", "com", "scr", "pif", "reg",
-    ];
-    if blocked_extensions.contains(&ext.as_str()) {
-        return Err(format!("Access to .{ext} files is prohibited for security reasons").into());
+    if !ALLOWED_EXTENSIONS.contains(&ext.as_str()) {
+        return Err(format!(
+            "Access to '.{ext}' files is prohibited. Allowed document formats: {}",
+            ALLOWED_EXTENSIONS.join(", ")
+        )
+        .into());
     }
 
     if is_write {
-        let allowed_write = [
-            "docx", "doc", "pdf", "txt", "rtf", "json", "html", "htm", "xlsx", "csv",
-        ];
-        if !allowed_write.contains(&ext.as_str()) {
+        // Target may not exist yet, so check the normalized path lexically.
+        if !starts_with_ci(&normalize(path), root) {
             return Err(format!(
-                "Cannot write file type '.{ext}'. Allowed document formats: {}",
-                allowed_write.join(", ")
+                "Access denied: writes are limited to files under {}",
+                root.display()
+            )
+            .into());
+        }
+    } else {
+        let canonical = path
+            .canonicalize()
+            .map_err(|e| AppError::Msg(format!("Cannot access file: {e}")))?;
+        let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+        if !starts_with_ci(&canonical, &root) {
+            return Err(format!(
+                "Access denied: reads are limited to files under {}",
+                root.display()
             )
             .into());
         }
@@ -203,22 +320,29 @@ fn validate_safe_path(path: &std::path::Path, is_write: bool) -> AppResult<()> {
     Ok(())
 }
 
+/// The webview may only touch files inside the user's home tree (covers
+/// app data, Documents, Desktop, Downloads) and only document types.
+fn validate_safe_path(app: &AppHandle, path: &Path, is_write: bool) -> AppResult<()> {
+    let root = app
+        .path()
+        .home_dir()
+        .map_err(|e| AppError::Msg(e.to_string()))?;
+    check_path(&root, path, is_write)
+}
+
 #[tauri::command]
-pub fn read_resume_bytes(file_path: String) -> AppResult<Vec<u8>> {
+pub fn read_resume_bytes(app: AppHandle, file_path: String) -> AppResult<Vec<u8>> {
     let path = PathBuf::from(&file_path);
-    validate_safe_path(&path, false)?;
-    if !path.exists() {
-        return Err(format!("File does not exist: {file_path}").into());
-    }
+    validate_safe_path(&app, &path, false)?;
     let bytes = std::fs::read(&path)
         .map_err(|e| AppError::Msg(format!("Failed to read file: {e}")))?;
     Ok(bytes)
 }
 
 #[tauri::command]
-pub fn write_resume_bytes(file_path: String, bytes: Vec<u8>) -> AppResult<()> {
+pub fn write_resume_bytes(app: AppHandle, file_path: String, bytes: Vec<u8>) -> AppResult<()> {
     let path = PathBuf::from(&file_path);
-    validate_safe_path(&path, true)?;
+    validate_safe_path(&app, &path, true)?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }

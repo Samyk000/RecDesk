@@ -25,6 +25,7 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let conn = init_db(&dir.join("workspace.db"))?;
+            let _ = commands::job::auto_hold_stale_jobs(&conn);
             app.manage(AppState {
                 db: Mutex::new(conn),
             });

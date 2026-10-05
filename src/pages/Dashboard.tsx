@@ -16,6 +16,7 @@ import {
 import { MetricSparkline } from "../components/dashboard/MetricSparkline";
 import { useDashboardStats } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
+import { QueryErrorState } from "../components/common/QueryErrorState";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
@@ -32,7 +33,7 @@ import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPa
 import { DetailDrawer } from "../components/common/DetailDrawer";
 
 export function Dashboard() {
-  const { data, isLoading } = useDashboardStats();
+  const { data, isLoading, isError, refetch } = useDashboardStats();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
@@ -56,7 +57,12 @@ export function Dashboard() {
   const [clientFormOpen, setClientFormOpen] = useState(false);
   const [quickScreenOpen, setQuickScreenOpen] = useState(false);
 
-  if (isLoading || !data) return <PageLoader label="Loading workspace…" />;
+  if (isLoading || !data)
+    return isError ? (
+      <QueryErrorState label="the workspace" onRetry={refetch} />
+    ) : (
+      <PageLoader label="Loading workspace…" />
+    );
 
   const isEmpty = data.total_jobs === 0;
 
@@ -273,22 +279,13 @@ export function Dashboard() {
               to="/candidates"
               empty={<p className="text-[12px] text-fg-subtle">No active candidates yet.</p>}
             >
-              {data.recent_candidates.filter(
-                (c) => c.submission_status !== "not_interested" && c.submission_status !== "rejected",
-              ).length === 0 ? (
+              {data.recent_candidates.length === 0 ? (
                 <div className="rounded-xl border border-border bg-surface p-3 text-center text-xs text-fg-subtle">
                   No active candidates
                 </div>
               ) : (
                 <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface shadow-2xs">
-                  {data.recent_candidates
-                    .filter(
-                      (cand) =>
-                        cand.submission_status !== "not_interested" &&
-                        cand.submission_status !== "rejected",
-                    )
-                    .slice(0, 7)
-                    .map((cand) => (
+                  {data.recent_candidates.slice(0, 7).map((cand) => (
                       <button
                         type="button"
                         key={cand.id}

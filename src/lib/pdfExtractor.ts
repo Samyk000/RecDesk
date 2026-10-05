@@ -11,6 +11,8 @@ export interface PdfExtractionResult {
   html: string;
   pageCount: number;
   textCharCount: number;
+  primaryFont?: string;
+  primaryFontSize?: string;
 }
 
 interface RawTextItem {
@@ -37,12 +39,15 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
   try {
     let totalText = "";
     const pageHtmls: string[] = [];
+    const fontTally: Record<string, number> = {};
+    const sizeTally: Record<number, number> = {};
 
     for (let pageNum = 1; pageNum <= pageCount; pageNum++) {
       const page = await pdf.getPage(pageNum);
       const content = await page.getTextContent();
       const viewport = page.getViewport({ scale: 1.0 });
       const pageHeight = viewport.height;
+      const pageWidth = viewport.width;
 
       const items: RawTextItem[] = [];
 
@@ -56,15 +61,31 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
         const fontSize = Math.hypot(tx[0], tx[1]);
         const x = tx[4];
         const y = pageHeight - tx[5]; // Convert PDF bottom-left origin to top-left origin
-        const fontName = (rawItem.fontName || "").toLowerCase();
-        const isBold = fontName.includes("bold") || fontName.includes("black") || fontName.includes("heavy");
+        const rawFont = rawItem.fontName || "";
+        const fontLower = rawFont.toLowerCase();
+        const isBold = fontLower.includes("bold") || fontLower.includes("black") || fontLower.includes("heavy");
+
+        if (fontLower.includes("times") || fontLower.includes("roman")) {
+          fontTally["Times New Roman, Times, serif"] = (fontTally["Times New Roman, Times, serif"] || 0) + 1;
+        } else if (fontLower.includes("calibri")) {
+          fontTally["Calibri, Candara, Segoe, sans-serif"] = (fontTally["Calibri, Candara, Segoe, sans-serif"] || 0) + 1;
+        } else if (fontLower.includes("arial") || fontLower.includes("helvetica")) {
+          fontTally["Arial, Helvetica, sans-serif"] = (fontTally["Arial, Helvetica, sans-serif"] || 0) + 1;
+        } else if (fontLower.includes("georgia")) {
+          fontTally["Georgia, serif"] = (fontTally["Georgia, serif"] || 0) + 1;
+        } else if (fontLower.includes("garamond")) {
+          fontTally["Garamond, Baskerville, serif"] = (fontTally["Garamond, Baskerville, serif"] || 0) + 1;
+        }
+
+        const roundedSize = Math.round(fontSize * 2) / 2;
+        sizeTally[roundedSize] = (sizeTally[roundedSize] || 0) + 1;
 
         items.push({
           text: str,
           x,
           y,
           fontSize,
-          fontName: rawItem.fontName,
+          fontName: rawFont,
           isBold,
         });
 
@@ -78,10 +99,10 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
       fontSizes.sort((a, b) => a - b);
       const medianFontSize = fontSizes[Math.floor(fontSizes.length / 2)] || 11;
 
-      // Group items into visual lines (tolerance of vertical y distance < 3px)
+      // Group items into visual lines (tolerance of vertical y distance < 4px)
       items.sort((a, b) => a.y - b.y || a.x - b.x);
 
-      const lines: { y: number; fontSize: number; isBold: boolean; text: string }[] = [];
+      const lines: { y: number; fontSize: number; isBold: boolean; isCentered: boolean; text: string }[] = [];
       let currentLine: RawTextItem[] = [];
 
       for (const item of items) {
@@ -92,17 +113,16 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
           if (Math.abs(item.y - prev.y) <= 4.0) {
             currentLine.push(item);
           } else {
-            // Flush current line
-            lines.push(mergeLineItems(currentLine));
+            lines.push(mergeLineItems(currentLine, pageWidth));
             currentLine = [item];
           }
         }
       }
       if (currentLine.length > 0) {
-        lines.push(mergeLineItems(currentLine));
+        lines.push(mergeLineItems(currentLine, pageWidth));
       }
 
-      // Convert lines to semantic HTML
+      // Convert lines to semantic HTML preserving font sizes and alignments
       const pageHtml = formatLinesToHtml(lines, medianFontSize, pageNum === 1);
       pageHtmls.push(pageHtml);
     }
@@ -117,11 +137,34 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
       };
     }
 
+    // Determine primary font family
+    let primaryFont = "Calibri, Candara, Segoe, sans-serif";
+    let maxFontCount = 0;
+    for (const [font, count] of Object.entries(fontTally)) {
+      if (count > maxFontCount) {
+        maxFontCount = count;
+        primaryFont = font;
+      }
+    }
+
+    // Determine primary body size
+    let primarySizePt = 11;
+    let maxSizeCount = 0;
+    for (const [sizeStr, count] of Object.entries(sizeTally)) {
+      const size = Number(sizeStr);
+      if (size >= 8.5 && size <= 12 && count > maxSizeCount) {
+        maxSizeCount = count;
+        primarySizePt = size;
+      }
+    }
+
     return {
       isScanned: false,
       html: pageHtmls.join("<hr/><br/>"),
       pageCount,
       textCharCount: trimmedTextLength,
+      primaryFont,
+      primaryFontSize: `${primarySizePt}pt`,
     };
   } finally {
     try {
@@ -133,23 +176,39 @@ export async function extractPdfToHtml(data: Uint8Array): Promise<PdfExtractionR
   }
 }
 
-function mergeLineItems(items: RawTextItem[]): { y: number; fontSize: number; isBold: boolean; text: string } {
+function mergeLineItems(
+  items: RawTextItem[],
+  pageWidth: number
+): { y: number; fontSize: number; isBold: boolean; isCentered: boolean; text: string } {
   items.sort((a, b) => a.x - b.x);
   const text = items.map((i) => i.text).join(" ");
   const maxFontSize = Math.max(...items.map((i) => i.fontSize));
   const hasBold = items.some((i) => i.isBold);
   const avgY = items.reduce((acc, i) => acc + i.y, 0) / items.length;
 
+  const minX = Math.min(...items.map((i) => i.x));
+  const lastItem = items[items.length - 1];
+  const maxX = lastItem.x + lastItem.text.length * (lastItem.fontSize * 0.52);
+  const lineWidth = maxX - minX;
+
+  // Check if line is centered on page (within 40px tolerance of page center)
+  const isCentered =
+    pageWidth > 0 &&
+    lineWidth > 0 &&
+    lineWidth < pageWidth * 0.85 &&
+    Math.abs(minX + lineWidth / 2 - pageWidth / 2) < 40;
+
   return {
     y: avgY,
     fontSize: maxFontSize,
     isBold: hasBold,
+    isCentered,
     text,
   };
 }
 
 function formatLinesToHtml(
-  lines: { y: number; fontSize: number; isBold: boolean; text: string }[],
+  lines: { y: number; fontSize: number; isBold: boolean; isCentered: boolean; text: string }[],
   medianFontSize: number,
   isFirstPage: boolean
 ): string {
@@ -162,22 +221,29 @@ function formatLinesToHtml(
     const text = line.text.trim();
     if (!text) continue;
 
-    // Check for Candidate Name (First Line of First Page)
-    if (isFirstPage && i === 0 && (line.fontSize >= medianFontSize * 1.15 || line.isBold || (!text.includes("@") && text.length < 80))) {
+    const roundPt = Math.max(9, Math.round(line.fontSize * 2) / 2);
+    const centerAttr = line.isCentered ? "text-align: center;" : "";
+
+    // Candidate Name (First Line of First Page)
+    if (
+      isFirstPage &&
+      i === 0 &&
+      (line.fontSize >= medianFontSize * 1.15 || line.isBold || (!text.includes("@") && text.length < 80))
+    ) {
       closeLists();
-      // If line contains compound Name - Headline separator e.g. "Deion Smith – kubernetes / openSHIFT..."
       const splitDelim = text.match(/^([^–—|]+?)\s*[–—|]\s*(.+)$/);
       if (splitDelim && splitDelim[1].trim().length < 35 && splitDelim[1].trim().split(/\s+/).length <= 4) {
-        result.push(`<h1>${escapeHtml(splitDelim[1].trim())}</h1>`);
-        result.push(`<h3>${escapeHtml(splitDelim[2].trim())}</h3>`);
+        const namePt = Math.max(16, roundPt);
+        result.push(`<h1 style="font-size: ${namePt}pt; ${centerAttr}">${escapeHtml(splitDelim[1].trim())}</h1>`);
+        result.push(`<h3 style="font-size: ${Math.round(namePt * 0.7)}pt; ${centerAttr}">${escapeHtml(splitDelim[2].trim())}</h3>`);
       } else {
-        result.push(`<h1>${escapeHtml(text)}</h1>`);
+        const namePt = Math.max(16, roundPt);
+        result.push(`<h1 style="font-size: ${namePt}pt; ${centerAttr}">${escapeHtml(text)}</h1>`);
       }
       continue;
     }
 
-    // Check if current line combined with next line forms a compound section header:
-    // e.g. "TECHNICAL" + "SUMMARY:" -> "TECHNICAL SUMMARY:" or "WORK" + "EXPERIENCE"
+    // Check compound section header
     let candidateHeader = text;
     let lookaheadUsed = false;
     if (i + 1 < lines.length) {
@@ -197,7 +263,8 @@ function formatLinesToHtml(
 
     if (isSectionHeader) {
       closeLists();
-      result.push(`<h2>${escapeHtml(candidateHeader)}</h2>`);
+      const headerPt = Math.max(12, roundPt);
+      result.push(`<h2 style="font-size: ${headerPt}pt; ${centerAttr}">${escapeHtml(candidateHeader)}</h2>`);
       if (lookaheadUsed) i++;
       continue;
     }
@@ -205,7 +272,7 @@ function formatLinesToHtml(
     // Subheading (Job title / Date / University)
     if (line.fontSize >= medianFontSize * 1.12 || (line.isBold && text.length < 80)) {
       closeLists();
-      result.push(`<h3>${escapeHtml(text)}</h3>`);
+      result.push(`<h3 style="font-size: ${roundPt}pt; ${centerAttr}">${escapeHtml(text)}</h3>`);
       continue;
     }
 
@@ -217,7 +284,7 @@ function formatLinesToHtml(
         result.push("<ul>");
         inBulletList = true;
       }
-      result.push(`<li>${escapeHtml(bulletMatch[1] || text)}</li>`);
+      result.push(`<li style="font-size: ${roundPt}pt;">${escapeHtml(bulletMatch[1] || text)}</li>`);
       continue;
     }
 
@@ -229,13 +296,14 @@ function formatLinesToHtml(
         result.push("<ol>");
         inNumberedList = true;
       }
-      result.push(`<li>${escapeHtml(numberedMatch[2] || text)}</li>`);
+      result.push(`<li style="font-size: ${roundPt}pt;">${escapeHtml(numberedMatch[2] || text)}</li>`);
       continue;
     }
 
     // Standard paragraph
     closeLists();
-    result.push(`<p>${escapeHtml(text)}</p>`);
+    const pStyle = `font-size: ${roundPt}pt;${centerAttr ? ` ${centerAttr}` : ""}`;
+    result.push(`<p style="${pStyle}">${escapeHtml(text)}</p>`);
   }
 
   closeLists();
@@ -251,7 +319,7 @@ function formatLinesToHtml(
     }
   }
 
-  return result.join("");
+  return result.join("\n");
 }
 
 function escapeHtml(str: string): string {
@@ -273,7 +341,10 @@ export async function ocrScannedPdf(
   const pdf = await loadingTask.promise;
   const pageCount = pdf.numPages;
 
-  const worker = await createWorker("eng");
+  const worker = await createWorker("eng", 1, {
+    langPath: "/tessdata",
+    gzip: true,
+  });
   const pageHtmls: string[] = [];
   const canvas = document.createElement("canvas");
 

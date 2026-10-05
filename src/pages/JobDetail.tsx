@@ -10,6 +10,7 @@ import {
 } from "@phosphor-icons/react";
 import { useDeleteJob, useJob } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
+import { QueryErrorState } from "../components/common/QueryErrorState";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
@@ -41,13 +42,18 @@ const tabDefs = [
 export function JobDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: job, isLoading } = useJob(id);
+  const { data: job, isLoading, isError, refetch } = useJob(id);
   const [editOpen, setEditOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const deleteJob = useDeleteJob();
   const [activeTab, setActiveTab] = useState("overview");
 
-  if (isLoading || !job) return <PageLoader label="Loading job…" />;
+  if (isLoading || !job)
+    return isError ? (
+      <QueryErrorState label="this job" onRetry={refetch} />
+    ) : (
+      <PageLoader label="Loading job…" />
+    );
   const currentJob = job;
 
   async function handleDelete() {

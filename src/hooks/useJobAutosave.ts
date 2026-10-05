@@ -56,7 +56,16 @@ export function useJobAutosave<T>(
     return () => {
       const current = valueRef.current;
       if (equals(current, jobRef.current[field] as T)) return;
-      update.mutate({ id: jobRef.current.id, input: toInput(current) });
+      update.mutate(
+        { id: jobRef.current.id, input: toInput(current) },
+        {
+          // flushing into a job the user just deleted is a no-op, not an error
+          onError: (err) => {
+            const msg = errorMessage(err);
+            if (msg !== "Job not found") toast.error(msg);
+          },
+        },
+      );
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 

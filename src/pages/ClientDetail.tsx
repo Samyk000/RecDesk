@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Briefcase, PencilSimple, Plus } from "@phosphor-icons/react";
 import { useClient, useJobs } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
+import { QueryErrorState } from "../components/common/QueryErrorState";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
@@ -15,8 +16,13 @@ import type { ClientWithStats } from "../types";
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>();
-  const { data: client, isLoading } = useClient(id);
-  if (isLoading || !client) return <PageLoader label="Loading client…" />;
+  const { data: client, isLoading, isError, refetch } = useClient(id);
+  if (isLoading || !client)
+    return isError ? (
+      <QueryErrorState label="this client" onRetry={refetch} />
+    ) : (
+      <PageLoader label="Loading client…" />
+    );
   return <ClientDetailBody key={client.id} client={client} />;
 }
 

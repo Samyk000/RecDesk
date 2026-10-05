@@ -4,9 +4,14 @@ import type {
   CandidateWithJob,
   InterviewRound,
   RejectionDetail,
-  SubmissionType,
 } from "../types";
 
+/**
+ * Sparse update payload: identity fields plus whatever the caller actually
+ * changed. Anything omitted is left untouched by the backend, so a save from
+ * one dialog can never revert a field a different dialog just wrote (the old
+ * full-row payload made every save a last-write-wins race).
+ */
 export function toCandidateInput(
   candidate: Candidate | CandidateWithJob,
   patch?: Partial<CandidateInput>,
@@ -14,28 +19,6 @@ export function toCandidateInput(
   return {
     job_id: candidate.job_id,
     name: candidate.name,
-    email: candidate.email ?? null,
-    phone: candidate.phone ?? null,
-    location: candidate.location ?? null,
-    current_title: candidate.current_title ?? null,
-    current_company: candidate.current_company ?? null,
-    experience_years: candidate.experience_years ?? null,
-    resume_path: candidate.resume_path ?? null,
-    linkedin_url: candidate.linkedin_url ?? null,
-    recruiter_notes: candidate.recruiter_notes ?? null,
-    match_score: candidate.match_score ?? null,
-    submission_status: candidate.submission_status ?? "sourced",
-    interview_status: candidate.interview_status ?? null,
-    client_feedback: candidate.client_feedback ?? null,
-    candidate_status: candidate.candidate_status ?? "active",
-    submitted_at: candidate.submitted_at ?? null,
-    interview_at: candidate.interview_at ?? null,
-    placed_at: candidate.placed_at ?? null,
-    rejection_reason: candidate.rejection_reason ?? null,
-    screening_answers: candidate.screening_answers ?? null,
-    submission_details: candidate.submission_details ?? null,
-    status_history: candidate.status_history ?? null,
-    interview_feedback: candidate.interview_feedback ?? null,
     ...patch,
   };
 }
@@ -381,14 +364,6 @@ export function serializeRejectionDetail(detail: RejectionDetail): string {
   return JSON.stringify(detail);
 }
 
-/**
- * Extracts submission type (internal vs client) from candidate
- */
-export function getSubmissionType(candidate: Candidate | CandidateWithJob): SubmissionType {
-  if (candidate.client_feedback === "internal") return "internal";
-  return "client"; // default to client submission
-}
-
 export interface SubStageBadgeInfo {
   shortLabel: string;
   fullLabel: string;
@@ -396,30 +371,13 @@ export interface SubStageBadgeInfo {
 }
 
 /**
- * Returns a compact badge (e.g. R1, Ext, Int) with full contextual tooltip and vibrant color
+ * Returns a compact badge (e.g. R1, Sub) with full contextual tooltip and color
  * for positioning directly beside the status dropdown in dense table rows.
  */
 export function getCandidateSubStageBadge(
   candidate: Candidate | CandidateWithJob,
 ): SubStageBadgeInfo | null {
   const status = candidate.submission_status;
-
-  if (status === "submitted") {
-    const isInt = candidate.client_feedback === "internal";
-    return isInt
-      ? {
-        shortLabel: "Int",
-        fullLabel: "Internal Review",
-        colorClass:
-          "border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300",
-      }
-      : {
-        shortLabel: "Ext",
-        fullLabel: "External Client Submission",
-        colorClass:
-          "border-amber-500/35 bg-amber-500/15 text-amber-700 dark:text-amber-300",
-      };
-  }
 
   if (status === "interview") {
     const rounds = parseInterviewRounds(candidate.interview_status, candidate.interview_at);
@@ -436,17 +394,9 @@ export function getCandidateSubStageBadge(
 
   if (status === "rejected") {
     const detail = parseRejectionDetail(candidate.rejection_reason);
-    if (detail.origin === "internal") {
-      return {
-        shortLabel: "Int",
-        fullLabel: "Rejected at Internal Review",
-        colorClass:
-          "border-slate-500/30 bg-slate-500/15 text-slate-700 dark:text-slate-300",
-      };
-    }
     if (detail.origin === "client_screening") {
       return {
-        shortLabel: "Ext",
+        shortLabel: "Sub",
         fullLabel: "Rejected at Client Screening",
         colorClass:
           "border-rose-500/35 bg-rose-500/15 text-rose-700 dark:text-rose-300",
@@ -464,6 +414,10 @@ export function getCandidateSubStageBadge(
     return null;
   }
 
+  if (status === "pipeline") {
+    return null;
+  }
+
   return null;
 }
 
@@ -476,7 +430,11 @@ export function getCandidateSubStageLabel(
   const status = candidate.submission_status;
 
   if (status === "submitted") {
-    return candidate.client_feedback === "internal" ? "Internal" : "External";
+    return null;
+  }
+
+  if (status === "pipeline") {
+    return "Pipeline";
   }
 
   if (status === "interview") {
@@ -486,8 +444,7 @@ export function getCandidateSubStageLabel(
 
   if (status === "rejected") {
     const detail = parseRejectionDetail(candidate.rejection_reason);
-    if (detail.origin === "internal") return "Internal";
-    if (detail.origin === "client_screening") return "External";
+    if (detail.origin === "client_screening") return "Submission";
     if (detail.origin === "interview") {
       return detail.round_number ? `Round ${detail.round_number}` : "Interview";
     }
@@ -509,26 +466,17 @@ export function getCandidateSubStageLabel(
  */
 export function isExternalSubmission(candidate: Candidate | CandidateWithJob): boolean {
   const status = candidate.submission_status;
-  const isInternal = candidate.client_feedback === "internal";
 
-  if (status === "submitted") {
-    return !isInternal;
-  }
-
-  if (status === "interview" || status === "placed") {
+  if (status === "submitted" || status === "interview" || status === "placed") {
     return true;
   }
 
   if (status === "rejected") {
     const detail = parseRejectionDetail(candidate.rejection_reason);
-    if (detail.origin === "internal") {
-      return false;
-    }
     if (detail.origin === "client_screening" || detail.origin === "interview") {
       return true;
     }
-    // If general rejection but was previously marked client feedback or has submitted_at and not internal
-    return !isInternal && Boolean(candidate.submitted_at?.trim());
+    return Boolean(candidate.submitted_at?.trim());
   }
 
   return false;
@@ -545,7 +493,7 @@ export function getSubmissionTimestamp(val?: string | null): number {
     const year = Number(match[1]);
     const month = Number(match[2]);
     const day = Number(match[3]);
-    const tMatch = trimmed.match(/T(\d{2}):(\d{2}):(\d{2})/);
+    const tMatch = trimmed.match(/T(\d{2}):(\d{2})(?::\d{2})?/);
     if (tMatch) {
       const d = new Date(trimmed.split(/\s+/)[0]);
       if (!isNaN(d.getTime())) return d.getTime();
@@ -566,36 +514,6 @@ export function getInterviewTimestamp(val?: string | null): number {
   const dateTimePart = parts[0] || "";
   const d = new Date(dateTimePart);
   return isNaN(d.getTime()) ? 0 : d.getTime();
-}
-
-/**
- * Returns true if a candidate reached the interview stage (active, placed, or interview-rejected).
- */
-export function hasHadInterview(candidate: Candidate | CandidateWithJob): boolean {
-  const status = candidate.submission_status;
-  if (status === "interview" || status === "placed") {
-    return true;
-  }
-  if (status === "rejected") {
-    const detail = parseRejectionDetail(candidate.rejection_reason);
-    if (detail.origin === "interview") {
-      return true;
-    }
-  }
-  if (candidate.interview_at && candidate.interview_at.trim()) {
-    return true;
-  }
-  if (candidate.interview_status) {
-    try {
-      const parsed = JSON.parse(candidate.interview_status);
-      if (Array.isArray(parsed) && parsed.some((r: any) => r.scheduled_at && r.scheduled_at.trim())) {
-        return true;
-      }
-    } catch {
-      // Ignore JSON parse errors
-    }
-  }
-  return false;
 }
 
 /**
@@ -637,6 +555,96 @@ export function isBackwardTransition(fromStatus: string, toStatus: string): bool
     return true;
   }
   return false;
+}
+
+/**
+ * Safely extracts skill tags from candidate.submission_details.
+ * Supports both JSON array of dossier rows and object format.
+ */
+export function getCandidateSkills(candidate: Candidate | CandidateWithJob): string[] {
+  if (!candidate.submission_details) return [];
+  try {
+    const parsed = JSON.parse(candidate.submission_details);
+    if (Array.isArray(parsed)) {
+      const skillsRow = parsed.find(
+        (r: any) => r.key === "skills" || r.id === "skills" || r.label?.toLowerCase() === "skills",
+      );
+      if (skillsRow && skillsRow.value) {
+        try {
+          const val = JSON.parse(skillsRow.value);
+          if (Array.isArray(val)) return val.map((s: any) => String(s).trim()).filter(Boolean);
+        } catch {
+          return String(skillsRow.value)
+            .split(/[,|]/)
+            .map((s) => s.trim())
+            .filter(Boolean);
+        }
+      }
+    } else if (typeof parsed === "object" && parsed !== null) {
+      if (Array.isArray(parsed.skills)) {
+        return parsed.skills.map((s: any) => String(s).trim()).filter(Boolean);
+      }
+    }
+  } catch {
+    // ignore json errors
+  }
+  return [];
+}
+
+/**
+ * Updates or adds skills inside submission_details JSON string,
+ * preserving all existing dossier rows or metadata.
+ */
+export function setCandidateSkills(
+  existingSubmissionDetailsJson: string | null | undefined,
+  skills: string[],
+): string {
+  const cleanSkills: string[] = [];
+  for (const s of skills) {
+    const trimmed = s.trim();
+    if (trimmed && !cleanSkills.some((c) => c.toLowerCase() === trimmed.toLowerCase())) {
+      cleanSkills.push(trimmed);
+    }
+  }
+
+  const defaultSkillsRow = {
+    id: "skills",
+    key: "skills",
+    label: "Skills & Technologies",
+    value: JSON.stringify(cleanSkills),
+    type: "text",
+  };
+
+  if (!existingSubmissionDetailsJson) {
+    return JSON.stringify([defaultSkillsRow]);
+  }
+
+  try {
+    const parsed = JSON.parse(existingSubmissionDetailsJson);
+    if (Array.isArray(parsed)) {
+      let found = false;
+      const updated = parsed.map((r: any) => {
+        if (r.key === "skills" || r.id === "skills" || r.label?.toLowerCase() === "skills") {
+          found = true;
+          return { ...r, value: JSON.stringify(cleanSkills) };
+        }
+        return r;
+      });
+      if (!found) {
+        updated.push(defaultSkillsRow);
+      }
+      return JSON.stringify(updated);
+    } else if (typeof parsed === "object" && parsed !== null) {
+      return JSON.stringify({
+        ...parsed,
+        skills: cleanSkills,
+      });
+    }
+  } catch {
+    // fallback
+  }
+
+  return JSON.stringify([defaultSkillsRow]);
 }
 
 

@@ -42,35 +42,40 @@ pub struct Job {
     pub sort_order: i64,
 }
 
+/// Partial update payload: a field that is absent is left untouched, `null`
+/// clears it, any other value overwrites it.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct JobInput {
-    pub client_id: String,
-    pub job_id: String,
-    pub title: String,
     #[serde(default)]
-    pub location: Option<String>,
+    pub client_id: Option<String>,
     #[serde(default)]
-    pub work_model: Option<String>,
+    pub job_id: Option<String>,
     #[serde(default)]
-    pub contract_type: Option<String>,
+    pub title: Option<String>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub location: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub work_model: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub contract_type: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub bill_rate: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub pay_rate: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub status: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub refined_jd: Option<Option<String>>,
     #[serde(default)]
-    pub bill_rate: Option<String>,
+    pub boolean_strings: Option<Vec<BooleanString>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub candidate_pitch: Option<Option<String>>,
     #[serde(default)]
-    pub pay_rate: Option<String>,
-    #[serde(default)]
-    pub status: Option<String>,
-    #[serde(default)]
-    pub refined_jd: Option<String>,
-    #[serde(default)]
-    pub boolean_strings: Vec<BooleanString>,
-    #[serde(default)]
-    pub candidate_pitch: Option<String>,
-    #[serde(default)]
-    pub screening_questions: Vec<String>,
-    #[serde(default)]
-    pub notes: Option<String>,
-    #[serde(default)]
-    pub closed_at: Option<String>,
+    pub screening_questions: Option<Vec<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub notes: Option<Option<String>>,
+    #[serde(default, deserialize_with = "super::double_option")]
+    pub closed_at: Option<Option<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

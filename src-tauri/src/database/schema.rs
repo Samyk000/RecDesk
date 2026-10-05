@@ -186,6 +186,10 @@ fn migrate_candidates(conn: &Connection) -> AppResult<()> {
         "UPDATE candidates SET submission_status = 'placed' WHERE submission_status = 'hired'",
         [],
     )?;
+    conn.execute(
+        "UPDATE candidates SET client_feedback = NULL WHERE client_feedback IN ('internal', 'client')",
+        [],
+    )?;
 
     Ok(())
 }

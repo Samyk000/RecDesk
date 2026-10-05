@@ -4,20 +4,21 @@ import {
   ArrowCounterClockwise,
   ArrowSquareOut,
   ArrowsLeftRight,
-  ArrowsOutSimple,
   Briefcase,
-  Building,
-  CalendarDots,
   Check,
   Copy,
   IdentificationCard,
   LinkedinLogo,
   ListChecks,
   CircleNotch,
+  Lightning,
+  NotePencil,
   Paperclip,
   PencilSimple,
   PhoneCall,
+  Plus,
   Sparkle,
+  Tag,
   Trash,
   X,
 } from "@phosphor-icons/react";
@@ -28,9 +29,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import {
   useAttachResume,
   useCandidate,
-  useClient,
   useDeleteCandidate,
-  useJob,
   useRemoveResume,
   useRenameResume,
   useUpdateCandidate,
@@ -38,19 +37,21 @@ import {
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "../ui/dialog";
-import { RichTextEditor } from "../common/RichTextEditor";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 import { SubmissionStatusSelect } from "./SubmissionStatusSelect";
 import { SubmittedDatePicker } from "./SubmittedDatePicker";
 import { PlacedDatePicker } from "./PlacedDatePicker";
 import { ScreeningQADialog } from "./ScreeningQADialog";
 import { SubmissionDetailsDialog } from "./SubmissionDetailsDialog";
+import { RecruiterNotesDialog } from "./RecruiterNotesDialog";
+import { ResumeProfileMergeDialog } from "./ResumeProfileMergeDialog";
+import { apiFiles, apiResumeParser } from "../../lib/api";
+import { extractDocumentText } from "../../lib/resumeParser";
 import { InterviewRoundsManager } from "./InterviewRoundsManager";
 import {
   InterviewFeedbackDialog,
@@ -67,7 +68,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/dropdown";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
-import { errorMessage, formatDateAbbr, nameInitials, titleCase, cn } from "../../lib/utils";
+import { errorMessage, titleCase, cn } from "../../lib/utils";
 import { BackwardStatusConfirmDialog } from "./BackwardStatusConfirmDialog";
 import { ResetStatusConfirmDialog } from "./ResetStatusConfirmDialog";
 import {
@@ -75,6 +76,8 @@ import {
   syncCandidateFieldsToSubmissionDetails,
   getPayRateFromSubmissionDetails,
   setPayRateInSubmissionDetails,
+  getCandidateSkills,
+  setCandidateSkills,
   parseInterviewRounds,
   serializeInterviewRounds,
   getActiveInterviewSchedule,
@@ -83,10 +86,11 @@ import {
   isBackwardTransition,
 } from "../../lib/candidateUtils";
 import { Spinner } from "../common/Spinner";
+import { QueryErrorState } from "../common/QueryErrorState";
 import type {
   Candidate,
   CandidateInput,
-  CandidateWithJob,
+  ExtractedCandidateProfile,
   RejectionDetail,
   RejectionOrigin,
 } from "../../types";
@@ -98,8 +102,9 @@ interface Props {
 }
 
 export function CandidateDetailPanel({ candidateId, onClose, embedded }: Props) {
-  const { data: candidate, isLoading } = useCandidate(candidateId);
+  const { data: candidate, isLoading, isError, refetch } = useCandidate(candidateId);
   if (isLoading || !candidate) {
+    if (isError) return <QueryErrorState label="this candidate" onRetry={refetch} />;
     return (
       <div className="flex h-full items-center justify-center">
         <Spinner />
@@ -124,9 +129,6 @@ function CandidatePanelBody({
   const attachResumeMut = useAttachResume();
   const removeResumeMut = useRemoveResume();
   const renameResumeMut = useRenameResume();
-  const { data: job } = useJob(candidate.job_id);
-  const { data: client } = useClient(job?.client_id);
-  const clientName = client?.name || (candidate as CandidateWithJob).client_name || "";
   const navigate = useNavigate();
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showScreeningQA, setShowScreeningQA] = useState(false);
@@ -147,6 +149,17 @@ function CandidatePanelBody({
   const [justSaved, setJustSaved] = useState(false);
   const [backwardTargetStatus, setBackwardTargetStatus] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showRecruiterNotesModal, setShowRecruiterNotesModal] = useState(false);
+  const [showResumeMergeDialog, setShowResumeMergeDialog] = useState(false);
+  const [extractedProfile, setExtractedProfile] = useState<ExtractedCandidateProfile | null>(null);
+  const [isAutoFillingResume, setIsAutoFillingResume] = useState(false);
+  const [newSkillInput, setNewSkillInput] = useState("");
+  const [isAddingSkill, setIsAddingSkill] = useState(false);
+  const [notesDraft, setNotesDraft] = useState(() => getPlainTextFromNotes(candidate.recruiter_notes));
+
+  useEffect(() => {
+    setNotesDraft(getPlainTextFromNotes(candidate.recruiter_notes));
+  }, [candidate.recruiter_notes]);
 
   // Show "Details" icon once moved to in_touch or if details have been recorded
   const hasSubmissionDetails = Boolean(
@@ -162,6 +175,12 @@ function CandidatePanelBody({
     () => getPayRateFromSubmissionDetails(candidate.submission_details),
     [candidate.submission_details]
   );
+
+  const candidateSkills = useMemo(
+    () => getCandidateSkills(candidate),
+    [candidate.submission_details]
+  );
+  const hasRecruiterNotes = Boolean(candidate.recruiter_notes?.trim());
 
   async function saveField(patch: Partial<CandidateInput>) {
     if (patch.submission_status && patch.submission_status !== candidate.submission_status) {
@@ -310,8 +329,10 @@ function CandidatePanelBody({
     });
     if (!file || typeof file !== "string") return;
     try {
-      await attachResumeMut.mutateAsync({ id: candidate.id, sourcePath: file });
+      const updated = await attachResumeMut.mutateAsync({ id: candidate.id, sourcePath: file });
       toast.success("Resume attached");
+      // Extract fields & skills right away instead of requiring a second click
+      void parseAndOpenMerge(updated.resume_path ?? file);
     } catch (err) {
       toast.error(errorMessage(err));
     }
@@ -325,6 +346,80 @@ function CandidatePanelBody({
       toast.error(errorMessage(err));
     }
   }
+
+  async function parseAndOpenMerge(resumePath: string) {
+    try {
+      setIsAutoFillingResume(true);
+      const filename = resumePath.split(/[\\/]/).pop() ?? "resume";
+      const bytesArray = await apiFiles.readResumeBytes(resumePath);
+      const data = new Uint8Array(bytesArray);
+      const { text, embeddedLinks } = await extractDocumentText(resumePath, data);
+      if (!text.trim()) {
+        throw new Error("Could not extract readable text from resume document.");
+      }
+      const profile = await apiResumeParser.parseResume(text, filename, embeddedLinks);
+      setExtractedProfile(profile);
+      setShowResumeMergeDialog(true);
+    } catch (err) {
+      toast.error(`Auto-fill failed: ${errorMessage(err)}`);
+    } finally {
+      setIsAutoFillingResume(false);
+    }
+  }
+
+  async function handleAutoFillFromResume() {
+    if (!candidate.resume_path) {
+      toast.error("No resume file attached to auto-fill from");
+      return;
+    }
+    void parseAndOpenMerge(candidate.resume_path);
+  }
+
+  const handleAddSkill = (skillName?: string) => {
+    const raw = (skillName ?? newSkillInput).trim();
+    if (!raw) return;
+
+    // Split on commas, semicolons, pipes, or newlines (e.g. "AWS, Node, Python")
+    const parts = raw
+      .split(/[,;|\n]+/)
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    if (parts.length === 0) return;
+
+    let addedCount = 0;
+    const updated = [...candidateSkills];
+
+    for (const part of parts) {
+      if (!updated.some((s) => s.toLowerCase() === part.toLowerCase())) {
+        updated.push(part);
+        addedCount++;
+      }
+    }
+
+    if (addedCount === 0 && parts.length === 1) {
+      toast.info(`"${parts[0]}" is already in skills list`);
+      setNewSkillInput("");
+      setIsAddingSkill(false);
+      return;
+    }
+
+    const newDetails = setCandidateSkills(candidate.submission_details, updated);
+    saveField({ submission_details: newDetails });
+    if (parts.length > 1) {
+      toast.success(`Added ${addedCount} skill${addedCount === 1 ? "" : "s"}`);
+    }
+    setNewSkillInput("");
+    setIsAddingSkill(false);
+  };
+
+  const handleRemoveSkill = (skillToRemove: string) => {
+    const updated = candidateSkills.filter(
+      (s) => s.toLowerCase() !== skillToRemove.toLowerCase(),
+    );
+    const newDetails = setCandidateSkills(candidate.submission_details, updated);
+    saveField({ submission_details: newDetails });
+  };
 
   function startRenameResume() {
     if (!candidate.resume_path) return;
@@ -408,23 +503,13 @@ function CandidatePanelBody({
     }
   }
 
-  const initials = nameInitials(candidate.name);
-
   const status = candidate.submission_status;
   const resumeName = candidate.resume_path?.split(/[\\/]/).pop() ?? "";
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex items-center gap-3 border-b border-border p-4">
-        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-sm font-semibold text-primary">
-          {initials}
-        </span>
-        <div className="min-w-0 flex-1">
-          <span className="flex items-center gap-1.5 text-[11px] font-medium text-fg-subtle whitespace-nowrap">
-            <CalendarDots className="h-3.5 w-3.5 shrink-0 text-fg-muted" />
-            ADDED ON {formatDateAbbr(candidate.date_added)}
-          </span>
-        </div>
+      <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
+        <span className="text-[13px] font-semibold text-fg tracking-tight">Candidate Details</span>
         <div className="flex shrink-0 items-center gap-1">
           {confirmDelete ? (
             <div className="flex items-center gap-1.5 animate-fade-in">
@@ -468,6 +553,31 @@ function CandidatePanelBody({
                   <TooltipContent>Interview Feedback Call</TooltipContent>
                 </Tooltip>
               )}
+              {/* Recruiter Notes Icon with notification dot */}
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    className={cn(
+                      "relative h-8 w-8 hover:bg-primary/10",
+                      hasRecruiterNotes
+                        ? "text-primary font-semibold"
+                        : "text-fg-subtle hover:text-primary",
+                    )}
+                    onClick={() => setShowRecruiterNotesModal(true)}
+                    aria-label="Recruiter Notes"
+                  >
+                    <NotePencil className="h-4 w-4" />
+                    {hasRecruiterNotes && (
+                      <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {hasRecruiterNotes ? "Recruiter Notes (recorded)" : "Recruiter Notes"}
+                </TooltipContent>
+              </Tooltip>
               {showDetailsIcon && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -657,6 +767,21 @@ function CandidatePanelBody({
                     {resumeName}
                   </button>
 
+                  {/* 1-Click Auto-Fill from Resume */}
+                  <button
+                    type="button"
+                    onClick={handleAutoFillFromResume}
+                    disabled={isAutoFillingResume}
+                    title="Auto-Fill profile fields and skills from this resume"
+                    className="shrink-0 rounded p-1 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
+                  >
+                    {isAutoFillingResume ? (
+                      <CircleNotch className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Lightning className="h-3.5 w-3.5" weight="fill" />
+                    )}
+                  </button>
+
                   {/* 1-Click Rename to Candidate Name */}
                   <button
                     type="button"
@@ -727,158 +852,314 @@ function CandidatePanelBody({
               )}
             </div>
           </div>
-          <SubmissionStatusSelect
-            value={status}
-            triggerClassName="h-8 w-full text-xs"
-            onValueChange={(v) => {
-              if (v === candidate.submission_status) return;
+          <div className={cn("grid gap-3 items-center", (status === "sourced" || status === "pipeline") ? "grid-cols-1" : "grid-cols-2")}>
+            <SubmissionStatusSelect
+              value={status}
+              triggerClassName="h-8 w-full text-xs"
+              onValueChange={(v) => {
+                if (v === candidate.submission_status) return;
 
-              if (isBackwardTransition(candidate.submission_status, v)) {
-                setBackwardTargetStatus(v);
-              } else if (v === "sourced") {
-                setShowResetConfirm(true);
-              } else if (v === "submitted") {
-                const patch: Partial<CandidateInput> = {
-                  submission_status: "submitted",
-                  client_feedback: candidate.client_feedback || "internal",
-                  submitted_at: candidate.submitted_at || new Date().toISOString(),
-                };
-                saveField(patch);
-              } else if (v === "interview") {
-                const patch: Partial<CandidateInput> = {
-                  submission_status: "interview",
-                  client_feedback: "client",
-                  submitted_at: candidate.submitted_at || new Date().toISOString(),
-                  interview_at: candidate.interview_at || new Date().toISOString(),
-                };
-                saveField(patch);
-              } else if (v === "placed") {
-                const patch: Partial<CandidateInput> = {
-                  submission_status: "placed",
-                  client_feedback: "client",
-                  submitted_at: candidate.submitted_at || new Date().toISOString(),
-                  placed_at: candidate.placed_at || new Date().toISOString(),
-                };
-                saveField(patch);
-              } else if (v === "rejected") {
-                const existing = parseRejectionDetail(candidate.rejection_reason);
-                const origin =
-                  candidate.submission_status === "interview"
-                    ? "interview"
-                    : candidate.submission_status === "submitted"
-                      ? (candidate.client_feedback === "internal" ? "internal" : "client_screening")
-                      : existing.origin || "general";
+                if (isBackwardTransition(candidate.submission_status, v)) {
+                  setBackwardTargetStatus(v);
+                } else if (v === "sourced") {
+                  setShowResetConfirm(true);
+                } else if (v === "submitted") {
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "submitted",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                  };
+                  saveField(patch);
+                } else if (v === "interview") {
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "interview",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    interview_at: candidate.interview_at || new Date().toISOString(),
+                  };
+                  saveField(patch);
+                } else if (v === "placed") {
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "placed",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    placed_at: candidate.placed_at || new Date().toISOString(),
+                  };
+                  saveField(patch);
+                } else if (v === "rejected") {
+                  const existing = parseRejectionDetail(candidate.rejection_reason);
+                  const origin =
+                    candidate.submission_status === "interview"
+                      ? "interview"
+                      : candidate.submission_status === "submitted"
+                        ? "client_screening"
+                        : existing.origin || "general";
 
-                const detail: RejectionDetail = {
-                  ...existing,
-                  origin,
-                  rejected_at: existing.rejected_at || new Date().toISOString(),
-                };
-                const patch: Partial<CandidateInput> = {
-                  submission_status: "rejected",
-                  rejection_reason: serializeRejectionDetail(detail),
-                };
-                saveField(patch);
-              } else {
-                const patch: Partial<CandidateInput> = { submission_status: v };
-                saveField(patch);
-              }
-            }}
-          />
-          {(status === "submitted" ||
-            status === "interview" ||
-            status === "placed" ||
-            status === "rejected" ||
-            status === "not_interested") && (
-              <div className="animate-[fade-up_0.25s_ease-out] pt-1">
-                {status === "submitted" && (
-                  <SubmissionSubStageSection
-                    candidate={candidate}
-                    onSave={saveField}
-                  />
-                )}
-                {status === "interview" && (
-                  <div className="space-y-1.5">
-                    {candidate.submitted_at && (
-                      <div className="flex items-center justify-between rounded-md border border-border/60 bg-surface/60 px-2.5 py-1 text-[11px] text-fg-subtle">
-                        <span>External Submission:</span>
-                        <span className="font-semibold text-fg tabular-nums">
-                          {formatDateAbbr(candidate.submitted_at)}
-                        </span>
-                      </div>
-                    )}
-                    <InterviewRoundsManager
-                      rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
-                      onChange={(newRounds) => {
-                        saveField({
-                          interview_status: serializeInterviewRounds(newRounds),
-                          interview_at: getActiveInterviewSchedule(newRounds),
-                        });
-                      }}
-                      onSelectAndPlace={() => {
-                        saveField({
-                          submission_status: "placed",
-                          client_feedback: "client",
-                          submitted_at: candidate.submitted_at || new Date().toISOString(),
-                          placed_at: new Date().toISOString(),
-                        });
-                        toast.success("Candidate marked as Placed!");
-                      }}
-                      onRejectRound={(rNum) => {
-                        const detail: RejectionDetail = {
-                          origin: "interview",
-                          round_number: rNum,
-                          category: "Interview feedback",
-                          reason: null,
-                          rejected_at: new Date().toISOString(),
-                        };
-                        saveField({
-                          submission_status: "rejected",
-                          client_feedback: "client",
-                          submitted_at: candidate.submitted_at || new Date().toISOString(),
-                          rejection_reason: serializeRejectionDetail(detail),
-                        });
-                        toast.success(`Candidate marked as Rejected after Round ${rNum}`);
-                      }}
-                    />
-                  </div>
-                )}
-                {status === "placed" && (
-                  <div className="space-y-1.5 rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-2">
-                    <PlacedDatePicker
-                      value={candidate.placed_at}
-                      onChange={(val) => saveField({ placed_at: val })}
-                    />
-                    {clientName && (
-                      <div className="flex items-center gap-1.5 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-700 dark:text-emerald-300">
-                        <Building className="h-3 w-3 shrink-0 text-emerald-600 dark:text-emerald-400" />
-                        <span className="truncate">
-                          Client: <strong className="font-semibold">{clientName}</strong>
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                {status === "rejected" && (
-                  <RejectionDetailsCard candidate={candidate} onSave={saveField} />
-                )}
-                {status === "not_interested" && (
-                  <NotInterestedDetailsCard candidate={candidate} onSave={saveField} />
-                )}
-              </div>
+                  const detail: RejectionDetail = {
+                    ...existing,
+                    origin,
+                    rejected_at: existing.rejected_at || new Date().toISOString(),
+                  };
+                  const patch: Partial<CandidateInput> = {
+                    submission_status: "rejected",
+                    rejection_reason: serializeRejectionDetail(detail),
+                  };
+                  saveField(patch);
+                } else {
+                  const patch: Partial<CandidateInput> = { submission_status: v };
+                  saveField(patch);
+                }
+              }}
+            />
+
+            {/* Same-line companion control for each active status */}
+            {status === "submitted" && (
+              <SubmittedDatePicker
+                value={candidate.submitted_at}
+                onChange={(val) => saveField({ submitted_at: val })}
+                className="h-8"
+              />
             )}
+
+            {status === "placed" && (
+              <PlacedDatePicker
+                value={candidate.placed_at}
+                onChange={(val) => saveField({ placed_at: val })}
+                className="h-8"
+              />
+            )}
+
+            {status === "interview" && (
+              <SubmittedDatePicker
+                value={candidate.submitted_at}
+                onChange={(val) => saveField({ submitted_at: val })}
+                className="h-8"
+              />
+            )}
+
+            {status === "rejected" && (
+              <Select
+                value={parseRejectionDetail(candidate.rejection_reason).origin || "client_screening"}
+                onValueChange={(val) => {
+                  const existing = parseRejectionDetail(candidate.rejection_reason);
+                  const detail: RejectionDetail = {
+                    ...existing,
+                    origin: val as RejectionOrigin,
+                    rejected_at: existing.rejected_at || new Date().toISOString(),
+                  };
+                  saveField({ rejection_reason: serializeRejectionDetail(detail) });
+                }}
+              >
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue placeholder="Rejection stage…" />
+                </SelectTrigger>
+                <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value="client_screening">Client Screening</SelectItem>
+                  <SelectItem value="interview">Interview</SelectItem>
+                  <SelectItem value="general">General</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+
+            {status === "not_interested" && (
+              <Select
+                value={candidate.rejection_reason ?? ""}
+                onValueChange={(val) => saveField({ rejection_reason: val || null })}
+              >
+                <SelectTrigger className="h-8 w-full text-xs">
+                  <SelectValue placeholder="Reason…" />
+                </SelectTrigger>
+                <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                  <SelectItem value="Rate / Compensation">Rate / Comp</SelectItem>
+                  <SelectItem value="Location / Commute">Location / Commute</SelectItem>
+                  <SelectItem value="Accepted another offer">Accepted Other Offer</SelectItem>
+                  <SelectItem value="Timing / Not looking">Timing / Not Looking</SelectItem>
+                  <SelectItem value="Role mismatch">Role Mismatch</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+
+          {/* Underneath elements only for multi-round interview or rejection note */}
+          {status === "interview" && (
+            <div className="pt-1.5 animate-[fade-up_0.2s_ease-out]">
+              <InterviewRoundsManager
+                rounds={parseInterviewRounds(candidate.interview_status, candidate.interview_at)}
+                onChange={(newRounds) => {
+                  saveField({
+                    interview_status: serializeInterviewRounds(newRounds),
+                    interview_at: getActiveInterviewSchedule(newRounds),
+                  });
+                }}
+                onSelectAndPlace={() => {
+                  saveField({
+                    submission_status: "placed",
+                    client_feedback: "client",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    placed_at: new Date().toISOString(),
+                  });
+                  toast.success("Candidate marked as Placed!");
+                }}
+                onRejectRound={(rNum) => {
+                  const detail: RejectionDetail = {
+                    origin: "interview",
+                    round_number: rNum,
+                    category: "Interview feedback",
+                    reason: null,
+                    rejected_at: new Date().toISOString(),
+                  };
+                  saveField({
+                    submission_status: "rejected",
+                    client_feedback: "client",
+                    submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    rejection_reason: serializeRejectionDetail(detail),
+                  });
+                  toast.success(`Candidate marked as Rejected after Round ${rNum}`);
+                }}
+              />
+            </div>
+          )}
+
+          {status === "rejected" && (
+            <div className="pt-1 animate-[fade-up_0.2s_ease-out]">
+              <input
+                type="text"
+                defaultValue={parseRejectionDetail(candidate.rejection_reason).reason ?? ""}
+                placeholder="Rejection reason notes (optional)…"
+                onBlur={(e) => {
+                  const existing = parseRejectionDetail(candidate.rejection_reason);
+                  const detail: RejectionDetail = {
+                    ...existing,
+                    reason: e.target.value.trim() || null,
+                  };
+                  saveField({ rejection_reason: serializeRejectionDetail(detail) });
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    (e.target as HTMLInputElement).blur();
+                  }
+                }}
+                className="h-7 w-full rounded border border-border/70 bg-surface px-2 text-[11px] text-fg outline-none focus:border-red-500/50"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Notes / Comments */}
-        <div className="flex flex-1 flex-col min-h-[160px] border-t border-border pt-2.5">
-          <RichTextEditor
-            key={candidate.id}
-            value={candidate.recruiter_notes ?? ""}
-            onChange={(html) => saveField({ recruiter_notes: html || null })}
-            placeholder="Notes about this candidate…"
-            fill
-            minHeight={160}
+        {/* Notes Section (between Status and Skills & Tools) */}
+        <div className="w-full space-y-1.5">
+          <div className="flex items-center justify-between">
+            <p className="flex items-center gap-1.5 text-xs text-fg-subtle font-medium">
+              <NotePencil className="h-3.5 w-3.5 text-fg-muted" />
+              <span>Notes</span>
+            </p>
+          </div>
+          <textarea
+            value={notesDraft}
+            onChange={(e) => setNotesDraft(e.target.value)}
+            onBlur={() => {
+              const trimmed = notesDraft.trim();
+              const currentPlain = getPlainTextFromNotes(candidate.recruiter_notes).trim();
+              if (trimmed === currentPlain) return;
+              saveField({ recruiter_notes: trimmed || null });
+            }}
+            placeholder="Add notes about this candidate…"
+            rows={2}
+            className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-fg placeholder:text-fg-subtle outline-none transition-colors focus:border-primary/60 focus:ring-1 focus:ring-primary/20 resize-y min-h-[56px] max-h-36 scrollbar-thin"
           />
+        </div>
+
+        {/* Skills & Tools Badges Section */}
+        <div className="flex flex-col rounded-lg border border-border bg-surface p-3 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
+              <Tag className="h-3.5 w-3.5 text-primary" weight="bold" />
+              <span>Skills & Tools</span>
+              <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-medium text-primary">
+                {candidateSkills.length}
+              </span>
+            </div>
+            {!isAddingSkill ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => setIsAddingSkill(true)}
+                className="h-6 px-2 text-[11px] text-primary hover:bg-primary/10 cursor-pointer gap-1"
+              >
+                <Plus className="h-3 w-3" />
+                Add Skill
+              </Button>
+            ) : null}
+          </div>
+
+          {/* Inline Add Skill Input */}
+          {isAddingSkill && (
+            <div className="flex items-center gap-1.5 animate-fade-in">
+              <Input
+                value={newSkillInput}
+                onChange={(e) => setNewSkillInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAddSkill();
+                  } else if (e.key === "Escape") {
+                    setIsAddingSkill(false);
+                    setNewSkillInput("");
+                  }
+                }}
+                autoFocus
+                placeholder="Type skill(s) e.g. AWS, Node, Python & press Enter…"
+                className="h-7 text-xs flex-1"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => handleAddSkill()}
+                className="h-7 px-2.5 text-xs"
+              >
+                Add
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setIsAddingSkill(false);
+                  setNewSkillInput("");
+                }}
+                className="h-7 px-2 text-xs text-fg-subtle"
+              >
+                Cancel
+              </Button>
+            </div>
+          )}
+
+          {/* Skills Badge Pills */}
+          {candidateSkills.length > 0 ? (
+            <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto scrollbar-thin">
+              {candidateSkills.map((skill) => (
+                <span
+                  key={skill}
+                  className="group inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/15"
+                >
+                  <span>{skill}</span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSkill(skill)}
+                    title={`Remove ${skill}`}
+                    className="rounded p-0.5 text-primary/60 opacity-60 hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-3 text-center">
+              <p className="text-xs text-fg-muted">No skills listed yet.</p>
+              <p className="text-[11px] text-fg-subtle">
+                Auto-fill from resume or click &quot;Add Skill&quot; to highlight technologies.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -902,6 +1183,26 @@ function CandidatePanelBody({
         candidateId={candidate.id}
         open={showInterviewFeedback}
         onOpenChange={setShowInterviewFeedback}
+      />
+
+      <RecruiterNotesDialog
+        candidateName={candidate.name}
+        notes={candidate.recruiter_notes}
+        open={showRecruiterNotesModal}
+        onOpenChange={setShowRecruiterNotesModal}
+        onSave={(notes) => saveField({ recruiter_notes: notes })}
+        saving={saving}
+      />
+
+      <ResumeProfileMergeDialog
+        candidate={candidate}
+        extracted={extractedProfile}
+        open={showResumeMergeDialog}
+        onOpenChange={setShowResumeMergeDialog}
+        onApply={(patch) => {
+          saveField(patch);
+          toast.success("Profile updated from resume!");
+        }}
       />
 
       <ScreeningQADialog
@@ -964,6 +1265,17 @@ function CandidatePanelBody({
       />
     </div>
   );
+}
+
+function getPlainTextFromNotes(raw?: string | null): string {
+  if (!raw) return "";
+  if (!raw.includes("<") || !raw.includes(">")) return raw;
+  try {
+    const doc = new DOMParser().parseFromString(raw, "text/html");
+    return doc.body.textContent || "";
+  } catch {
+    return raw.replace(/<[^>]*>/g, "");
+  }
 }
 
 function InlineField({
@@ -1083,298 +1395,6 @@ function NameField({ value, onSave }: { value: string; onSave: (v: string) => vo
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
       />
-    </div>
-  );
-}
-
-function SubmissionSubStageSection({
-  candidate,
-  onSave,
-}: {
-  candidate: Candidate;
-  onSave: (patch: Partial<CandidateInput>) => void;
-}) {
-  const subType = candidate.client_feedback === "client" ? "client" : "internal";
-
-  const handleSetSubType = (type: "internal" | "client") => {
-    onSave({
-      client_feedback: type,
-      submitted_at: candidate.submitted_at || new Date().toISOString(),
-    });
-  };
-
-  const handleReject = () => {
-    if (subType === "internal") {
-      const detail: RejectionDetail = {
-        origin: "internal",
-        category: null,
-        reason: null,
-        rejected_at: new Date().toISOString(),
-      };
-      onSave({
-        submission_status: "rejected",
-        rejection_reason: serializeRejectionDetail(detail),
-      });
-      toast.success("Candidate marked as Internally Rejected");
-    } else {
-      const detail: RejectionDetail = {
-        origin: "client_screening",
-        category: null,
-        reason: null,
-        rejected_at: new Date().toISOString(),
-      };
-      onSave({
-        submission_status: "rejected",
-        rejection_reason: serializeRejectionDetail(detail),
-      });
-      toast.success("Marked as Client Rejected — you can enter feedback below");
-    }
-  };
-
-  return (
-    <div className="space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-1.5">
-      <div className="flex rounded-md bg-surface p-0.5 border border-border/70 text-[10.5px]">
-        <button
-          type="button"
-          onClick={() => handleSetSubType("internal")}
-          className={cn(
-            "flex-1 py-0.5 rounded transition-all font-semibold text-center cursor-pointer",
-            subType === "internal"
-              ? "bg-amber-500 text-white shadow-2xs"
-              : "text-fg-subtle hover:text-fg",
-          )}
-        >
-          Internal
-        </button>
-        <button
-          type="button"
-          onClick={() => handleSetSubType("client")}
-          className={cn(
-            "flex-1 py-0.5 rounded transition-all font-semibold text-center cursor-pointer",
-            subType === "client"
-              ? "bg-amber-500 text-white shadow-2xs"
-              : "text-fg-subtle hover:text-fg",
-          )}
-        >
-          External
-        </button>
-      </div>
-
-      <SubmittedDatePicker
-        value={candidate.submitted_at}
-        onChange={(val) => onSave({ submitted_at: val })}
-      />
-
-      <div className="flex items-center justify-end pt-0.5 border-t border-amber-500/10">
-        <button
-          type="button"
-          onClick={handleReject}
-          className="text-[10px] font-semibold text-red-500 hover:underline cursor-pointer"
-        >
-          {subType === "internal" ? "Reject Internally" : "Reject by Client"}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function RejectionDetailsCard({
-  candidate,
-  onSave,
-}: {
-  candidate: Candidate;
-  onSave: (patch: Partial<CandidateInput>) => void;
-}) {
-  const detail = parseRejectionDetail(candidate.rejection_reason);
-  const origin = detail.origin || "general";
-  const [currentReason, setCurrentReason] = useState(detail.reason ?? "");
-  const [showModal, setShowModal] = useState(false);
-
-  useEffect(() => {
-    setCurrentReason(detail.reason ?? "");
-  }, [candidate.rejection_reason]);
-
-  const handleOriginChange = (newOrigin: RejectionOrigin) => {
-    const nextDetail: RejectionDetail = {
-      ...detail,
-      origin: newOrigin,
-      rejected_at: detail.rejected_at || new Date().toISOString(),
-    };
-    onSave({ rejection_reason: serializeRejectionDetail(nextDetail) });
-  };
-
-  const handleSaveReason = (val: string) => {
-    const trimmed = val.trim();
-    const nextDetail: RejectionDetail = {
-      ...detail,
-      reason: trimmed || null,
-      rejected_at: detail.rejected_at || new Date().toISOString(),
-    };
-    onSave({ rejection_reason: serializeRejectionDetail(nextDetail) });
-  };
-
-  return (
-    <div className="space-y-1.5 rounded-lg border border-red-500/20 bg-red-500/5 p-1.5 text-xs">
-      {/* Origin Dropdown */}
-      <select
-        value={origin}
-        onChange={(e) => handleOriginChange(e.target.value as RejectionOrigin)}
-        className="h-6.5 w-full rounded border border-border bg-surface px-2 text-[11px] font-medium text-fg outline-none cursor-pointer"
-      >
-        <option value="internal">Internal Review</option>
-        <option value="client_screening">Client Resume Screening</option>
-        <option value="interview">Interview Feedback</option>
-        <option value="general">General</option>
-      </select>
-
-      {/* Manual Input with Modal Expand Button */}
-      <div className="flex items-center gap-1 min-w-0">
-        <Input
-          value={currentReason}
-          onChange={(e) => setCurrentReason(e.target.value)}
-          onBlur={() => handleSaveReason(currentReason)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSaveReason(currentReason);
-          }}
-          placeholder="Reason for rejection…"
-          className="h-6.5 text-[11px] flex-1 px-2"
-        />
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="flex h-6.5 w-6.5 items-center justify-center rounded border border-border bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover shrink-0 cursor-pointer transition-colors"
-          title="Open full rejection note modal"
-        >
-          <ArrowsOutSimple className="h-3 w-3" />
-        </button>
-      </div>
-
-      {/* Small Rejection Modal Dialog */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Rejection Reason & Notes</DialogTitle>
-            <DialogDescription>
-              Add detailed notes or feedback for why this candidate was rejected.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <textarea
-              value={currentReason}
-              onChange={(e) => setCurrentReason(e.target.value)}
-              placeholder="Type detailed rejection feedback, client remarks, or notes here…"
-              className="w-full h-36 rounded-lg border border-border bg-surface-hover/50 p-3 text-xs text-fg placeholder:text-fg-subtle outline-none resize-none focus:ring-1 focus:ring-primary/40 leading-relaxed"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                handleSaveReason(currentReason);
-                setShowModal(false);
-                toast.success("Rejection reason updated");
-              }}
-            >
-              Save Note
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-}
-
-function NotInterestedDetailsCard({
-  candidate,
-  onSave,
-}: {
-  candidate: Candidate;
-  onSave: (patch: Partial<CandidateInput>) => void;
-}) {
-  const [reason, setReason] = useState(candidate.rejection_reason ?? "");
-  const [showModal, setShowModal] = useState(false);
-
-  useEffect(() => {
-    setReason(candidate.rejection_reason ?? "");
-  }, [candidate.rejection_reason]);
-
-  const handleSave = (val: string) => {
-    const trimmed = val.trim();
-    onSave({ rejection_reason: trimmed || null });
-  };
-
-  return (
-    <div className="space-y-1.5 rounded-lg border border-border bg-surface-hover/50 p-1.5 text-xs">
-      <div className="flex items-center gap-1 min-w-0">
-        <Input
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          onBlur={() => handleSave(reason)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") handleSave(reason);
-          }}
-          placeholder="Reason candidate is not interested…"
-          className="h-6.5 text-[11px] flex-1 px-2"
-        />
-        <button
-          type="button"
-          onClick={() => setShowModal(true)}
-          className="flex h-6.5 w-6.5 items-center justify-center rounded border border-border bg-surface text-fg-subtle hover:text-fg hover:bg-surface-hover shrink-0 cursor-pointer transition-colors"
-          title="Open full reason modal"
-        >
-          <ArrowsOutSimple className="h-3 w-3" />
-        </button>
-      </div>
-
-      {/* Small Not Interested Modal Dialog */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Candidate Not Interested Reason</DialogTitle>
-            <DialogDescription>
-              Provide additional details on why the candidate declined or is not interested.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="p-4">
-            <textarea
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason / notes on why candidate withdrew or declined…"
-              className="w-full h-32 rounded-lg border border-border bg-surface-hover/50 p-3 text-xs text-fg placeholder:text-fg-subtle outline-none resize-none focus:ring-1 focus:ring-primary/40 leading-relaxed"
-              autoFocus
-            />
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowModal(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => {
-                handleSave(reason);
-                setShowModal(false);
-                toast.success("Reason updated");
-              }}
-            >
-              Save Reason
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

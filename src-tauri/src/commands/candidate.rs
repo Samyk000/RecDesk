@@ -17,12 +17,24 @@ pub const CANDIDATE_SELECT: &str = r#"
   FROM candidates c
 "#;
 
-pub const CANDIDATE_SELECT_JOIN: &str = r#"
+// List projection: same column order as CANDIDATE_SELECT so row_to_candidate works,
+// but the four JSON blobs read as NULL. Detail views fetch the full row.
+pub const CANDIDATE_SELECT_SLIM: &str = r#"
   SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
          c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
          c.match_score, c.submission_status, c.interview_status, c.client_feedback,
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
          c.date_added, c.last_updated, c.linkedin_url, NULL, NULL,
+         c.placed_at, NULL, NULL
+  FROM candidates c
+"#;
+
+pub const CANDIDATE_SELECT_JOIN: &str = r#"
+  SELECT c.id, c.job_id, c.name, c.email, c.phone, c.location, c.current_title,
+         c.current_company, c.experience_years, c.resume_path, c.recruiter_notes,
+         c.match_score, c.submission_status, c.interview_status, c.client_feedback,
+         c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
+         c.date_added, c.last_updated, c.linkedin_url, NULL, c.submission_details,
          c.placed_at, NULL, NULL,
          j.title, j.job_id, cl.name
   FROM candidates c
@@ -46,12 +58,11 @@ fn apply_status_condition(
         );
     } else if st == "submitted" {
         conditions.push(
-            "((c.submission_status = 'submitted' AND (c.client_feedback IS NULL OR c.client_feedback != 'internal')) 
-             OR c.submission_status IN ('interview', 'placed') 
+            "(c.submission_status IN ('submitted', 'interview', 'placed') 
              OR (c.submission_status = 'rejected' AND (
                  c.rejection_reason LIKE '%\"client_screening\"%' 
                  OR c.rejection_reason LIKE '%\"interview\"%' 
-                 OR (c.submitted_at IS NOT NULL AND TRIM(c.submitted_at) != '' AND (c.client_feedback IS NULL OR c.client_feedback != 'internal') AND (c.rejection_reason IS NULL OR c.rejection_reason NOT LIKE '%\"internal\"%'))
+                 OR (c.submitted_at IS NOT NULL AND TRIM(c.submitted_at) != '')
              )))".to_string(),
         );
     } else {
@@ -80,16 +91,16 @@ pub fn get_candidates(
     }
     if let Some(s) = &search {
         conditions.push(
-            "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.location,'') LIKE ? ESCAPE '\\')"
+            "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.location,'') LIKE ? ESCAPE '\\' OR COALESCE(c.submission_details,'') LIKE ? ESCAPE '\\')"
                 .to_string(),
         );
         let p = like_pattern(s.trim());
-        for _ in 0..5 {
+        for _ in 0..6 {
             params.push(Box::new(p.clone()));
         }
     }
 
-    let mut sql = CANDIDATE_SELECT.to_string();
+    let mut sql = CANDIDATE_SELECT_SLIM.to_string();
     if !conditions.is_empty() {
         sql.push_str(" WHERE ");
         sql.push_str(&conditions.join(" AND "));
@@ -121,11 +132,11 @@ pub fn create_candidate(
     state: State<'_, AppState>,
     input: CandidateInput,
 ) -> AppResult<Candidate> {
-    let name = input.name.trim().to_string();
+    let name = input.name.as_deref().unwrap_or_default().trim().to_string();
     if name.is_empty() {
         return Err("Candidate name cannot be empty".into());
     }
-    let job_id = input.job_id.trim().to_string();
+    let job_id = input.job_id.as_deref().unwrap_or_default().trim().to_string();
     if job_id.is_empty() {
         return Err("Job assignment is required".into());
     }
@@ -145,28 +156,43 @@ pub fn create_candidate(
             id,
             job_id,
             name,
-            input.email,
-            input.phone,
-            input.location,
-            input.current_title,
-            input.current_company,
-            input.experience_years,
-            input.resume_path,
-            input.linkedin_url,
-            input.recruiter_notes,
-            input.match_score,
-            input.submission_status.unwrap_or_else(|| "sourced".to_string()),
-            input.interview_status,
-            input.client_feedback,
-            input.candidate_status.unwrap_or_else(|| "active".to_string()),
-            input.submitted_at,
-            input.interview_at,
-            input.rejection_reason,
-            input.screening_answers.unwrap_or_else(|| "{}".to_string()),
-            input.submission_details.unwrap_or_else(|| "{}".to_string()),
-            input.placed_at,
-            input.status_history.unwrap_or_else(|| "[]".to_string()),
-            input.interview_feedback.unwrap_or_else(|| "{}".to_string()),
+            input.email.flatten(),
+            input.phone.flatten(),
+            input.location.flatten(),
+            input.current_title.flatten(),
+            input.current_company.flatten(),
+            input.experience_years.flatten(),
+            input.resume_path.flatten(),
+            input.linkedin_url.flatten(),
+            input.recruiter_notes.flatten(),
+            input.match_score.flatten(),
+            input
+                .submission_status
+                .flatten()
+                .unwrap_or_else(|| "sourced".to_string()),
+            input.interview_status.flatten(),
+            input.client_feedback.flatten(),
+            input
+                .candidate_status
+                .flatten()
+                .unwrap_or_else(|| "active".to_string()),
+            input.submitted_at.flatten(),
+            input.interview_at.flatten(),
+            input.rejection_reason.flatten(),
+            input
+                .screening_answers
+                .flatten()
+                .unwrap_or_else(|| "{}".to_string()),
+            input
+                .submission_details
+                .flatten()
+                .unwrap_or_else(|| "{}".to_string()),
+            input.placed_at.flatten(),
+            input.status_history.flatten().unwrap_or_else(|| "[]".to_string()),
+            input
+                .interview_feedback
+                .flatten()
+                .unwrap_or_else(|| "{}".to_string()),
             ts
         ],
     )?;
@@ -184,72 +210,86 @@ pub fn update_candidate(
     id: String,
     input: CandidateInput,
 ) -> AppResult<Candidate> {
-    let name_trimmed = input.name.trim().to_string();
-    if name_trimmed.is_empty() {
-        return Err("Candidate name cannot be empty".into());
-    }
-    let job_id_trimmed = input.job_id.trim().to_string();
-    if job_id_trimmed.is_empty() {
-        return Err("Job assignment is required".into());
+    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    update_candidate_in(&conn, &id, &input)
+}
+
+/// Production update path, kept free of Tauri state so tests exercise the real SQL.
+/// Sparse by construction: only fields present in `input` land in the SET clause,
+/// so two partial saves can never overwrite each other's columns.
+pub fn update_candidate_in(
+    conn: &rusqlite::Connection,
+    id: &str,
+    input: &CandidateInput,
+) -> AppResult<Candidate> {
+    let mut columns: Vec<String> = Vec::new();
+    let mut values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    // `col = ?n` for every key the client actually sent; absent keys are skipped.
+    macro_rules! set_if_present {
+        ($col:expr, $val:expr) => {
+            if let Some(v) = &$val {
+                columns.push(format!("{} = ?{}", $col, values.len() + 1));
+                values.push(Box::new(v.clone()));
+            }
+        };
     }
 
-    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let affected = conn.execute(
-        "UPDATE candidates SET job_id = ?1,
-                               name = ?2,
-                               email = ?3,
-                               phone = ?4,
-                               location = ?5,
-                               current_title = ?6,
-                               current_company = ?7,
-                               experience_years = ?8,
-                               resume_path = ?9,
-                               recruiter_notes = ?10,
-                               match_score = ?11,
-                               submission_status = COALESCE(?12, submission_status),
-                               interview_status = ?13,
-                               client_feedback = ?14,
-                               candidate_status = COALESCE(?15, candidate_status),
-                               submitted_at = ?16,
-                               interview_at = ?17,
-                               rejection_reason = ?18,
-                               linkedin_url = ?19,
-                               placed_at = ?20,
-                               screening_answers = COALESCE(?21, screening_answers),
-                               submission_details = COALESCE(?22, submission_details),
-                               status_history = COALESCE(?23, status_history),
-                               interview_feedback = COALESCE(?24, interview_feedback),
-                               last_updated = ?25
-         WHERE id = ?26",
-        params![
-            job_id_trimmed,
-            name_trimmed,
-            input.email,
-            input.phone,
-            input.location,
-            input.current_title,
-            input.current_company,
-            input.experience_years,
-            input.resume_path,
-            input.recruiter_notes,
-            input.match_score,
-            input.submission_status,
-            input.interview_status,
-            input.client_feedback,
-            input.candidate_status,
-            input.submitted_at,
-            input.interview_at,
-            input.rejection_reason,
-            input.linkedin_url,
-            input.placed_at,
-            input.screening_answers,
-            input.submission_details,
-            input.status_history,
-            input.interview_feedback,
-            now(),
-            id
-        ],
-    )?;
+    if let Some(raw) = &input.name {
+        let v = raw.trim().to_string();
+        if v.is_empty() {
+            return Err("Candidate name cannot be empty".into());
+        }
+        columns.push(format!("name = ?{}", values.len() + 1));
+        values.push(Box::new(v));
+    }
+    if let Some(raw) = &input.job_id {
+        let v = raw.trim().to_string();
+        if v.is_empty() {
+            return Err("Job assignment is required".into());
+        }
+        columns.push(format!("job_id = ?{}", values.len() + 1));
+        values.push(Box::new(v));
+    }
+
+    set_if_present!("email", input.email);
+    set_if_present!("phone", input.phone);
+    set_if_present!("location", input.location);
+    set_if_present!("current_title", input.current_title);
+    set_if_present!("current_company", input.current_company);
+    set_if_present!("experience_years", input.experience_years);
+    set_if_present!("resume_path", input.resume_path);
+    set_if_present!("linkedin_url", input.linkedin_url);
+    set_if_present!("recruiter_notes", input.recruiter_notes);
+    set_if_present!("match_score", input.match_score);
+    set_if_present!("submission_status", input.submission_status);
+    set_if_present!("interview_status", input.interview_status);
+    set_if_present!("client_feedback", input.client_feedback);
+    set_if_present!("candidate_status", input.candidate_status);
+    set_if_present!("submitted_at", input.submitted_at);
+    set_if_present!("interview_at", input.interview_at);
+    set_if_present!("rejection_reason", input.rejection_reason);
+    set_if_present!("placed_at", input.placed_at);
+    set_if_present!("screening_answers", input.screening_answers);
+    set_if_present!("submission_details", input.submission_details);
+    set_if_present!("status_history", input.status_history);
+    set_if_present!("interview_feedback", input.interview_feedback);
+
+    if columns.is_empty() {
+        return Err("No fields to update".into());
+    }
+
+    columns.push(format!("last_updated = ?{}", values.len() + 1));
+    values.push(Box::new(now()));
+    values.push(Box::new(id.to_string()));
+
+    let sql = format!(
+        "UPDATE candidates SET {} WHERE id = ?{}",
+        columns.join(", "),
+        values.len()
+    );
+    let affected =
+        conn.execute(&sql, rusqlite::params_from_iter(values.iter().map(|b| b.as_ref())))?;
     if affected == 0 {
         return Err("Candidate not found".into());
     }
@@ -306,85 +346,156 @@ pub fn bulk_update_candidates_sql(
     if ids.is_empty() {
         return Ok(0);
     }
-    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
-    let sql = format!(
-        "UPDATE candidates SET submission_status = COALESCE(?1, submission_status),
-                                interview_status = COALESCE(?2, interview_status),
-                                client_feedback = COALESCE(?3, client_feedback),
-                                match_score = COALESCE(?4, match_score),
-                                candidate_status = COALESCE(?5, candidate_status),
-                                submitted_at = CASE
-                                    WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at)
-                                    WHEN ?1 IS NULL AND ?6 IS NOT NULL THEN ?6
-                                    ELSE submitted_at
-                                END,
-                                interview_at = CASE
-                                    WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at)
-                                    WHEN ?1 IS NULL AND ?7 IS NOT NULL THEN ?7
-                                    ELSE interview_at
-                                END,
-                                rejection_reason = CASE
-                                    WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason)
-                                    WHEN ?1 IS NULL AND ?8 IS NOT NULL THEN ?8
-                                    ELSE rejection_reason
-                                END,
-                                placed_at = CASE
-                                    WHEN ?1 = 'placed' THEN COALESCE(?9, placed_at)
-                                    WHEN ?1 IS NULL AND ?9 IS NOT NULL THEN ?9
-                                    ELSE placed_at
-                                END,
-                                status_history = COALESCE(?10, status_history),
-                                interview_feedback = COALESCE(?11, interview_feedback),
-                                last_updated = ?12
-         WHERE id IN ({})",
-        placeholders.join(",")
-    );
-    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
-        Box::new(patch.submission_status.clone()),
-        Box::new(patch.interview_status.clone()),
-        Box::new(patch.client_feedback.clone()),
-        Box::new(patch.match_score),
-        Box::new(patch.candidate_status.clone()),
-        Box::new(patch.submitted_at.clone()),
-        Box::new(patch.interview_at.clone()),
-        Box::new(patch.rejection_reason.clone()),
-        Box::new(patch.placed_at.clone()),
-        Box::new(patch.status_history.clone()),
-        Box::new(patch.interview_feedback.clone()),
-        Box::new(now()),
-    ];
-    for id in ids {
-        p.push(Box::new(id.clone()));
+    let now_str = now();
+    let mut total_affected = 0;
+    for chunk in ids.chunks(500) {
+        let placeholders: Vec<String> = chunk.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "UPDATE candidates SET submission_status = COALESCE(?1, submission_status),
+                                    interview_status = COALESCE(?2, interview_status),
+                                    client_feedback = COALESCE(?3, client_feedback),
+                                    match_score = COALESCE(?4, match_score),
+                                    candidate_status = COALESCE(?5, candidate_status),
+                                    submitted_at = CASE
+                                        WHEN ?1 = 'submitted' THEN COALESCE(?6, submitted_at)
+                                        WHEN ?1 IS NULL AND ?6 IS NOT NULL THEN ?6
+                                        ELSE submitted_at
+                                    END,
+                                    interview_at = CASE
+                                        WHEN ?1 = 'interview' THEN COALESCE(?7, interview_at)
+                                        WHEN ?1 IS NULL AND ?7 IS NOT NULL THEN ?7
+                                        ELSE interview_at
+                                    END,
+                                    rejection_reason = CASE
+                                        WHEN ?1 = 'rejected' THEN COALESCE(?8, rejection_reason)
+                                        WHEN ?1 IS NULL AND ?8 IS NOT NULL THEN ?8
+                                        ELSE rejection_reason
+                                    END,
+                                    placed_at = CASE
+                                        WHEN ?1 = 'placed' THEN COALESCE(?9, placed_at)
+                                        WHEN ?1 IS NULL AND ?9 IS NOT NULL THEN ?9
+                                        ELSE placed_at
+                                    END,
+                                    status_history = COALESCE(?10, status_history),
+                                    interview_feedback = COALESCE(?11, interview_feedback),
+                                    last_updated = ?12
+             WHERE id IN ({})",
+            placeholders.join(",")
+        );
+        let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
+            Box::new(patch.submission_status.clone()),
+            Box::new(patch.interview_status.clone()),
+            Box::new(patch.client_feedback.clone()),
+            Box::new(patch.match_score),
+            Box::new(patch.candidate_status.clone()),
+            Box::new(patch.submitted_at.clone()),
+            Box::new(patch.interview_at.clone()),
+            Box::new(patch.rejection_reason.clone()),
+            Box::new(patch.placed_at.clone()),
+            Box::new(patch.status_history.clone()),
+            Box::new(patch.interview_feedback.clone()),
+            Box::new(now_str.clone()),
+        ];
+        for id in chunk {
+            p.push(Box::new(id.clone()));
+        }
+        total_affected +=
+            conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
     }
-    let affected = conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
-    Ok(affected)
+    Ok(total_affected)
 }
 
 #[tauri::command]
 pub fn delete_candidate(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let path: Option<String> = conn
+        .query_row(
+            "SELECT resume_path FROM candidates WHERE id = ?1",
+            params![id],
+            |r| r.get(0),
+        )
+        .ok();
+
     conn.execute("DELETE FROM candidates WHERE id = ?1", params![id])?;
+
+    if let Some(p) = path {
+        let other_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM candidates WHERE resume_path = ?1",
+                params![&p],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if other_count == 0 {
+            let _ = std::fs::remove_file(p);
+        }
+    }
     Ok(())
 }
 
 #[tauri::command]
 pub fn delete_candidates(state: State<'_, AppState>, ids: Vec<String>) -> AppResult<usize> {
-    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let mut conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     if ids.is_empty() {
         return Ok(0);
     }
-    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
-    let sql = format!(
-        "DELETE FROM candidates WHERE id IN ({})",
-        placeholders.join(",")
-    );
-    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    for id in &ids {
-        p.push(Box::new(id.clone()));
+
+    // Collect resume paths for candidates being deleted
+    let mut paths_to_check: Vec<String> = Vec::new();
+    for chunk in ids.chunks(500) {
+        let placeholders: Vec<String> = chunk.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "SELECT resume_path FROM candidates WHERE id IN ({}) AND resume_path IS NOT NULL",
+            placeholders.join(",")
+        );
+        let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        for id in chunk {
+            p.push(Box::new(id.clone()));
+        }
+        if let Ok(mut stmt) = conn.prepare(&sql) {
+            if let Ok(rows) = stmt.query_map(
+                rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())),
+                |r| r.get::<_, String>(0),
+            ) {
+                for path in rows.flatten() {
+                    paths_to_check.push(path);
+                }
+            }
+        }
     }
-    let affected =
-        conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
-    Ok(affected)
+
+    let tx = conn.transaction()?;
+    let mut total_affected = 0;
+    for chunk in ids.chunks(500) {
+        let placeholders: Vec<String> = chunk.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "DELETE FROM candidates WHERE id IN ({})",
+            placeholders.join(",")
+        );
+        let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        for id in chunk {
+            p.push(Box::new(id.clone()));
+        }
+        total_affected +=
+            tx.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
+    }
+    tx.commit()?;
+
+    // Clean up unreferenced resume files
+    for p in paths_to_check {
+        let other_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM candidates WHERE resume_path = ?1",
+                params![&p],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if other_count == 0 {
+            let _ = std::fs::remove_file(p);
+        }
+    }
+
+    Ok(total_affected)
 }
 
 #[tauri::command]
@@ -409,11 +520,11 @@ pub fn get_candidates_with_job(
     }
     if let Some(s) = &search {
         conditions.push(
-            "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.location,'') LIKE ? ESCAPE '\\' OR COALESCE(j.title,'') LIKE ? ESCAPE '\\')"
+            "(c.name LIKE ? ESCAPE '\\' OR COALESCE(c.email,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_company,'') LIKE ? ESCAPE '\\' OR COALESCE(c.current_title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.location,'') LIKE ? ESCAPE '\\' OR COALESCE(j.title,'') LIKE ? ESCAPE '\\' OR COALESCE(c.submission_details,'') LIKE ? ESCAPE '\\')"
                 .to_string(),
         );
         let p = like_pattern(s.trim());
-        for _ in 0..6 {
+        for _ in 0..7 {
             params.push(Box::new(p.clone()));
         }
     }
@@ -425,13 +536,16 @@ pub fn get_candidates_with_job(
     }
     sql.push_str(" ORDER BY c.last_updated DESC");
 
+    // SQLite requires a LIMIT clause for OFFSET to take effect.
     if let Some(lim) = limit {
         sql.push_str(" LIMIT ?");
         params.push(Box::new(lim));
-        if let Some(off) = offset {
-            sql.push_str(" OFFSET ?");
-            params.push(Box::new(off));
-        }
+    } else if offset.is_some() {
+        sql.push_str(" LIMIT -1");
+    }
+    if let Some(off) = offset {
+        sql.push_str(" OFFSET ?");
+        params.push(Box::new(off));
     }
 
     let mut stmt = conn.prepare(&sql)?;

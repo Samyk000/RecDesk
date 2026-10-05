@@ -47,7 +47,6 @@ pub fn get_jobs(
     search: Option<String>,
 ) -> AppResult<Vec<JobWithStats>> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let _ = auto_hold_stale_jobs(&conn);
     let mut conditions: Vec<String> = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 
@@ -92,35 +91,39 @@ pub fn get_job(state: State<'_, AppState>, id: String) -> AppResult<JobWithStats
     fetch_job(&conn, &id)
 }
 
-#[tauri::command]
-pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobWithStats> {
-    let client_id = input.client_id.trim().to_string();
-    if client_id.is_empty() {
-        return Err("Client is required".into());
-    }
-    let job_id = input.job_id.trim().to_string();
-    if job_id.is_empty() {
-        return Err("Job ID cannot be empty".into());
-    }
-    let title = input.title.trim().to_string();
-    if title.is_empty() {
-        return Err("Job title cannot be empty".into());
-    }
-    let status_raw = input.status.as_deref().unwrap_or("active").trim().to_lowercase();
-    let status = match status_raw.as_str() {
+fn normalize_status(raw: &str) -> String {
+    match raw.trim().to_lowercase().as_str() {
         "on_hold" => "on_hold".to_string(),
         "closed" => "closed".to_string(),
         _ => "active".to_string(),
-    };
+    }
+}
+
+#[tauri::command]
+pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobWithStats> {
+    let client_id = input.client_id.unwrap_or_default().trim().to_string();
+    if client_id.is_empty() {
+        return Err("Client is required".into());
+    }
+    let job_id = input.job_id.unwrap_or_default().trim().to_string();
+    if job_id.is_empty() {
+        return Err("Job ID cannot be empty".into());
+    }
+    let title = input.title.unwrap_or_default().trim().to_string();
+    if title.is_empty() {
+        return Err("Job title cannot be empty".into());
+    }
+    let status = normalize_status(input.status.flatten().as_deref().unwrap_or("active"));
 
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let mut closed_at = input.closed_at.flatten();
+    if status == "closed" && closed_at.is_none() {
+        closed_at = Some(now());
+    }
+    let boolean_strings = input.boolean_strings.unwrap_or_default();
+    let screening_questions = input.screening_questions.unwrap_or_default();
     let id = new_id();
     let ts = now();
-    let closed_at = if status == "closed" {
-        input.closed_at.or_else(|| Some(now()))
-    } else {
-        input.closed_at
-    };
     conn.execute(
         "INSERT INTO jobs (id, client_id, job_id, title, location, work_model, contract_type,
                           bill_rate, pay_rate,
@@ -132,17 +135,17 @@ pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobW
             client_id,
             job_id,
             title,
-            input.location,
-            input.work_model,
-            input.contract_type,
-            input.bill_rate,
-            input.pay_rate,
+            input.location.flatten(),
+            input.work_model.flatten(),
+            input.contract_type.flatten(),
+            input.bill_rate.flatten(),
+            input.pay_rate.flatten(),
             status,
-            input.refined_jd,
-            serialize_bools(&input.boolean_strings),
-            input.candidate_pitch,
-            serialize_questions(&input.screening_questions),
-            input.notes,
+            input.refined_jd.flatten(),
+            serialize_bools(&boolean_strings),
+            input.candidate_pitch.flatten(),
+            serialize_questions(&screening_questions),
+            input.notes.flatten(),
             ts,
             closed_at,
             conn.query_row("SELECT COALESCE(MAX(sort_order), -1) + 1 FROM jobs", [], |r| r.get::<_, i64>(0))?
@@ -153,62 +156,108 @@ pub fn create_job(state: State<'_, AppState>, input: JobInput) -> AppResult<JobW
 
 #[tauri::command]
 pub fn update_job(state: State<'_, AppState>, id: String, input: JobInput) -> AppResult<JobWithStats> {
-    let client_id = input.client_id.trim().to_string();
-    if client_id.is_empty() {
-        return Err("Client is required".into());
-    }
-    let job_id = input.job_id.trim().to_string();
-    if job_id.is_empty() {
-        return Err("Job ID cannot be empty".into());
-    }
-    let title = input.title.trim().to_string();
-    if title.is_empty() {
-        return Err("Job title cannot be empty".into());
-    }
-    let status_raw = input.status.as_deref().unwrap_or("active").trim().to_lowercase();
-    let status = match status_raw.as_str() {
-        "on_hold" => "on_hold".to_string(),
-        "closed" => "closed".to_string(),
-        _ => "active".to_string(),
-    };
-
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
-    let closed_at = if status == "closed" {
-        input.closed_at.or_else(|| Some(now()))
+    update_job_in(&conn, &id, &input)?;
+    fetch_job(&conn, &id)
+}
+
+/// Sparse update: only the keys present in `input` are written, so two
+/// concurrent field editors can no longer clobber each other's columns.
+pub fn update_job_in(
+    conn: &rusqlite::Connection,
+    id: &str,
+    input: &JobInput,
+) -> AppResult<JobWithStats> {
+    let mut columns: Vec<String> = Vec::new();
+    let mut values: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    macro_rules! set_if_present {
+        ($col:expr, $val:expr) => {
+            if let Some(v) = &$val {
+                columns.push(format!("{} = ?{}", $col, values.len() + 1));
+                values.push(Box::new(v.clone()));
+            }
+        };
+    }
+
+    if let Some(raw) = &input.client_id {
+        let v = raw.trim().to_string();
+        if v.is_empty() {
+            return Err("Client is required".into());
+        }
+        columns.push(format!("client_id = ?{}", values.len() + 1));
+        values.push(Box::new(v));
+    }
+    if let Some(raw) = &input.job_id {
+        let v = raw.trim().to_string();
+        if v.is_empty() {
+            return Err("Job ID cannot be empty".into());
+        }
+        columns.push(format!("job_id = ?{}", values.len() + 1));
+        values.push(Box::new(v));
+    }
+    if let Some(raw) = &input.title {
+        let v = raw.trim().to_string();
+        if v.is_empty() {
+            return Err("Job title cannot be empty".into());
+        }
+        columns.push(format!("title = ?{}", values.len() + 1));
+        values.push(Box::new(v));
+    }
+
+    set_if_present!("location", input.location);
+    set_if_present!("work_model", input.work_model);
+    set_if_present!("contract_type", input.contract_type);
+    set_if_present!("bill_rate", input.bill_rate);
+    set_if_present!("pay_rate", input.pay_rate);
+    set_if_present!("refined_jd", input.refined_jd);
+    set_if_present!("candidate_pitch", input.candidate_pitch);
+    set_if_present!("notes", input.notes);
+
+    if let Some(b) = &input.boolean_strings {
+        columns.push(format!("boolean_strings = ?{}", values.len() + 1));
+        values.push(Box::new(serialize_bools(b)));
+    }
+    if let Some(q) = &input.screening_questions {
+        columns.push(format!("screening_questions = ?{}", values.len() + 1));
+        values.push(Box::new(serialize_questions(q)));
+    }
+
+    // status stays coupled to closed_at: closing stamps it, reopening clears it.
+    if let Some(Some(st)) = &input.status {
+        let status = normalize_status(st);
+        columns.push(format!("status = ?{}", values.len() + 1));
+        values.push(Box::new(status.clone()));
+        let closed_at: Option<String> = if status == "closed" {
+            input.closed_at.clone().and_then(|v| v).or_else(|| Some(now()))
+        } else {
+            None
+        };
+        columns.push(format!("closed_at = ?{}", values.len() + 1));
+        values.push(Box::new(closed_at));
     } else {
-        None
-    };
-    let affected = conn.execute(
-        "UPDATE jobs SET client_id = ?1, job_id = ?2, title = ?3, location = ?4, work_model = ?5,
-                         contract_type = ?6, bill_rate = ?7, pay_rate = ?8, status = ?9,
-                         refined_jd = ?10, boolean_strings = ?11,
-                         candidate_pitch = ?12, screening_questions = ?13, notes = ?14,
-                         updated_at = ?15, closed_at = ?16
-         WHERE id = ?17",
-        params![
-            client_id,
-            job_id,
-            title,
-            input.location,
-            input.work_model,
-            input.contract_type,
-            input.bill_rate,
-            input.pay_rate,
-            status,
-            input.refined_jd,
-            serialize_bools(&input.boolean_strings),
-            input.candidate_pitch,
-            serialize_questions(&input.screening_questions),
-            input.notes,
-            now(),
-            closed_at,
-            id
-        ],
-    )?;
+        set_if_present!("closed_at", input.closed_at);
+    }
+
+    if columns.is_empty() {
+        return Err("No fields to update".into());
+    }
+
+    columns.push(format!("updated_at = ?{}", values.len() + 1));
+    values.push(Box::new(now()));
+    values.push(Box::new(id.to_string()));
+
+    let sql = format!(
+        "UPDATE jobs SET {} WHERE id = ?{}",
+        columns.join(", "),
+        values.len()
+    );
+    let affected =
+        conn.execute(&sql, rusqlite::params_from_iter(values.iter().map(|b| b.as_ref())))?;
     if affected == 0 {
         return Err("Job not found".into());
     }
-    fetch_job(&conn, &id)
+    fetch_job(conn, id)
 }
 
 #[tauri::command]
@@ -250,22 +299,27 @@ pub fn bulk_update_jobs(
 
 #[tauri::command]
 pub fn delete_jobs(state: State<'_, AppState>, ids: Vec<String>) -> AppResult<usize> {
-    let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let mut conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     if ids.is_empty() {
         return Ok(0);
     }
-    let placeholders: Vec<String> = ids.iter().map(|_| "?".to_string()).collect();
-    let sql = format!(
-        "DELETE FROM jobs WHERE id IN ({})",
-        placeholders.join(",")
-    );
-    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
-    for id in &ids {
-        p.push(Box::new(id.clone()));
+    let tx = conn.transaction()?;
+    let mut total_affected = 0;
+    for chunk in ids.chunks(500) {
+        let placeholders: Vec<String> = chunk.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "DELETE FROM jobs WHERE id IN ({})",
+            placeholders.join(",")
+        );
+        let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+        for id in chunk {
+            p.push(Box::new(id.clone()));
+        }
+        total_affected +=
+            tx.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
     }
-    let affected =
-        conn.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
-    Ok(affected)
+    tx.commit()?;
+    Ok(total_affected)
 }
 
 
