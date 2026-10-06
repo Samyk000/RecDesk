@@ -170,7 +170,7 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-border bg-surface-hover/80 px-2 text-[11.5px] text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
+          "flex h-8.5 w-full items-center justify-between gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer shadow-2xs",
           open && "ring-1 ring-primary/50 border-primary/50",
         )}
       >

@@ -86,7 +86,7 @@ export interface InterviewFeedback {
 
 export interface Candidate {
   id: string;
-  job_id: string;
+  job_id?: string | null;
   name: string;
   email?: string | null;
   phone?: string | null;
@@ -115,7 +115,7 @@ export interface Candidate {
 }
 
 export interface CandidateInput {
-  job_id: string;
+  job_id?: string | null;
   name: string;
   email?: string | null;
   phone?: string | null;

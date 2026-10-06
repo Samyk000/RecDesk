@@ -181,12 +181,13 @@ mod tests {
         assert_eq!(cand.interview_at, None);
         assert_eq!(cand.rejection_reason, None);
 
-        // cascade delete on job delete
+        // job deletion preserves candidate with job_id set to NULL
         conn.execute("DELETE FROM jobs WHERE id = ?1", params![&jid]).unwrap();
-        let remaining: i64 = conn
-            .query_row("SELECT COUNT(*) FROM candidates", [], |r| r.get(0))
+        let (remaining, orphaned_job_id): (i64, Option<String>) = conn
+            .query_row("SELECT COUNT(*), job_id FROM candidates WHERE id = ?1", params![&cand_id], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap();
-        assert_eq!(remaining, 0);
+        assert_eq!(remaining, 1);
+        assert_eq!(orphaned_job_id, None);
     }
 
     #[test]
@@ -687,12 +688,12 @@ mod tests {
     fn schema_user_version_is_set() {
         let conn = test_conn();
         let version: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(version, 4);
+        assert_eq!(version, 6);
 
         // Running create_schema again should be a safe no-op
         schema::create_schema(&conn).unwrap();
         let version2: i32 = conn.query_row("PRAGMA user_version", [], |r| r.get(0)).unwrap();
-        assert_eq!(version2, 4);
+        assert_eq!(version2, 6);
     }
 
     #[test]
@@ -1302,6 +1303,195 @@ Built high-throughput data platforms with Snowplow, Airbyte, and ClickHouse.
         );
 
         let _ = std::fs::remove_dir_all(&temp_dir);
+    }
+
+    #[test]
+    fn v5_json_integrity_triggers_reject_malformed_json() {
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let ts = now();
+        conn.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (?1, 'Acme Corp', ?2, ?2)",
+            params![cid, ts],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, created_at, updated_at) VALUES (?1, ?2, 'J1', 'Engineer', 'active', ?3, ?3)",
+            params![jid, cid, ts],
+        ).unwrap();
+
+        let cand_id = new_id();
+
+        // Valid JSON insert succeeds
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, submission_details, screening_answers, status_history, interview_feedback, date_added, last_updated)
+             VALUES (?1, ?2, 'Valid Json Cand', '{}', '{}', '[]', '{}', ?3, ?3)",
+            params![cand_id, jid, ts],
+        ).unwrap();
+
+        // Invalid JSON insert fails due to trigger
+        let invalid_insert = conn.execute(
+            "INSERT INTO candidates (id, job_id, name, submission_details, date_added, last_updated)
+             VALUES ('bad_1', ?1, 'Bad Cand', '{not-json', ?2, ?2)",
+            params![jid, ts],
+        );
+        assert!(invalid_insert.is_err(), "Trigger should reject malformed JSON in submission_details");
+
+        // Invalid JSON update fails due to trigger
+        let invalid_update = conn.execute(
+            "UPDATE candidates SET status_history = 'invalid-json' WHERE id = ?1",
+            params![cand_id],
+        );
+        assert!(invalid_update.is_err(), "Trigger should reject malformed JSON in status_history");
+
+        // Clean up
+        conn.execute("DELETE FROM clients WHERE id = ?1", params![cid]).unwrap();
+    }
+
+    #[test]
+    fn recent_jobs_ordered_by_updated_at() {
+        let conn = test_conn();
+        let cid = new_id();
+        let ts_old = "2026-01-01T10:00:00Z";
+        let ts_new = "2026-02-01T10:00:00Z";
+        let ts_recent = "2026-03-01T10:00:00Z";
+        conn.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (?1, 'Acme', ?2, ?2)",
+            params![cid, ts_old],
+        ).unwrap();
+
+        let job_old_created = new_id();
+        let job_new_created = new_id();
+
+        // Job 1 created long ago, but updated recently
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-OLD', 'Old Job Updated Recently', 'active', '[]', '[]', ?3, ?4)",
+            params![job_old_created, cid, ts_old, ts_recent],
+        ).unwrap();
+
+        // Job 2 created more recently than Job 1's creation, but updated before Job 1's recent update
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-NEW', 'New Job Older Update', 'active', '[]', '[]', ?3, ?3)",
+            params![job_new_created, cid, ts_new],
+        ).unwrap();
+
+        let mut stmt = conn.prepare(&format!(
+            "{} WHERE j.status = 'active' ORDER BY j.updated_at DESC, j.created_at DESC LIMIT 8",
+            crate::commands::job::JOB_SELECT
+        )).unwrap();
+        let rows = stmt
+            .query_map([], crate::rows::row_to_job_with_stats)
+            .unwrap()
+            .collect::<Result<Vec<_>, rusqlite::Error>>()
+            .unwrap();
+
+        assert_eq!(rows.len(), 2);
+        // The job with the fresher updated_at MUST be first
+        assert_eq!(rows[0].job.id, job_old_created);
+        assert_eq!(rows[1].job.id, job_new_created);
+    }
+
+    #[test]
+    fn delete_job_preserves_candidates_as_unassigned() {
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let ts = now();
+        conn.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (?1, 'Acme', ?2, ?2)",
+            params![cid, ts],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-1', 'Senior Dev', 'active', '[]', '[]', ?3, ?3)",
+            params![jid, cid, ts],
+        ).unwrap();
+
+        let cand_id = new_id();
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, submission_status, candidate_status, recruiter_notes, date_added, last_updated)
+             VALUES (?1, ?2, 'Jane Doe', 'sourced', 'active', 'Top talent', ?3, ?3)",
+            params![cand_id, jid, ts],
+        ).unwrap();
+
+        // Detach and delete job (simulating delete_job)
+        let ts_del = now();
+        conn.execute(
+            "UPDATE candidates SET job_id = NULL, last_updated = ?1 WHERE job_id = ?2",
+            params![ts_del, jid],
+        ).unwrap();
+        conn.execute("DELETE FROM jobs WHERE id = ?1", params![jid]).unwrap();
+
+        // Candidate must STILL exist in database
+        let cand: crate::models::Candidate = conn.query_row(
+            &format!("{} WHERE c.id = ?1", crate::commands::candidate::CANDIDATE_SELECT),
+            params![cand_id],
+            row_to_candidate,
+        ).unwrap();
+
+        assert_eq!(cand.id, cand_id);
+        assert_eq!(cand.name, "Jane Doe");
+        assert_eq!(cand.job_id, None);
+        assert_eq!(cand.recruiter_notes.as_deref(), Some("Top talent"));
+
+        // Query with LEFT JOIN CANDIDATE_SELECT_JOIN returns unassigned candidate
+        let mut stmt = conn.prepare(&format!(
+            "{} WHERE c.id = ?1",
+            crate::commands::candidate::CANDIDATE_SELECT_JOIN
+        )).unwrap();
+        let cand_with_job = stmt.query_row(
+            params![cand_id],
+            crate::rows::row_to_candidate_with_job,
+        ).unwrap();
+
+        assert_eq!(cand_with_job.candidate.id, cand_id);
+        assert_eq!(cand_with_job.candidate.job_id, None);
+        assert_eq!(cand_with_job.job_title, "Unassigned");
+        assert_eq!(cand_with_job.job_id_ref, "—");
+        assert_eq!(cand_with_job.client_name, "—");
+    }
+
+    #[test]
+    fn reassign_unassigned_candidate_bumps_target_job_updated_at() {
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let ts_initial = "2026-01-01T00:00:00Z";
+        conn.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (?1, 'Acme', ?2, ?2)",
+            params![cid, ts_initial],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-2', 'Backend Engineer', 'active', '[]', '[]', ?3, ?3)",
+            params![jid, cid, ts_initial],
+        ).unwrap();
+
+        let cand_id = new_id();
+        // Candidate is unassigned initially
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, submission_status, candidate_status, date_added, last_updated)
+             VALUES (?1, NULL, 'Alex Smith', 'sourced', 'active', ?2, ?2)",
+            params![cand_id, ts_initial],
+        ).unwrap();
+
+        // Assign to job via update_candidate_in
+        let input = CandidateInput {
+            job_id: Some(jid.clone()),
+            ..Default::default()
+        };
+        let updated = update_candidate_in(&conn, &cand_id, &input).unwrap();
+        assert_eq!(updated.job_id.as_deref(), Some(jid.as_str()));
+
+        // Target job's updated_at must be bumped beyond ts_initial
+        let job_updated_at: String = conn.query_row(
+            "SELECT updated_at FROM jobs WHERE id = ?1",
+            params![jid],
+            |r| r.get(0),
+        ).unwrap();
+        assert_ne!(job_updated_at, ts_initial);
     }
 }
 

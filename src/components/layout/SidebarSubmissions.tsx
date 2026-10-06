@@ -50,7 +50,7 @@ function formatSubmissionDate(iso?: string | null): {
 
 export function SidebarSubmissions() {
   const navigate = useNavigate();
-  const { data: candidates } = useCandidatesWithJob();
+  const { data: candidates } = useCandidatesWithJob(undefined, "submitted");
 
   // Collapsible state (closed/collapsed by default, persisted in localStorage)
   const [collapsed, setCollapsed] = useState(() => {
@@ -79,9 +79,12 @@ export function SidebarSubmissions() {
       if (timeB !== timeA) {
         return timeB - timeA;
       }
-      const updatedA = a.last_updated ? new Date(a.last_updated).getTime() : 0;
-      const updatedB = b.last_updated ? new Date(b.last_updated).getTime() : 0;
-      return updatedB - updatedA;
+      const createdA = a.date_added ? new Date(a.date_added).getTime() : 0;
+      const createdB = b.date_added ? new Date(b.date_added).getTime() : 0;
+      if (createdB !== createdA) {
+        return createdB - createdA;
+      }
+      return a.name.localeCompare(b.name);
     });
   }, [candidates]);
 

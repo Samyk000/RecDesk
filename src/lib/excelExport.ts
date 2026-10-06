@@ -107,7 +107,7 @@ export function generateExcelWorkbook(envelope: ExportEnvelope): Uint8Array {
   // 3. Candidates Sheet
   const candidateRows = envelope.candidates.map((c: Candidate) => ({
     "Candidate Name": c.name || "",
-    "Job Code or Title": jobMap.get(c.job_id) || "",
+    "Job Code or Title": (c.job_id ? jobMap.get(c.job_id) : "") || "Unassigned",
     Email: c.email || "",
     Phone: c.phone || "",
     Location: c.location || "",

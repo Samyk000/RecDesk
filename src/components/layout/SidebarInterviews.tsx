@@ -117,7 +117,7 @@ interface SidebarInterviewItem {
 
 export function SidebarInterviews() {
   const navigate = useNavigate();
-  const { data: candidates } = useCandidatesWithJob();
+  const { data: candidates } = useCandidatesWithJob(undefined, "interview");
 
   // Collapsible state (closed/collapsed by default, persisted in localStorage)
   const [collapsed, setCollapsed] = useState(() => {
@@ -162,7 +162,8 @@ export function SidebarInterviews() {
       if (!timeA) return 1;
       if (!timeB) return -1;
       if (timeA !== timeB) return timeB - timeA;
-      return b.roundNumber - a.roundNumber;
+      if (b.roundNumber !== a.roundNumber) return b.roundNumber - a.roundNumber;
+      return a.candidate.name.localeCompare(b.candidate.name);
     });
   }, [candidates]);
 

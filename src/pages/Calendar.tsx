@@ -8,10 +8,9 @@ import {
   MagnifyingGlass,
   X,
 } from "@phosphor-icons/react";
-import { useCandidatesWithJob, useUpdateCandidate } from "../hooks/useQueries";
+import { useCandidatesWithJob } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { QueryErrorState } from "../components/common/QueryErrorState";
-import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DetailDrawer } from "../components/common/DetailDrawer";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
@@ -25,14 +24,7 @@ import {
   type CalendarEventOutcome,
   type CalendarAnalyticsScope,
 } from "../lib/calendarUtils";
-import {
-  toCandidateInput,
-  parseInterviewRounds,
-  serializeInterviewRounds,
-  getActiveInterviewSchedule,
-} from "../lib/candidateUtils";
 import { cn, nameInitials } from "../lib/utils";
-import { toast } from "sonner";
 
 const MONTH_NAMES = [
   "January",
@@ -50,6 +42,35 @@ const MONTH_NAMES = [
 ];
 
 const WEEKDAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getOutcomeRemarksStyle(outcome: CalendarEventOutcome): string {
+  if (outcome.status === "interview" || outcome.dotColor === "violet") {
+    return "border-violet-500/50 bg-violet-500/5 text-fg/85 dark:text-fg/90";
+  }
+  if (outcome.status === "submitted" || outcome.dotColor === "amber") {
+    return "border-amber-500/50 bg-amber-500/5 text-fg/85 dark:text-fg/90";
+  }
+  if (outcome.status === "placed" || outcome.dotColor === "emerald") {
+    return "border-emerald-500/50 bg-emerald-500/5 text-fg/85 dark:text-fg/90";
+  }
+  if (outcome.status === "rejected" || outcome.dotColor === "red") {
+    return "border-rose-500/50 bg-rose-500/5 text-fg/85 dark:text-fg/90";
+  }
+  return "border-border/60 bg-surface-hover/70 text-fg/85 dark:text-fg/90";
+}
+
+function getEventRemarksStyle(ev: CalendarEvent): string {
+  if (ev.type === "interview" || ev.eventOutcome.status === "interview") {
+    return "border-violet-500/50 bg-violet-500/5 text-fg/85 dark:text-fg/90";
+  }
+  if (ev.type === "submission" || ev.eventOutcome.status === "submitted") {
+    return "border-amber-500/50 bg-amber-500/5 text-fg/85 dark:text-fg/90";
+  }
+  if (ev.type === "placement" || ev.eventOutcome.status === "placed") {
+    return "border-emerald-500/50 bg-emerald-500/5 text-fg/85 dark:text-fg/90";
+  }
+  return getOutcomeRemarksStyle(ev.eventOutcome);
+}
 
 function OutcomeIndicator({ outcome }: { outcome: CalendarEventOutcome }) {
   const dotBg =
@@ -101,13 +122,18 @@ function OutcomeIndicator({ outcome }: { outcome: CalendarEventOutcome }) {
           <span className={headerColor}>{outcome.title}</span>
         </div>
         {outcome.remarks && (
-          <p className="mt-1 text-[11px] leading-relaxed text-fg/80 font-normal bg-surface-hover/70 rounded px-2 py-1 border border-border/50 break-words">
+          <p
+            className={cn(
+              "mt-1 text-[11px] leading-relaxed font-normal rounded px-2 py-1 border break-words",
+              getOutcomeRemarksStyle(outcome),
+            )}
+          >
             "{outcome.remarks}"
           </p>
         )}
         {outcome.date && (
           <div className="mt-1.5 flex items-center justify-between text-[9.5px] text-fg-subtle border-t border-border/50 pt-1 font-medium">
-            <span>Recorded date:</span>
+            <span>Date:</span>
             <span className="tabular-nums font-mono">{outcome.date}</span>
           </div>
         )}
@@ -118,7 +144,6 @@ function OutcomeIndicator({ outcome }: { outcome: CalendarEventOutcome }) {
 
 export function Calendar() {
   const { data: candidates, isLoading, isError, refetch } = useCandidatesWithJob();
-  const updateCandidate = useUpdateCandidate();
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDateKey, setSelectedDateKey] = useState<string>(
@@ -129,7 +154,6 @@ export function Calendar() {
   const [viewScope, setViewScope] = useState<"day" | "month">("day");
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCandidateId, setActiveCandidateId] = useState<string | null>(null);
-  const [pendingRemove, setPendingRemove] = useState<CalendarEvent | null>(null);
 
   // Extract all historical and scheduled events (external submissions & interviews)
   const allEvents = useMemo(() => {
@@ -229,60 +253,6 @@ export function Calendar() {
       year: "numeric",
     });
   }, [selectedDateKey, viewScope, currentDate]);
-
-  // Handler to remove submission or interview entry added by mistake
-  const doRemoveEntry = async (ev: CalendarEvent) => {
-    try {
-      if (ev.type === "submission") {
-        await updateCandidate.mutateAsync({
-          id: ev.candidate.id,
-          input: {
-            ...toCandidateInput(ev.candidate),
-            submitted_at: null,
-            client_feedback: null,
-            submission_status:
-              ev.candidate.submission_status === "submitted"
-                ? "in_touch"
-                : ev.candidate.submission_status,
-          },
-        });
-        toast.success(`Removed submission entry for ${ev.candidate.name}`);
-      } else if (ev.type === "interview") {
-        const rounds = parseInterviewRounds(
-          ev.candidate.interview_status,
-          ev.candidate.interview_at,
-        );
-        const remainingRounds = rounds.filter((r) => r.round_number !== ev.roundNumber);
-
-        await updateCandidate.mutateAsync({
-          id: ev.candidate.id,
-          input: {
-            ...toCandidateInput(ev.candidate),
-            interview_status:
-              remainingRounds.length > 0 ? serializeInterviewRounds(remainingRounds) : null,
-            interview_at: getActiveInterviewSchedule(remainingRounds),
-            submission_status:
-              remainingRounds.length === 0 && ev.candidate.submission_status === "interview"
-                ? "submitted"
-                : ev.candidate.submission_status,
-          },
-        });
-        toast.success(`Removed interview entry for ${ev.candidate.name}`);
-      } else if (ev.type === "placement") {
-        await updateCandidate.mutateAsync({
-          id: ev.candidate.id,
-          input: {
-            ...toCandidateInput(ev.candidate),
-            placed_at: null,
-            submission_status: "interview",
-          },
-        });
-        toast.success(`Cleared placement date for ${ev.candidate.name}`);
-      }
-    } catch {
-      toast.error("Failed to remove calendar entry");
-    }
-  };
 
   if (isLoading || !candidates)
     return isError ? (
@@ -550,12 +520,50 @@ export function Calendar() {
                   {/* Event Indicator Dots / Pills */}
                   <div className="mt-1 flex w-full flex-col gap-0.5 min-h-0 overflow-hidden">
                     {subCount > 0 && (
-                      <div className="flex items-center gap-1 rounded bg-amber-500/10 px-1 py-0.5 text-[9.5px] font-medium text-amber-700 dark:text-amber-300 truncate">
-                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
-                        <span className="truncate">
-                          {subCount} Sub{subCount > 1 ? "s" : ""}
-                        </span>
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 rounded bg-amber-500/10 px-1 py-0.5 text-[9.5px] font-medium text-amber-700 dark:text-amber-300 truncate cursor-default">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500 shrink-0" />
+                            <span className="truncate">
+                              {subCount} Sub{subCount > 1 ? "s" : ""}
+                            </span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="max-w-[280px] p-2.5 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 text-left"
+                        >
+                          <p className="text-[11px] font-bold text-fg mb-1 pb-1 border-b border-border/50">
+                            Submissions ({cell.dateKey})
+                          </p>
+                          <div className="space-y-1.5">
+                            {cell.events
+                              .filter((e) => e.type === "submission")
+                              .map((ev) => (
+                                <div key={ev.id} className="text-xs">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-semibold text-fg truncate">
+                                      {ev.candidate.name}
+                                    </span>
+                                    <span className="text-[9.5px] font-bold text-amber-600 dark:text-amber-400 shrink-0">
+                                      {ev.subStage}
+                                    </span>
+                                  </div>
+                                  {ev.eventOutcome.remarks && (
+                                    <p
+                                      className={cn(
+                                        "mt-0.5 text-[10px] font-normal italic rounded px-1.5 py-0.5 border break-words",
+                                        getEventRemarksStyle(ev),
+                                      )}
+                                    >
+                                      "{ev.eventOutcome.remarks}"
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                     {intCount > 0 && (
                       <Tooltip>
@@ -588,7 +596,12 @@ export function Calendar() {
                                     </span>
                                   </div>
                                   {ev.eventOutcome.remarks && (
-                                    <p className="mt-0.5 text-[10px] text-red-600 dark:text-red-400 font-medium italic bg-red-500/10 rounded px-1.5 py-0.5 border border-red-500/20 break-words">
+                                    <p
+                                      className={cn(
+                                        "mt-0.5 text-[10px] font-normal italic rounded px-1.5 py-0.5 border break-words",
+                                        getEventRemarksStyle(ev),
+                                      )}
+                                    >
                                       "{ev.eventOutcome.remarks}"
                                     </p>
                                   )}
@@ -599,10 +612,48 @@ export function Calendar() {
                       </Tooltip>
                     )}
                     {plcCount > 0 && (
-                      <div className="flex items-center gap-1 rounded bg-emerald-500/10 px-1 py-0.5 text-[9.5px] font-medium text-emerald-700 dark:text-emerald-300 truncate">
-                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
-                        <span className="truncate">Placed</span>
-                      </div>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1 rounded bg-emerald-500/10 px-1 py-0.5 text-[9.5px] font-medium text-emerald-700 dark:text-emerald-300 truncate cursor-default">
+                            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            <span className="truncate">Placed</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent
+                          side="top"
+                          className="max-w-[280px] p-2.5 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 text-left"
+                        >
+                          <p className="text-[11px] font-bold text-fg mb-1 pb-1 border-b border-border/50">
+                            Placements ({cell.dateKey})
+                          </p>
+                          <div className="space-y-1.5">
+                            {cell.events
+                              .filter((e) => e.type === "placement")
+                              .map((ev) => (
+                                <div key={ev.id} className="text-xs">
+                                  <div className="flex items-center justify-between gap-1">
+                                    <span className="font-semibold text-fg truncate">
+                                      {ev.candidate.name}
+                                    </span>
+                                    <span className="text-[9.5px] font-bold text-emerald-600 dark:text-emerald-400 shrink-0">
+                                      Placed
+                                    </span>
+                                  </div>
+                                  {ev.eventOutcome.remarks && (
+                                    <p
+                                      className={cn(
+                                        "mt-0.5 text-[10px] font-normal italic rounded px-1.5 py-0.5 border break-words",
+                                        getEventRemarksStyle(ev),
+                                      )}
+                                    >
+                                      "{ev.eventOutcome.remarks}"
+                                    </p>
+                                  )}
+                                </div>
+                              ))}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
                     )}
                   </div>
                 </button>
@@ -620,8 +671,7 @@ export function Calendar() {
                 {selectedDateTitle}
               </h2>
               <p className="text-[10.5px] text-fg-muted">
-                {displayedEvents.length} event{displayedEvents.length !== 1 ? "s" : ""}{" "}
-                recorded
+                {displayedEvents.length} event{displayedEvents.length !== 1 ? "s" : ""}
               </p>
             </div>
 
@@ -739,7 +789,13 @@ export function Calendar() {
                         )}
                       </p>
                       {ev.eventOutcome.remarks && (
-                        <p className="mt-1 text-[10.5px] text-red-600 dark:text-red-400 font-normal italic bg-red-500/10 rounded px-1.5 py-0.5 border border-red-500/20 truncate max-w-[280px]" title={ev.eventOutcome.remarks}>
+                        <p
+                          className={cn(
+                            "mt-1 text-[10.5px] font-normal italic rounded px-1.5 py-0.5 border truncate max-w-[280px]",
+                            getEventRemarksStyle(ev),
+                          )}
+                          title={ev.eventOutcome.remarks}
+                        >
                           "{ev.eventOutcome.remarks}"
                         </p>
                       )}
@@ -758,31 +814,19 @@ export function Calendar() {
                       </div>
                       <div className="flex items-center gap-1 text-[10px] font-medium tabular-nums text-fg-subtle">
                         {viewScope === "month" && (
-                          <span>{ev.dateKey} · </span>
+                          <span>{ev.dateKey}</span>
                         )}
-                        {ev.formattedTime ? (
+                        {viewScope === "month" && ev.formattedTime && (
+                          <span>·</span>
+                        )}
+                        {ev.formattedTime && (
                           <span className="flex items-center gap-1">
                             <Clock className="h-2.5 w-2.5 text-primary" />
                             {ev.formattedTime}
                           </span>
-                        ) : (
-                          <span>Recorded</span>
                         )}
                       </div>
                     </div>
-
-                    {/* Small X button to clear/remove accidental entry */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setPendingRemove(ev);
-                      }}
-                      className="flex h-5 w-5 items-center justify-center rounded text-fg-subtle opacity-40 hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
-                      title="Remove this calendar entry"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
                   </div>
                 </div>
               ))
@@ -799,22 +843,6 @@ export function Calendar() {
             onClose={() => setActiveCandidateId(null)}
           />
         </DetailDrawer>
-      )}
-
-      {pendingRemove && (
-        <ConfirmDialog
-          open
-          onOpenChange={(open) => !open && setPendingRemove(null)}
-          title="Remove this calendar entry?"
-          description={`${pendingRemove.type[0].toUpperCase()}${pendingRemove.type.slice(1)} entry for ${pendingRemove.candidate.name} on ${pendingRemove.dateKey} will be cleared from the candidate record.`}
-          confirmLabel="Remove"
-          destructive
-          onConfirm={() => {
-            const ev = pendingRemove;
-            setPendingRemove(null);
-            void doRemoveEntry(ev);
-          }}
-        />
       )}
     </div>
   );

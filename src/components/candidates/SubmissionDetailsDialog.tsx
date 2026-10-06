@@ -54,6 +54,11 @@ interface DefaultFieldDef {
   fromCandidate?: (c: Candidate) => string | null | undefined;
 }
 
+const CONCISE_RESUME_PERMISSION_LABEL =
+  "Permission to edit resume & align titles for client submission:";
+const CONCISE_INTERVIEW_COMMITMENT_LABEL =
+  "Availability & commitment for client interviews (next 2 weeks):";
+
 const DEFAULT_SUBMISSION_FIELDS: DefaultFieldDef[] = [
   {
     key: "legal_name",
@@ -148,10 +153,9 @@ const DEFAULT_SUBMISSION_FIELDS: DefaultFieldDef[] = [
   },
   {
     key: "resume_permission",
-    label:
-      "Do I have your permission to edit your resume, highlight relevant experience, align job titles with the client's requirements, and share the final version with you for approval before submission?",
+    label: CONCISE_RESUME_PERMISSION_LABEL,
     defaultVal: "Yes",
-    type: "textarea",
+    type: "text",
   },
   {
     key: "fte_or_contract",
@@ -171,14 +175,9 @@ const DEFAULT_SUBMISSION_FIELDS: DefaultFieldDef[] = [
   },
   {
     key: "interview_commitment",
-    label: `Availability for interview:
-We can submit only two candidates for this opportunity. Before I submit your profile, I want to ensure this is one of your top priorities. If selected, will you remain available over the next 2 weeks, respond to interview requests within 2 hours, and actively participate throughout the interview process?
-
-If possible, please also share an emergency contact number (optional) in case we're unable to reach you regarding an interview invitation.
-
-If you're not highly interested or cannot commit to this level of availability, I completely understand and would rather reserve the submission for another candidate.`,
+    label: CONCISE_INTERVIEW_COMMITMENT_LABEL,
     defaultVal: "Yes",
-    type: "textarea",
+    type: "text",
   },
   {
     key: "other_interviews_pipeline",
@@ -201,7 +200,7 @@ export function SubmissionDetailsDialog({ candidateId, open, onOpenChange }: Pro
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] w-full max-w-[650px] overflow-hidden p-0 flex flex-col">
+      <DialogContent className="max-h-[90vh] w-full max-w-[700px] overflow-hidden p-0 flex flex-col">
         {isLoading || !candidate ? (
           <div className="flex h-64 items-center justify-center">
             <Spinner />
@@ -214,111 +213,136 @@ export function SubmissionDetailsDialog({ candidateId, open, onOpenChange }: Pro
   );
 }
 
-function getCandidateFallback(key: string, label: string, candidate: Candidate): string | null {
-  if (isLegalNameRow(key, label)) return candidate.name || null;
-  if (isEmailRow(key, label)) return candidate.email || null;
-  if (isPhoneRow(key, label)) return candidate.phone || null;
-  if (isLocationRow(key, label)) return candidate.location || null;
-  if (isLinkedinRow(key, label)) return candidate.linkedin_url || null;
-  if (isCurrentTitleRow(key, label)) return candidate.current_title || null;
-  if (isCurrentCompanyRow(key, label)) return candidate.current_company || null;
-  return null;
+
+
+function normalizeRowLabel(key: string, label: string): string {
+  if (
+    key === "resume_permission" ||
+    label.toLowerCase().includes("permission to edit your resume")
+  ) {
+    return CONCISE_RESUME_PERMISSION_LABEL;
+  }
+  if (
+    key === "interview_commitment" ||
+    label.toLowerCase().includes("we can submit only two candidates")
+  ) {
+    return CONCISE_INTERVIEW_COMMITMENT_LABEL;
+  }
+  return label;
+}
+
+function isSkillsOrTechnologiesRow(key: string, label: string): boolean {
+  const normKey = key.toLowerCase();
+  const normLabel = label.trim().toLowerCase();
+  // Don't accidentally match communication_skills
+  if (normKey === "communication_skills" || normLabel.startsWith("communication skills")) {
+    return false;
+  }
+  return (
+    normKey === "skills" ||
+    normKey === "technologies" ||
+    normKey === "skills_technologies" ||
+    normLabel === "skills" ||
+    normLabel === "technologies" ||
+    normLabel === "skills & technologies" ||
+    normLabel === "skills and technologies"
+  );
 }
 
 function parseSubmissionRows(candidate: Candidate): SubmissionRowItem[] {
+  const savedByKey = new Map<
+    string,
+    { id?: string; label?: string; value: string; type?: "text" | "textarea" | "rtr" }
+  >();
+  const customRows: SubmissionRowItem[] = [];
+
   if (candidate.submission_details) {
     try {
       const parsed = JSON.parse(candidate.submission_details);
 
-      // New array format
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        return parsed.map((item: any, idx: number) => {
-          const key = item.key || `custom_${idx}`;
-          const label = item.label || "";
-          let value = item.value || "";
-          if (!value.trim()) {
-            const fallback = getCandidateFallback(key, label, candidate);
-            if (fallback) value = fallback;
+      if (Array.isArray(parsed)) {
+        for (const item of parsed) {
+          if (!item) continue;
+          const key = (item.key || "").trim();
+          const label = (item.label || "").trim();
+          if (isSkillsOrTechnologiesRow(key, label)) continue;
+
+          // Check if this matches a default field by key or label
+          const matchedDefault = DEFAULT_SUBMISSION_FIELDS.find(
+            (df) =>
+              df.key === key ||
+              df.label.toLowerCase() === label.toLowerCase() ||
+              (key === "resume_permission" && label.toLowerCase().includes("permission to edit your resume")) ||
+              (key === "interview_commitment" && label.toLowerCase().includes("we can submit only two candidates"))
+          );
+
+          if (matchedDefault) {
+            savedByKey.set(matchedDefault.key, {
+              id: item.id,
+              label: normalizeRowLabel(matchedDefault.key, label || matchedDefault.label),
+              value: item.value ?? "",
+              type: item.type,
+            });
+          } else if (key || label) {
+            customRows.push({
+              id: item.id || `custom_${customRows.length + 1}`,
+              key: key || `custom_${customRows.length + 1}`,
+              label: normalizeRowLabel(key, label),
+              value: item.value ?? "",
+              type: item.type || (label && label.length > 60 ? "textarea" : "text"),
+            });
           }
-          return {
-            id: item.id || `row_${key}_${idx}`,
-            key,
-            label,
-            value,
-            type: item.type || (label && label.length > 60 ? "textarea" : "text"),
-          };
-        });
-      }
-
-      // Legacy object format -> migrate to array
-      if (typeof parsed === "object" && parsed !== null) {
-        return DEFAULT_SUBMISSION_FIELDS.map((field, idx) => {
-          const val =
-            parsed[field.key] !== undefined && parsed[field.key] !== null
-              ? parsed[field.key]
-              : field.fromCandidate
-                ? field.fromCandidate(candidate) || field.defaultVal
-                : field.defaultVal;
-
-          return {
-            id: `field_${field.key}_${idx}`,
-            key: field.key,
-            label: field.label,
-            value: val,
-            type: field.type || (field.label.length > 60 ? "textarea" : "text"),
-          };
-        });
+        }
+      } else if (typeof parsed === "object" && parsed !== null) {
+        for (const [k, v] of Object.entries(parsed)) {
+          if (isSkillsOrTechnologiesRow(k, "")) continue;
+          if (typeof v === "string") {
+            savedByKey.set(k, { value: v });
+          }
+        }
       }
     } catch {
-      // fallback to defaults below
+      // ignore
     }
   }
 
-  // Initial fresh setup from default schema
-  return DEFAULT_SUBMISSION_FIELDS.map((field, idx) => ({
-    id: `field_${field.key}_${idx}`,
-    key: field.key,
-    label: field.label,
-    value: field.fromCandidate
-      ? field.fromCandidate(candidate) || field.defaultVal
-      : field.defaultVal,
-    type: field.type || (field.label.length > 60 ? "textarea" : "text"),
-  }));
-}
+  // Always generate all 24 default submission fields in order
+  const defaultRows: SubmissionRowItem[] = DEFAULT_SUBMISSION_FIELDS.map((field, idx) => {
+    const saved = savedByKey.get(field.key);
+    let val = saved?.value !== undefined && saved?.value !== null ? saved.value : "";
 
-/// Skills row values are a JSON string array (legacy: comma/pipe separated).
-function parseSkillsValue(val: string): string[] {
-  if (!val.trim()) return [];
-  try {
-    const parsed = JSON.parse(val);
-    if (Array.isArray(parsed)) return parsed.map((s) => String(s)).filter(Boolean);
-  } catch {
-    // legacy plain-text value
-  }
-  return val
-    .split(/[,|]/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-}
+    // If empty or never set, prefill from core candidate profile attributes or standard default value
+    if (!val.trim()) {
+      const candVal = field.fromCandidate ? field.fromCandidate(candidate) : null;
+      val = candVal || field.defaultVal;
+    }
 
-function isSkillsRow(r: SubmissionRowItem): boolean {
-  return r.key === "skills" || r.id === "skills" || r.label.trim().toLowerCase() === "skills";
+    return {
+      id: saved?.id || `field_${field.key}_${idx}`,
+      key: field.key,
+      label: saved?.label || field.label,
+      value: val,
+      type: field.type || (field.label.length > 60 ? "textarea" : "text"),
+    };
+  });
+
+  return [...defaultRows, ...customRows];
 }
 
 function formatCurrentTimestamp(): string {
   const now = new Date();
   const dateStr = now.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    year: "2-digit",
   });
   const timeStr = now.toLocaleTimeString("en-US", {
-    hour: "numeric",
+    hour: "2-digit",
     minute: "2-digit",
     hour12: true,
   });
   const tzName =
-    (localStorage.getItem("recdesk_default_tz") as string) || "EST";
+    (localStorage.getItem("recdesk_default_tz") as string) || "EDT";
   return `${dateStr} ${timeStr} ${tzName}`;
 }
 
@@ -328,11 +352,7 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [hasCopied, setHasCopied] = useState(false);
   const [editingLabelId, setEditingLabelId] = useState<string | null>(null);
-  // Nothing is written until the user actually edits: opening the dialog used
-  // to fire an autosave because the default template rows differ from stored JSON.
   const [dirty, setDirty] = useState(false);
-  // Read the freshest candidate inside the debounced effect instead of the
-  // render-time snapshot the effect closed over.
   const candidateRef = useRef(candidate);
   candidateRef.current = candidate;
 
@@ -354,10 +374,27 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     if (!dirty) return;
     const cand = candidateRef.current;
     const prevRaw = cand.submission_details || "[]";
-    const nextRaw = JSON.stringify(debouncedRows);
+    // Preserve existing skills if present so we don't wipe them out for the candidate card
+    const rowsToSave = [...debouncedRows];
+    if (cand.submission_details) {
+      try {
+        const parsed = JSON.parse(cand.submission_details);
+        if (Array.isArray(parsed)) {
+          const skillsRow = parsed.find((r: any) =>
+            isSkillsOrTechnologiesRow(r.key || "", r.label || "")
+          );
+          if (skillsRow) {
+            rowsToSave.push(skillsRow);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
+    const nextRaw = JSON.stringify(rowsToSave);
     if (prevRaw === nextRaw) return;
 
-    // Extract updated core candidate fields from debouncedRows
+    // Sync profile attributes if core fields are modified in this table
     const fieldPatch: Partial<CandidateInput> = {
       submission_details: nextRaw,
     };
@@ -434,8 +471,8 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     const newId = `custom_${Date.now()}`;
     const newRow: SubmissionRowItem = {
       id: newId,
-      key: newId,
-      label: "New Field Label:",
+      key: `custom_${rows.length + 1}`,
+      label: "New Field:",
       value: "",
       type: "text",
     };
@@ -492,20 +529,17 @@ function SubmissionDetailsBody({ candidate }: { candidate: Candidate }) {
     // 1. Generate clean HTML table with compact fixed width for Word/Emails
     const rowsHtml = rows
       .map((r) => {
-        let val = (r.value || "").trim();
-        if (isSkillsRow(r)) {
-          val = parseSkillsValue(val).join(", ");
-        }
+        const val = (r.value || "").trim();
         const formattedLabel = r.label.replace(/\n/g, "<br/>");
         const formattedVal = val.replace(/\n/g, "<br/>") || "&nbsp;";
         return `<tr>
-  <td style="border: 1px solid #d1d5db; padding: 5px 9px; font-weight: 600; vertical-align: top; background-color: #fafafa; width: 200px; max-width: 200px;">${formattedLabel}</td>
-  <td style="border: 1px solid #d1d5db; padding: 5px 9px; vertical-align: top; width: 360px; max-width: 360px;">${formattedVal}</td>
+  <td style="border: 1px solid #d1d5db; padding: 4px 8px; font-weight: 600; vertical-align: top; background-color: #fafafa; width: 200px; max-width: 200px; line-height: 1.35;">${formattedLabel}</td>
+  <td style="border: 1px solid #d1d5db; padding: 4px 8px; vertical-align: top; width: 360px; max-width: 360px; line-height: 1.35;">${formattedVal}</td>
 </tr>`;
       })
       .join("\n");
 
-    const fullHtml = `<table style="border-collapse: collapse; width: 560px; max-width: 560px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12.5px; color: #111827; line-height: 1.35;">
+    const fullHtml = `<table style="border-collapse: collapse; width: 560px; max-width: 560px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12.5px; color: #111827; line-height: 1.35; margin: 0; padding: 0;">
   <thead>
     <tr>
       <th colspan="2" style="border: 1px solid #d1d5db; background-color: #f3f4f6; padding: 6px 10px; text-align: left; font-weight: 700; font-size: 13px;">Candidate Details:</th>
@@ -519,10 +553,7 @@ ${rowsHtml}
     // 2. Generate clean Plain Text table
     const plainRows = rows
       .map((r) => {
-        let val = (r.value || "").trim();
-        if (isSkillsRow(r)) {
-          val = parseSkillsValue(val).join(", ");
-        }
+        const val = (r.value || "").trim();
         return `${r.label}\t${val}`;
       })
       .join("\n");
@@ -583,7 +614,7 @@ ${rowsHtml}
             </span>
           )}
 
-          {/* Copy Table Button - positioned next to close icon */}
+          {/* Copy Table Button */}
           <Button
             size="sm"
             variant="primary"
@@ -633,8 +664,8 @@ ${rowsHtml}
                     idx % 2 === 1 ? "bg-surface-hover/10" : ""
                   }`}
                 >
-                  {/* Left Column: Label (35% width) */}
-                  <div className="w-[35%] shrink-0 p-2 sm:p-2.5 border-r border-border self-stretch flex items-center justify-between gap-1">
+                  {/* Left Column: Label (38% width) - Editable on click */}
+                  <div className="w-[38%] shrink-0 p-2 sm:p-2.5 border-r border-border self-stretch flex items-center justify-between gap-1">
                     {isEditingLabel ? (
                       <div className="flex flex-1 items-center gap-1">
                         <textarea
@@ -659,7 +690,7 @@ ${rowsHtml}
                       <div
                         onClick={() => setEditingLabelId(r.id)}
                         className="group/lbl flex flex-1 items-center justify-between gap-1 cursor-pointer select-none rounded px-1 py-0.5 -mx-1 hover:bg-surface-hover/60"
-                        title="Click to edit field label"
+                        title="Click to edit question / field label"
                       >
                         <p className="text-[11.5px] font-medium text-fg whitespace-pre-line leading-snug">
                           {r.label}
@@ -669,33 +700,16 @@ ${rowsHtml}
                     )}
                   </div>
 
-                  {/* Right Column: Input / Details (65% width) */}
-                  <div className="w-[65%] min-w-0 p-1.5 sm:p-2 relative flex items-center gap-1.5">
+                  {/* Right Column: Input / Details (62% width) */}
+                  <div className="w-[62%] min-w-0 p-1.5 sm:p-2 relative flex items-center gap-1.5">
                     <div className="flex-1 min-w-0">
-                      {isSkillsRow(r) ? (
-                        <div className="flex flex-wrap items-center gap-1 py-0.5">
-                          {parseSkillsValue(val).length > 0 ? (
-                            parseSkillsValue(val).map((skill) => (
-                              <span
-                                key={skill}
-                                className="rounded-full border border-border bg-surface px-2 py-0.5 text-[10.5px] font-medium text-fg"
-                              >
-                                {skill}
-                              </span>
-                            ))
-                          ) : (
-                            <span className="text-[11px] italic text-fg-subtle">
-                              No skills yet — add them in the Skills &amp; Tools panel.
-                            </span>
-                          )}
-                        </div>
-                      ) : isRtr ? (
+                      {isRtr ? (
                         <div className="flex items-center gap-1.5">
                           <input
                             type="text"
                             value={val}
                             onChange={(e) => handleValueChange(r.id, e.target.value)}
-                            placeholder="e.g. Aug 19, 2026 10:30 AM EST"
+                            placeholder="e.g. 09/30/26 10:19 AM EDT"
                             className="h-7.5 flex-1 rounded border border-border/70 bg-background/80 px-2 text-[11.5px] text-fg placeholder:text-fg-subtle outline-none transition-colors focus:border-primary focus:bg-background focus:ring-1 focus:ring-primary"
                           />
                           <Button
@@ -703,7 +717,7 @@ ${rowsHtml}
                             size="sm"
                             variant="outline"
                             onClick={() => stampRTR(r.id)}
-                            className="h-7.5 shrink-0 gap-1 text-[10.5px] px-2 font-medium"
+                            className="h-7.5 shrink-0 gap-1 text-[10.5px] px-2 font-medium cursor-pointer"
                             title="Stamp current date, time, and timezone"
                           >
                             <Clock className="h-3 w-3 text-primary" />

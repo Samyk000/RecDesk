@@ -22,115 +22,40 @@ export function toCandidateInput(
     ...patch,
   };
 }
+import { parseSafeDate } from "./utils";
 
-export function isLegalNameRow(key: string, label: string): boolean {
+const ROW_MATCHERS = {
+  legalName: { keys: ["legal_name", "name"], prefixes: ["legal name", "name", "name:", "candidate name"] },
+  email: { keys: ["email"], prefixes: ["email", "email:", "e-mail:", "email address"] },
+  phone: { keys: ["phone", "mobile", "cell", "phone_number"], prefixes: ["phone", "cell", "mobile", "contact number"] },
+  location: { keys: ["location", "city", "address"], prefixes: ["location", "current location", "city, state", "address"] },
+  linkedin: { keys: ["linkedin", "linkedin_url"], prefixes: ["linkedin", "linkedin profile", "linkedin url"] },
+  title: { keys: ["current_title", "title", "job_title"], prefixes: ["current title", "job title", "title"] },
+  company: { keys: ["current_company", "company", "employer"], prefixes: ["current company", "company", "current employer", "employer"] },
+};
+
+function matchesPatterns(key: string, label: string, spec: { keys: string[]; prefixes: string[] }): boolean {
   const k = (key || "").toLowerCase().trim();
   const l = (label || "").toLowerCase().trim();
-  return (
-    k === "legal_name" ||
-    k === "name" ||
-    l.startsWith("legal name") ||
-    l === "name:" ||
-    l === "name" ||
-    l === "candidate name:" ||
-    l === "candidate name"
-  );
+  return spec.keys.includes(k) || spec.prefixes.some((prefix) => l === prefix || l.startsWith(prefix));
 }
 
-export function isEmailRow(key: string, label: string): boolean {
-  const k = (key || "").toLowerCase().trim();
-  const l = (label || "").toLowerCase().trim();
-  return (
-    k === "email" ||
-    l === "email:" ||
-    l === "email" ||
-    l === "e-mail:" ||
-    l === "email address:" ||
-    l === "email address"
-  );
-}
-
-export function isPhoneRow(key: string, label: string): boolean {
-  const k = (key || "").toLowerCase().trim();
-  const l = (label || "").toLowerCase().trim();
-  if (k.includes("interview") || l.includes("interview") || l.includes("notice")) return false;
-  return (
-    k === "phone" ||
-    k === "mobile" ||
-    k === "cell" ||
-    k === "phone_number" ||
-    l.startsWith("phone") ||
-    l.startsWith("cell") ||
-    l.startsWith("mobile") ||
-    l === "contact number:" ||
-    l === "phone number:"
-  );
-}
-
-export function isLocationRow(key: string, label: string): boolean {
-  const k = (key || "").toLowerCase().trim();
-  const l = (label || "").toLowerCase().trim();
-  return (
-    k === "location" ||
-    k === "city" ||
-    k === "address" ||
-    l === "location:" ||
-    l === "location" ||
-    l === "current location:" ||
-    l === "current location" ||
-    l === "city, state:" ||
-    l === "city / state:" ||
-    l === "address:"
-  );
-}
-
-export function isLinkedinRow(key: string, label: string): boolean {
-  const k = (key || "").toLowerCase().trim();
-  const l = (label || "").toLowerCase().trim();
-  return (
-    k === "linkedin" ||
-    k === "linkedin_url" ||
-    l === "linkedin:" ||
-    l === "linkedin" ||
-    l === "linkedin profile:" ||
-    l === "linkedin url:"
-  );
-}
-
-export function isCurrentTitleRow(key: string, label: string): boolean {
-  const k = (key || "").toLowerCase().trim();
-  const l = (label || "").toLowerCase().trim();
-  if (k.includes("permission") || l.includes("permission") || l.includes("resume") || l.includes("experience"))
-    return false;
-  return (
-    k === "current_title" ||
-    k === "title" ||
-    k === "job_title" ||
-    l === "current title:" ||
-    l === "current title" ||
-    l === "job title:" ||
-    l === "job title" ||
-    l === "title:" ||
-    l === "title"
-  );
-}
-
-export function isCurrentCompanyRow(key: string, label: string): boolean {
-  const k = (key || "").toLowerCase().trim();
-  const l = (label || "").toLowerCase().trim();
-  if (l.includes("permission") || l.includes("resignation")) return false;
-  return (
-    k === "current_company" ||
-    k === "company" ||
-    k === "employer" ||
-    l === "current company:" ||
-    l === "current company" ||
-    l === "company:" ||
-    l === "company" ||
-    l === "current employer:" ||
-    l === "employer:"
-  );
-}
+export const isLegalNameRow = (k: string, l: string): boolean => matchesPatterns(k, l, ROW_MATCHERS.legalName);
+export const isEmailRow = (k: string, l: string): boolean => matchesPatterns(k, l, ROW_MATCHERS.email);
+export const isPhoneRow = (k: string, l: string): boolean => {
+  const combined = `${k || ""} ${l || ""}`.toLowerCase();
+  return !combined.includes("interview") && !combined.includes("notice") && matchesPatterns(k, l, ROW_MATCHERS.phone);
+};
+export const isLocationRow = (k: string, l: string): boolean => matchesPatterns(k, l, ROW_MATCHERS.location);
+export const isLinkedinRow = (k: string, l: string): boolean => matchesPatterns(k, l, ROW_MATCHERS.linkedin);
+export const isCurrentTitleRow = (k: string, l: string): boolean => {
+  const combined = `${k || ""} ${l || ""}`.toLowerCase();
+  return !combined.includes("permission") && !combined.includes("resume") && !combined.includes("experience") && matchesPatterns(k, l, ROW_MATCHERS.title);
+};
+export const isCurrentCompanyRow = (k: string, l: string): boolean => {
+  const combined = (l || "").toLowerCase();
+  return !combined.includes("permission") && !combined.includes("resignation") && matchesPatterns(k, l, ROW_MATCHERS.company);
+};
 
 /**
  * Syncs top-level candidate core fields (name, email, phone, location, linkedin_url)
@@ -477,47 +402,59 @@ export function isExternalSubmission(candidate: Candidate | CandidateWithJob): b
 
   if (status === "rejected") {
     const detail = parseRejectionDetail(candidate.rejection_reason);
-    if (detail.origin === "client_screening" || detail.origin === "interview") {
-      return true;
-    }
-    return Boolean(candidate.submitted_at?.trim());
+    // Only count as external client submission if client reviewed and rejected
+    return detail.origin === "client_screening" || detail.origin === "interview";
   }
 
   return false;
 }
 
 /**
- * Safely extracts a numeric timestamp from a submission date string (e.g. "2026-08-10 external").
+ * Safely extracts a numeric unix timestamp from any candidate date string,
+ * automatically handling timezone labels (e.g. "2026-08-21T11:00 EST" or "2026-08-10 external").
  */
-export function getSubmissionTimestamp(val?: string | null): number {
-  if (!val || !val.trim()) return 0;
-  const trimmed = val.trim();
-  const match = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (match) {
-    const year = Number(match[1]);
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    const tMatch = trimmed.match(/T(\d{2}):(\d{2})(?::\d{2})?/);
-    if (tMatch) {
-      const d = new Date(trimmed.split(/\s+/)[0]);
-      if (!isNaN(d.getTime())) return d.getTime();
-    }
-    return new Date(year, month - 1, day, 12, 0, 0).getTime();
-  }
-  const parts = trimmed.split(/\s+/);
-  const d = new Date(parts[0]);
-  return isNaN(d.getTime()) ? 0 : d.getTime();
+export function parseTimestampSafe(val?: string | null): number {
+  const { date } = parseSafeDate(val);
+  return date ? date.getTime() : 0;
 }
 
-/**
- * Safely extracts a numeric timestamp from an interview date string (e.g. "2026-08-21T11:00 EST").
- */
-export function getInterviewTimestamp(val?: string | null): number {
-  if (!val || !val.trim()) return 0;
-  const parts = val.trim().split(/\s+/);
-  const dateTimePart = parts[0] || "";
-  const d = new Date(dateTimePart);
-  return isNaN(d.getTime()) ? 0 : d.getTime();
+export const getSubmissionTimestamp = parseTimestampSafe;
+export const getInterviewTimestamp = parseTimestampSafe;
+
+export type CandidateSortKey =
+  | "name"
+  | "candidate_title"
+  | "experience_years"
+  | "job_title"
+  | "client_name"
+  | "location"
+  | "date_added"
+  | "last_updated";
+
+export function compareCandidates(
+  a: CandidateWithJob,
+  b: CandidateWithJob,
+  key: CandidateSortKey,
+): number {
+  if (key === "name") return a.name.localeCompare(b.name);
+  if (key === "candidate_title") {
+    const tA = (a.current_title ?? "").trim();
+    const tB = (b.current_title ?? "").trim();
+    if (!tA && !tB) return a.name.localeCompare(b.name);
+    if (!tA) return 1;
+    if (!tB) return -1;
+    return tA.localeCompare(tB);
+  }
+  if (key === "experience_years") {
+    const expA = a.experience_years ?? -1;
+    const expB = b.experience_years ?? -1;
+    return expA - expB;
+  }
+  if (key === "job_title") return a.job_title.localeCompare(b.job_title);
+  if (key === "client_name") return a.client_name.localeCompare(b.client_name);
+  if (key === "location") return (a.location ?? "").localeCompare(b.location ?? "");
+  if (key === "date_added") return a.date_added.localeCompare(b.date_added);
+  return a.last_updated.localeCompare(b.last_updated);
 }
 
 /**

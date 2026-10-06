@@ -19,7 +19,7 @@ import {
 import { InfiniteScrollTrigger } from "../components/common/InfiniteScrollTrigger";
 import { useDebounce } from "../hooks/useDebounce";
 import { useSelection } from "../hooks/useSelection";
-import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
+import { useTableSort, SortIcon } from "../hooks/useTableSort";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/common/EmptyState";
 import { SearchInput } from "../components/common/SearchInput";
@@ -42,42 +42,15 @@ import {
 } from "../components/ui/select";
 import { ChangeJobDialog } from "../components/candidates/ChangeJobDialog";
 import { apiCandidates } from "../lib/api";
-import { getCandidateSubStageBadge, getCandidateSkills } from "../lib/candidateUtils";
+import {
+  getCandidateSubStageBadge,
+  type CandidateSortKey,
+} from "../lib/candidateUtils";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { Candidate, CandidateWithJob } from "../types";
 
 const DETAIL_STATUSES = new Set(["submitted", "interview", "placed", "rejected"]);
-
-type SortKey =
-  | "candidate_title"
-  | "experience_years"
-  | "job_title"
-  | "client_name"
-  | "location"
-  | "date_added"
-  | "last_updated";
-
-const COMPARE: (a: CandidateWithJob, b: CandidateWithJob, key: SortKey) => number = (a, b, key) => {
-  if (key === "candidate_title") {
-    const tA = (a.current_title ?? "").trim();
-    const tB = (b.current_title ?? "").trim();
-    if (!tA && !tB) return 0;
-    if (!tA) return 1;
-    if (!tB) return -1;
-    return tA.localeCompare(tB);
-  }
-  if (key === "experience_years") {
-    const expA = a.experience_years ?? -1;
-    const expB = b.experience_years ?? -1;
-    return expA - expB;
-  }
-  if (key === "job_title") return a.job_title.localeCompare(b.job_title);
-  if (key === "client_name") return a.client_name.localeCompare(b.client_name);
-  if (key === "location") return (a.location ?? "").localeCompare(b.location ?? "");
-  if (key === "date_added") return a.date_added.localeCompare(b.date_added);
-  return a.last_updated.localeCompare(b.last_updated);
-};
 
 export function Candidates() {
   const [params, setParams] = useSearchParams();
@@ -86,7 +59,7 @@ export function Candidates() {
   const status = params.get("status") || "all";
   const [copyCandidateTarget, setCopyCandidateTarget] = useState<Candidate | null>(null);
   const [selectMode, setSelectMode] = useState(false);
-  const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
+  const { sortKey, sortDir, toggleSort } = useTableSort<CandidateSortKey>("last_updated");
   const [formOpen, setFormOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [statusDialog, setStatusDialog] = useState<{
@@ -115,22 +88,24 @@ export function Candidates() {
   } = useInfiniteCandidatesWithJob(
     debounced || undefined,
     status === "all" ? undefined : status,
+    undefined,
+    50,
+    sortKey,
+    sortDir,
   );
 
   const allLoadedCandidates = useMemo(() => {
     return data?.pages.flatMap((page) => page) ?? [];
   }, [data]);
 
-  const sorted = useSortedRows(allLoadedCandidates, sortKey, sortDir, COMPARE);
-
   const displayedCandidates = useMemo(() => {
-    if (!sorted) return [];
-    if (status === "rejected") return sorted;
-    if (!hideRejected) return sorted;
-    return sorted.filter(
+    if (!allLoadedCandidates.length) return [];
+    if (status === "rejected") return allLoadedCandidates;
+    if (!hideRejected) return allLoadedCandidates;
+    return allLoadedCandidates.filter(
       (c) => c.submission_status !== "rejected" && c.submission_status !== "not_interested",
     );
-  }, [sorted, hideRejected, status]);
+  }, [allLoadedCandidates, hideRejected, status]);
 
   const selection = useSelection(
     displayedCandidates.map((c) => c.id),
@@ -352,8 +327,8 @@ export function Candidates() {
           />
         ) : (
           <div className="flex max-h-full min-h-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
-            <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
-              <table className="w-full text-sm">
+            <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden scrollbar-thin">
+              <table className="w-full table-fixed text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface text-left">
                     {selectMode && (
@@ -366,7 +341,7 @@ export function Candidates() {
                         />
                       </th>
                     )}
-                    <th className="sticky top-0 z-10 w-[230px] max-w-[250px] bg-surface px-4 py-2">
+                    <th className="sticky top-0 z-10 w-[28%] bg-surface px-4 py-2">
                       <button
                         onClick={() => toggleSort("candidate_title")}
                         className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -374,18 +349,7 @@ export function Candidates() {
                         Candidate &amp; Role <SortIcon active={sortKey === "candidate_title"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 w-[85px] whitespace-nowrap bg-surface px-3 py-2">
-                      <button
-                        onClick={() => toggleSort("experience_years")}
-                        className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
-                      >
-                        Exp <SortIcon active={sortKey === "experience_years"} dir={sortDir} />
-                      </button>
-                    </th>
-                    <th className="sticky top-0 z-10 min-w-[150px] max-w-[200px] whitespace-nowrap bg-surface px-3 py-2 text-xs font-semibold text-fg-muted">
-                      Skills &amp; Tech
-                    </th>
-                    <th className="sticky top-0 z-10 max-w-[170px] bg-surface px-3 py-2">
+                    <th className="sticky top-0 z-10 w-[22%] bg-surface px-3 py-2">
                       <button
                         onClick={() => toggleSort("job_title")}
                         className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -393,7 +357,7 @@ export function Candidates() {
                         Job <SortIcon active={sortKey === "job_title"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 max-w-[130px] bg-surface px-3 py-2">
+                    <th className="sticky top-0 z-10 w-[18%] bg-surface px-3 py-2">
                       <button
                         onClick={() => toggleSort("client_name")}
                         className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -401,8 +365,10 @@ export function Candidates() {
                         Client <SortIcon active={sortKey === "client_name"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 min-w-[155px] whitespace-nowrap bg-surface px-4 py-2 text-xs font-semibold text-fg-muted">Status</th>
-                    <th className="sticky top-0 z-10 min-w-[120px] whitespace-nowrap bg-surface px-3 py-2">
+                    <th className="sticky top-0 z-10 w-[155px] bg-surface px-3 py-2 text-xs font-semibold text-fg-muted">
+                      Status
+                    </th>
+                    <th className="sticky top-0 z-10 w-[16%] bg-surface px-3 py-2">
                       <button
                         onClick={() => toggleSort("location")}
                         className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -410,7 +376,7 @@ export function Candidates() {
                         Location <SortIcon active={sortKey === "location"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 whitespace-nowrap bg-surface px-3 py-2">
+                    <th className="sticky top-0 z-10 w-[95px] bg-surface px-3 py-2">
                       <button
                         onClick={() => toggleSort("last_updated")}
                         className="group inline-flex items-center gap-1 text-xs font-semibold text-fg-muted hover:text-fg"
@@ -418,7 +384,7 @@ export function Candidates() {
                         Updated <SortIcon active={sortKey === "last_updated"} dir={sortDir} />
                       </button>
                     </th>
-                    <th className="sticky top-0 z-10 w-16 bg-surface px-2 py-2" />
+                    <th className="sticky top-0 z-10 w-[65px] bg-surface px-2 py-2 text-right" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
@@ -444,8 +410,8 @@ export function Candidates() {
                             />
                           </td>
                         )}
-                        <td className="w-[230px] max-w-[250px] px-4 py-1.5">
-                          <div className="flex items-center gap-2.5">
+                        <td className="px-4 py-1.5">
+                          <div className="flex items-center gap-2.5 min-w-0">
                             <span
                               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-semibold"
                               style={{
@@ -455,7 +421,7 @@ export function Candidates() {
                             >
                               {nameInitials(c.name)}
                             </span>
-                            <div className="min-w-0 max-w-[185px]">
+                            <div className="min-w-0 flex-1">
                               <p className="truncate text-[13px] font-semibold text-fg transition-colors duration-150 group-hover:text-primary">
                                 {c.name}
                               </p>
@@ -467,76 +433,19 @@ export function Candidates() {
                             </div>
                           </div>
                         </td>
-                        <td className="w-[85px] whitespace-nowrap px-3 py-1.5 text-[11.5px] tabular-nums">
-                          {c.experience_years != null ? (
-                            <span className="inline-flex items-center rounded bg-surface-hover px-1.5 py-0.5 border border-border/70 font-medium text-fg">
-                              {c.experience_years} yrs
-                            </span>
+                        <td className="px-3 py-1.5 text-[12px] font-medium" title={c.job_title}>
+                          {c.job_id ? (
+                            <p className="truncate text-zinc-800 dark:text-zinc-200">{c.job_title}</p>
                           ) : (
-                            <span className="text-fg-muted">—</span>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10.5px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                              Unassigned
+                            </span>
                           )}
                         </td>
-                        <td className="min-w-[150px] max-w-[200px] px-3 py-1.5">
-                          <div className="flex items-center gap-1 flex-wrap">
-                            {(() => {
-                              const skills = getCandidateSkills(c);
-                              if (!skills || skills.length === 0) {
-                                return <span className="text-[11px] text-fg-muted">—</span>;
-                              }
-                              const displaySkills = skills.slice(0, 2);
-                              const remainder = skills.slice(2);
-                              return (
-                                <>
-                                  {displaySkills.map((sk) => (
-                                    <span
-                                      key={sk}
-                                      className="inline-flex items-center rounded px-1.5 py-0.2 text-[10px] font-medium bg-primary/10 text-primary border border-primary/20 truncate max-w-[85px]"
-                                      title={sk}
-                                    >
-                                      {sk}
-                                    </span>
-                                  ))}
-                                  {remainder.length > 0 && (
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <span className="inline-flex items-center rounded px-1 py-0.2 text-[9.5px] font-medium bg-surface-hover text-fg-subtle border border-border cursor-default hover:border-primary/40 hover:text-primary transition-colors">
-                                          +{remainder.length}
-                                        </span>
-                                      </TooltipTrigger>
-                                      <TooltipContent
-                                        side="top"
-                                        className="max-w-[260px] p-2 bg-surface text-fg border border-border shadow-xl rounded-lg z-50 text-left"
-                                      >
-                                        <div className="mb-1.5 flex items-center justify-between border-b border-border/60 pb-1">
-                                          <span className="text-[10.5px] font-semibold text-fg-subtle">
-                                            Additional Skills (+{remainder.length})
-                                          </span>
-                                        </div>
-                                        <div className="flex flex-wrap gap-1 max-h-[160px] overflow-y-auto [scrollbar-width:thin]">
-                                          {remainder.map((sk) => (
-                                            <span
-                                              key={sk}
-                                              className="inline-flex items-center rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary border border-primary/20"
-                                            >
-                                              {sk}
-                                            </span>
-                                          ))}
-                                        </div>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  )}
-                                </>
-                              );
-                            })()}
-                          </div>
+                        <td className="px-3 py-1.5 text-[12px] font-medium text-zinc-800 dark:text-zinc-200" title={c.client_name}>
+                          <p className="truncate">{c.job_id ? c.client_name : "—"}</p>
                         </td>
-                        <td className="max-w-[170px] px-3 py-1.5 text-[12px] font-medium text-zinc-800 dark:text-zinc-200" title={c.job_title}>
-                          <p className="truncate">{c.job_title}</p>
-                        </td>
-                        <td className="max-w-[130px] px-3 py-1.5 text-[12px] font-medium text-zinc-800 dark:text-zinc-200" title={c.client_name}>
-                          <p className="truncate">{c.client_name}</p>
-                        </td>
-                        <td className="whitespace-nowrap px-4 py-1.5">
+                        <td className="w-[155px] px-3 py-1.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-1.5">
                             <SubmissionStatusSelect
                               value={c.submission_status}
@@ -551,7 +460,7 @@ export function Candidates() {
                                 <TooltipTrigger asChild>
                                   <span
                                     className={cn(
-                                      "inline-flex h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold tracking-tight border shadow-2xs transition-transform hover:scale-105 cursor-default select-none",
+                                      "inline-flex h-5 items-center justify-center rounded px-1.5 text-[10px] font-bold tracking-tight border shadow-2xs transition-transform hover:scale-105 cursor-default select-none shrink-0",
                                       subStageBadge.colorClass,
                                     )}
                                   >
@@ -565,13 +474,13 @@ export function Candidates() {
                             )}
                           </div>
                         </td>
-                        <td className="min-w-[120px] whitespace-nowrap px-3 py-1.5 text-[12px] text-zinc-700 dark:text-zinc-300">
-                          {c.location ?? "-"}
+                        <td className="px-3 py-1.5 text-[12px] text-zinc-700 dark:text-zinc-300" title={c.location ?? ""}>
+                          <p className="truncate">{c.location || "—"}</p>
                         </td>
-                        <td className="whitespace-nowrap px-3 py-1.5 text-[12px] text-zinc-600 dark:text-zinc-300 tabular-nums">
+                        <td className="w-[95px] whitespace-nowrap px-3 py-1.5 text-[12px] text-zinc-600 dark:text-zinc-300 tabular-nums">
                           {timeAgo(c.last_updated)}
                         </td>
-                        <td className="w-20 px-3 py-1.5">
+                        <td className="w-[65px] px-2 py-1.5" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center justify-end gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                             <Tooltip>
                               <TooltipTrigger asChild>

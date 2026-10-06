@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { CalendarDots } from "@phosphor-icons/react";
+import { CalendarBlank, CalendarDots, X } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
 interface Props {
@@ -77,16 +77,29 @@ export function SubmittedDatePicker({ value, onChange, className }: Props) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-8 w-full items-center justify-between gap-1.5 rounded-md border border-border bg-surface-hover/80 px-2.5 text-xs text-fg transition-all hover:bg-surface-hover hover:border-border-hover focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer",
+          "flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs text-fg transition-all hover:bg-surface-hover hover:border-border focus:outline-none focus:ring-1 focus:ring-primary/40 cursor-pointer shadow-2xs",
           open && "ring-1 ring-primary/50 border-primary/50",
         )}
       >
         <span className="flex items-center gap-1.5 min-w-0 truncate">
-          <CalendarDots className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          <CalendarBlank className="h-3.5 w-3.5 shrink-0 text-amber-500" />
           <span className={cn("truncate font-medium text-xs", !hasValue && "text-fg-muted font-normal")}>
             {hasValue ? formatDateDisplay(selectedDate) : "Select date…"}
           </span>
         </span>
+        {hasValue && (
+          <span
+            role="button"
+            title="Clear date"
+            onClick={(e) => {
+              e.stopPropagation();
+              handleClear();
+            }}
+            className="shrink-0 rounded p-0.5 text-fg-subtle hover:text-red-500 hover:bg-surface-active transition-colors cursor-pointer"
+          >
+            <X className="h-3 w-3" />
+          </span>
+        )}
       </button>
 
       {/* Popover anchored right-0 left-auto to never overflow right screen edge */}

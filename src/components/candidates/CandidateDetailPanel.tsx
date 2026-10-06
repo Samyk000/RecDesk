@@ -6,15 +6,21 @@ import {
   ArrowsLeftRight,
   Briefcase,
   Check,
+  CircleNotch,
   Copy,
+  CurrencyDollar,
+  DotsThreeVertical,
+  EnvelopeSimple,
+  FileText,
   IdentificationCard,
+  Lightning,
   LinkedinLogo,
   ListChecks,
-  CircleNotch,
-  Lightning,
+  MapPin,
   NotePencil,
   Paperclip,
   PencilSimple,
+  Phone,
   PhoneCall,
   Plus,
   Sparkle,
@@ -161,11 +167,8 @@ function CandidatePanelBody({
     setNotesDraft(getPlainTextFromNotes(candidate.recruiter_notes));
   }, [candidate.recruiter_notes]);
 
-  // Show "Details" icon once moved to in_touch or if details have been recorded
-  const hasSubmissionDetails = Boolean(
-    candidate.submission_details && candidate.submission_details !== "{}"
-  );
-  const showDetailsIcon = candidate.submission_status !== "sourced" || hasSubmissionDetails;
+  // Candidate details icon is always available in header
+  const showDetailsIcon = true;
 
   // Show "Feedback Call" icon when on interview status OR if feedback was recorded
   const hasFeedbackRecorded = hasInterviewFeedback(candidate);
@@ -175,12 +178,11 @@ function CandidatePanelBody({
     () => getPayRateFromSubmissionDetails(candidate.submission_details),
     [candidate.submission_details]
   );
-
   const candidateSkills = useMemo(
     () => getCandidateSkills(candidate),
     [candidate.submission_details]
   );
-  const hasRecruiterNotes = Boolean(candidate.recruiter_notes?.trim());
+
 
   async function saveField(patch: Partial<CandidateInput>) {
     if (patch.submission_status && patch.submission_status !== candidate.submission_status) {
@@ -260,6 +262,23 @@ function CandidatePanelBody({
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleRetractSubmission() {
+    setPreviousStatusSnapshot({
+      submission_status: candidate.submission_status,
+      submitted_at: candidate.submitted_at ?? null,
+      interview_at: candidate.interview_at ?? null,
+      placed_at: candidate.placed_at ?? null,
+      rejection_reason: candidate.rejection_reason ?? null,
+    });
+
+    const patch: Partial<CandidateInput> = {
+      submission_status: "in_touch",
+      submitted_at: null,
+    };
+    saveField(patch);
+    toast.success("Submission retracted (moved to In Touch)");
   }
 
   const handleConfirmBackward = (preserveMilestone: boolean) => {
@@ -382,8 +401,8 @@ function CandidatePanelBody({
     // Split on commas, semicolons, pipes, or newlines (e.g. "AWS, Node, Python")
     const parts = raw
       .split(/[,;|\n]+/)
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0);
+      .map((s: string) => s.trim())
+      .filter((s: string) => s.length > 0);
 
     if (parts.length === 0) return;
 
@@ -391,7 +410,7 @@ function CandidatePanelBody({
     const updated = [...candidateSkills];
 
     for (const part of parts) {
-      if (!updated.some((s) => s.toLowerCase() === part.toLowerCase())) {
+      if (!updated.some((s: string) => s.toLowerCase() === part.toLowerCase())) {
         updated.push(part);
         addedCount++;
       }
@@ -415,7 +434,7 @@ function CandidatePanelBody({
 
   const handleRemoveSkill = (skillToRemove: string) => {
     const updated = candidateSkills.filter(
-      (s) => s.toLowerCase() !== skillToRemove.toLowerCase(),
+      (s: string) => s.toLowerCase() !== skillToRemove.toLowerCase(),
     );
     const newDetails = setCandidateSkills(candidate.submission_details, updated);
     saveField({ submission_details: newDetails });
@@ -493,6 +512,26 @@ function CandidatePanelBody({
     }
   }
 
+  async function copyEmail() {
+    if (!candidate.email) return;
+    try {
+      await navigator.clipboard.writeText(candidate.email);
+      toast.success("Email copied");
+    } catch {
+      toast.error("Could not copy email");
+    }
+  }
+
+  async function copyPhone() {
+    if (!candidate.phone) return;
+    try {
+      await navigator.clipboard.writeText(candidate.phone);
+      toast.success("Phone copied");
+    } catch {
+      toast.error("Could not copy phone");
+    }
+  }
+
   async function handleDelete() {
     try {
       await deleteCandidate.mutateAsync(candidate.id);
@@ -504,12 +543,31 @@ function CandidatePanelBody({
   }
 
   const status = candidate.submission_status;
+  const hasCompanionControl =
+    status === "submitted" ||
+    status === "interview" ||
+    status === "placed" ||
+    status === "rejected" ||
+    status === "not_interested";
   const resumeName = candidate.resume_path?.split(/[\\/]/).pop() ?? "";
 
   return (
     <div className="relative flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-2.5">
-        <span className="text-[13px] font-semibold text-fg tracking-tight">Candidate Details</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-semibold text-fg tracking-tight">Candidate Details</span>
+          {!candidate.job_id && (
+            <button
+              type="button"
+              onClick={() => setChangeJobOpen(true)}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10.5px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+              title="Click to assign to a job"
+            >
+              <Briefcase className="h-3 w-3" />
+              Unassigned
+            </button>
+          )}
+        </div>
         <div className="flex shrink-0 items-center gap-1">
           {confirmDelete ? (
             <div className="flex items-center gap-1.5 animate-fade-in">
@@ -553,31 +611,7 @@ function CandidatePanelBody({
                   <TooltipContent>Interview Feedback Call</TooltipContent>
                 </Tooltip>
               )}
-              {/* Recruiter Notes Icon with notification dot */}
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className={cn(
-                      "relative h-8 w-8 hover:bg-primary/10",
-                      hasRecruiterNotes
-                        ? "text-primary font-semibold"
-                        : "text-fg-subtle hover:text-primary",
-                    )}
-                    onClick={() => setShowRecruiterNotesModal(true)}
-                    aria-label="Recruiter Notes"
-                  >
-                    <NotePencil className="h-4 w-4" />
-                    {hasRecruiterNotes && (
-                      <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-primary" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {hasRecruiterNotes ? "Recruiter Notes (recorded)" : "Recruiter Notes"}
-                </TooltipContent>
-              </Tooltip>
+
               {showDetailsIcon && (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -620,7 +654,7 @@ function CandidatePanelBody({
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" sideOffset={6} className="w-36">
-                  {!embedded && (
+                  {!embedded && candidate.job_id && (
                     <DropdownMenuItem
                       onSelect={() => {
                         onClose();
@@ -639,7 +673,7 @@ function CandidatePanelBody({
                     className="flex items-center gap-2 cursor-pointer text-xs"
                   >
                     <ArrowsLeftRight className="h-3.5 w-3.5 text-primary" />
-                    <span>Change job…</span>
+                    <span>{candidate.job_id ? "Change job…" : "Assign to job…"}</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
@@ -667,314 +701,434 @@ function CandidatePanelBody({
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col space-y-3 overflow-y-auto p-4 scrollbar-thin">
+      <div className="flex flex-1 flex-col space-y-4 overflow-y-auto px-4 py-3.5 scrollbar-thin">
 
-        {/* Row 1: Name, Title */}
-        <div className="grid grid-cols-2 gap-3">
-          <NameField value={candidate.name} onSave={(v) => saveField({ name: v })} />
-          <InlineField
-            label="Title"
-            value={candidate.current_title ?? ""}
-            onSave={(v) => saveField({ current_title: v || null })}
-          />
-        </div>
-
-        {/* Row 2: Email, Phone */}
-        <div className="grid grid-cols-2 gap-3">
-          <InlineField
-            label="Email"
-            value={candidate.email ?? ""}
-            onSave={(v) => saveField({ email: v || null })}
-          />
-          <InlineField
-            label="Phone"
-            value={candidate.phone ?? ""}
-            onSave={(v) => saveField({ phone: v || null })}
-          />
-        </div>
-
-        {/* Row 3: Location, Pay Rate */}
-        <div className="grid grid-cols-2 gap-3">
-          <InlineField
-            label="Location"
-            value={candidate.location ?? ""}
-            onSave={(v) => saveField({ location: v || null })}
-          />
-          <InlineField
-            label="Pay Rate"
-            value={payRate}
-            placeholder="e.g. $80/hr or $120k/yr"
-            onSave={(v) => {
-              const updatedDetails = setPayRateInSubmissionDetails(
-                candidate.submission_details,
-                v
-              );
-              saveField({ submission_details: updatedDetails });
-            }}
-          />
-        </div>
-
-        {/* Row 4: LinkedIn, Resume */}
-        <div className="grid grid-cols-2 gap-3">
-          <LinkedInField
-            value={candidate.linkedin_url ?? ""}
-            onSave={(v) => saveField({ linkedin_url: v || null })}
-            onOpen={openLinkedIn}
-            onCopy={copyLinkedIn}
-          />
-          <div className="min-w-0 space-y-1.5">
-            <p className="text-xs text-fg-subtle">Resume</p>
-            {candidate.resume_path ? (
-              isRenamingResume ? (
-                <div className="flex h-8 items-center gap-1 rounded-lg border border-primary/50 bg-surface px-1.5 shadow-xs">
-                  <input
-                    value={resumeNewName}
-                    onChange={(e) => setResumeNewName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") handleConfirmRename();
-                      if (e.key === "Escape") setIsRenamingResume(false);
-                    }}
-                    autoFocus
-                    placeholder="Resume filename…"
-                    className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-fg outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={handleConfirmRename}
-                    disabled={renameResumeMut.isPending}
-                    title="Save filename (Enter)"
-                    className="shrink-0 rounded p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors"
-                  >
-                    <Check className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsRenamingResume(false)}
-                    title="Cancel (Esc)"
-                    className="shrink-0 rounded p-1 text-fg-subtle hover:bg-surface-hover transition-colors"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
-                  <button
-                    type="button"
-                    onClick={openResume}
-                    className="min-w-0 flex-1 truncate text-left text-[12px] text-fg hover:text-primary transition-colors cursor-pointer"
-                    title={`Preview ${resumeName}`}
-                  >
-                    {resumeName}
-                  </button>
-
-                  {/* 1-Click Auto-Fill from Resume */}
-                  <button
-                    type="button"
-                    onClick={handleAutoFillFromResume}
-                    disabled={isAutoFillingResume}
-                    title="Auto-Fill profile fields and skills from this resume"
-                    className="shrink-0 rounded p-1 text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 transition-colors"
-                  >
-                    {isAutoFillingResume ? (
-                      <CircleNotch className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Lightning className="h-3.5 w-3.5" weight="fill" />
-                    )}
-                  </button>
-
-                  {/* 1-Click Rename to Candidate Name */}
-                  <button
-                    type="button"
-                    onClick={handleAutoRenameToCandidate}
-                    disabled={renameResumeMut.isPending}
-                    title={`1-Click Rename to "${candidate.name || "Candidate"} - Resume"`}
-                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-primary"
-                  >
-                    <Sparkle className="h-3.5 w-3.5" />
-                  </button>
-
-                  {/* Inline Rename button */}
-                  <button
-                    type="button"
-                    onClick={startRenameResume}
-                    title="Rename resume file"
-                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-primary"
-                  >
-                    <PencilSimple className="h-3.5 w-3.5" />
-                  </button>
-
-                  {/* Remove button */}
-                  <button
-                    type="button"
-                    onClick={removeResume}
-                    title="Remove resume reference"
-                    className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-red-500"
-                  >
-                    <Trash className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              )
-            ) : (
-              <Button size="sm" variant="outline" onClick={attachResume} className="h-8 w-full text-[12px]">
-                <Paperclip className="h-3.5 w-3.5" />
-                Attach resume
-              </Button>
-            )}
+        {/* Section 1: Candidate Hero (Name, Title, Location, Pay Rate) */}
+        <div className="flex items-start justify-between gap-3 pt-0.5 pb-0.5">
+          {/* Left: Name & Title */}
+          <div className="flex flex-1 min-w-0 flex-col">
+            <HeroNameField
+              value={candidate.name}
+              onSave={(v) => saveField({ name: v })}
+            />
+            <HeroTitleField
+              value={candidate.current_title ?? ""}
+              onSave={(v) => saveField({ current_title: v || null })}
+            />
           </div>
-        </div>
 
-        {/* Row 5: Status (Full width) */}
-        <div className="w-full space-y-1.5">
-          <div className="flex items-center justify-between">
-            <p className="text-xs text-fg-subtle">Status</p>
-            <div className="flex items-center gap-1.5">
-              {previousStatusSnapshot && previousStatusSnapshot.submission_status !== candidate.submission_status && (
-                <button
-                  type="button"
-                  onClick={handleRestoreStatus}
-                  title={`Restore previous status: ${titleCase(previousStatusSnapshot.submission_status)}`}
-                  className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-primary transition-colors hover:bg-primary/10"
-                >
-                  <ArrowCounterClockwise className="h-3 w-3" />
-                  <span>Restore</span>
-                </button>
-              )}
-              {status !== "sourced" && (
-                <button
-                  type="button"
-                  onClick={() => setShowResetConfirm(true)}
-                  title="Clear status and reset to Sourced"
-                  className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10.5px] text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500 cursor-pointer"
-                >
-                  <X className="h-3 w-3" />
-                  <span>Reset</span>
-                </button>
-              )}
+          {/* Right: Location & Pay Rate with subtle vertical divider */}
+          <div className="flex shrink-0 items-center gap-3 self-stretch">
+            <div className="w-px bg-border/60 self-stretch my-0.5" />
+            <div className="flex w-[140px] flex-col justify-center gap-1">
+              <HeroMetaField
+                icon={<MapPin className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
+                value={candidate.location ?? ""}
+                placeholder="Add location…"
+                onSave={(v) => saveField({ location: v || null })}
+              />
+              <HeroMetaField
+                icon={<CurrencyDollar className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
+                value={payRate}
+                placeholder="Add rate…"
+                onSave={(v) => {
+                  const updatedDetails = setPayRateInSubmissionDetails(
+                    candidate.submission_details,
+                    v
+                  );
+                  saveField({ submission_details: updatedDetails });
+                }}
+              />
             </div>
           </div>
-          <div className={cn("grid gap-3 items-center", (status === "sourced" || status === "pipeline") ? "grid-cols-1" : "grid-cols-2")}>
-            <SubmissionStatusSelect
-              value={status}
-              triggerClassName="h-8 w-full text-xs"
-              onValueChange={(v) => {
-                if (v === candidate.submission_status) return;
+        </div>
 
-                if (isBackwardTransition(candidate.submission_status, v)) {
-                  setBackwardTargetStatus(v);
-                } else if (v === "sourced") {
-                  setShowResetConfirm(true);
-                } else if (v === "submitted") {
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "submitted",
-                    submitted_at: candidate.submitted_at || new Date().toISOString(),
-                  };
-                  saveField(patch);
-                } else if (v === "interview") {
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "interview",
-                    submitted_at: candidate.submitted_at || new Date().toISOString(),
-                    interview_at: candidate.interview_at || new Date().toISOString(),
-                  };
-                  saveField(patch);
-                } else if (v === "placed") {
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "placed",
-                    submitted_at: candidate.submitted_at || new Date().toISOString(),
-                    placed_at: candidate.placed_at || new Date().toISOString(),
-                  };
-                  saveField(patch);
-                } else if (v === "rejected") {
-                  const existing = parseRejectionDetail(candidate.rejection_reason);
-                  const origin =
-                    candidate.submission_status === "interview"
-                      ? "interview"
-                      : candidate.submission_status === "submitted"
-                        ? "client_screening"
-                        : existing.origin || "general";
+        {/* Divider */}
+        <div className="h-px bg-border/60" />
 
-                  const detail: RejectionDetail = {
-                    ...existing,
-                    origin,
-                    rejected_at: existing.rejected_at || new Date().toISOString(),
-                  };
-                  const patch: Partial<CandidateInput> = {
-                    submission_status: "rejected",
-                    rejection_reason: serializeRejectionDetail(detail),
-                  };
-                  saveField(patch);
-                } else {
-                  const patch: Partial<CandidateInput> = { submission_status: v };
-                  saveField(patch);
-                }
-              }}
-            />
-
-            {/* Same-line companion control for each active status */}
-            {status === "submitted" && (
-              <SubmittedDatePicker
-                value={candidate.submitted_at}
-                onChange={(val) => saveField({ submitted_at: val })}
-                className="h-8"
+        {/* Section 2: Contact & Documents (2x2 Grid with individual field labels) */}
+        <div className="space-y-2.5">
+          {/* Row 1: Email & Phone */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <div className="flex h-5 items-center">
+                <label className="text-[11px] font-medium text-fg-subtle">Email</label>
+              </div>
+              <ContactField
+                icon={<EnvelopeSimple className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
+                value={candidate.email ?? ""}
+                placeholder="Add email…"
+                onSave={(v) => saveField({ email: v || null })}
+                onCopy={copyEmail}
               />
-            )}
+            </div>
 
-            {status === "placed" && (
-              <PlacedDatePicker
-                value={candidate.placed_at}
-                onChange={(val) => saveField({ placed_at: val })}
-                className="h-8"
+            <div className="space-y-1">
+              <div className="flex h-5 items-center">
+                <label className="text-[11px] font-medium text-fg-subtle">Phone</label>
+              </div>
+              <ContactField
+                icon={<Phone className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
+                value={candidate.phone ?? ""}
+                placeholder="Add phone…"
+                onSave={(v) => saveField({ phone: v || null })}
+                onCopy={copyPhone}
               />
-            )}
+            </div>
+          </div>
 
-            {status === "interview" && (
-              <SubmittedDatePicker
-                value={candidate.submitted_at}
-                onChange={(val) => saveField({ submitted_at: val })}
-                className="h-8"
+          {/* Row 2: LinkedIn & Resume */}
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-1">
+              <div className="flex h-5 items-center">
+                <label className="text-[11px] font-medium text-fg-subtle">LinkedIn</label>
+              </div>
+              <LinkedInField
+                value={candidate.linkedin_url ?? ""}
+                onSave={(v) => saveField({ linkedin_url: v || null })}
+                onOpen={openLinkedIn}
+                onCopy={copyLinkedIn}
               />
-            )}
+            </div>
 
-            {status === "rejected" && (
-              <Select
-                value={parseRejectionDetail(candidate.rejection_reason).origin || "client_screening"}
-                onValueChange={(val) => {
-                  const existing = parseRejectionDetail(candidate.rejection_reason);
-                  const detail: RejectionDetail = {
-                    ...existing,
-                    origin: val as RejectionOrigin,
-                    rejected_at: existing.rejected_at || new Date().toISOString(),
-                  };
-                  saveField({ rejection_reason: serializeRejectionDetail(detail) });
+            <div className="space-y-1">
+              <div className="flex h-5 items-center">
+                <label className="text-[11px] font-medium text-fg-subtle">Resume</label>
+              </div>
+              <div className="min-w-0">
+                {candidate.resume_path ? (
+                  isRenamingResume ? (
+                    <div className="flex h-9 items-center gap-1 rounded-lg border border-primary/50 bg-surface px-2 shadow-xs">
+                      <input
+                        value={resumeNewName}
+                        onChange={(e) => setResumeNewName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") handleConfirmRename();
+                          if (e.key === "Escape") setIsRenamingResume(false);
+                        }}
+                        autoFocus
+                        placeholder="Resume filename…"
+                        className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-fg outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleConfirmRename}
+                        disabled={renameResumeMut.isPending}
+                        title="Save filename (Enter)"
+                        className="shrink-0 rounded p-1 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 transition-colors cursor-pointer"
+                      >
+                        <Check className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsRenamingResume(false)}
+                        title="Cancel (Esc)"
+                        className="shrink-0 rounded p-1 text-fg-subtle hover:bg-surface-hover transition-colors cursor-pointer"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-colors hover:border-border">
+                      <FileText className="h-3.5 w-3.5 shrink-0 text-primary/80" />
+                      <button
+                        type="button"
+                        onClick={openResume}
+                        className="min-w-0 flex-1 truncate text-left text-[12px] text-fg hover:text-primary transition-colors cursor-pointer"
+                        title={`Preview ${resumeName}`}
+                      >
+                        {resumeName}
+                      </button>
+
+                      <div className="flex shrink-0 items-center gap-0.5">
+                        {/* 1-Click Auto-Rename */}
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={handleAutoRenameToCandidate}
+                              disabled={renameResumeMut.isPending}
+                              className="shrink-0 rounded p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-primary cursor-pointer"
+                            >
+                              <Sparkle className="h-3.5 w-3.5" />
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent>Auto-rename</TooltipContent>
+                        </Tooltip>
+
+                        {/* Dropdown Menu for Auto-fill, Rename, Replace, Remove */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <button
+                              type="button"
+                              className="shrink-0 rounded p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg cursor-pointer"
+                            >
+                              <DotsThreeVertical className="h-3.5 w-3.5" weight="bold" />
+                            </button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-40 text-xs">
+                            <DropdownMenuItem
+                              onClick={handleAutoFillFromResume}
+                              disabled={isAutoFillingResume}
+                              className="gap-2 cursor-pointer text-amber-600 dark:text-amber-400 focus:text-amber-600"
+                            >
+                              {isAutoFillingResume ? (
+                                <CircleNotch className="h-3.5 w-3.5 animate-spin text-amber-500" />
+                              ) : (
+                                <Lightning className="h-3.5 w-3.5 text-amber-500" weight="fill" />
+                              )}
+                              <span>Auto-fill Profile</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={startRenameResume} className="gap-2 cursor-pointer">
+                              <PencilSimple className="h-3.5 w-3.5 text-fg-subtle" />
+                              <span>Rename</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={attachResume} className="gap-2 cursor-pointer">
+                              <Paperclip className="h-3.5 w-3.5 text-fg-subtle" />
+                              <span>Replace</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={removeResume} className="gap-2 text-red-600 dark:text-red-400 focus:text-red-600 cursor-pointer">
+                              <Trash className="h-3.5 w-3.5 text-red-500" />
+                              <span>Remove</span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                  )
+                ) : (
+                  <Button size="sm" variant="outline" onClick={attachResume} className="h-9 w-full text-[12px] gap-1.5 border-dashed">
+                    <Paperclip className="h-3.5 w-3.5" />
+                    Attach resume
+                  </Button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Divider */}
+        <div className="h-px bg-border/60" />
+
+        {/* Section 3: Status & Dates (Pipeline Stage) */}
+        <div className="space-y-2">
+          <div className={cn("grid gap-2.5 items-start", hasCompanionControl ? "grid-cols-2" : "grid-cols-1")}>
+            {/* Status Column */}
+            <div className="space-y-1">
+              <div className="flex h-5 items-center justify-between">
+                <label className="text-[11px] font-medium text-fg-subtle">Status</label>
+                <div className="flex items-center gap-1.5">
+                  {previousStatusSnapshot && previousStatusSnapshot.submission_status !== candidate.submission_status && (
+                    <button
+                      type="button"
+                      onClick={handleRestoreStatus}
+                      title={`Restore previous status: ${titleCase(previousStatusSnapshot.submission_status)}`}
+                      className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-primary transition-colors hover:bg-primary/10 cursor-pointer"
+                    >
+                      <ArrowCounterClockwise className="h-2.5 w-2.5" />
+                      <span>Restore</span>
+                    </button>
+                  )}
+                  {status !== "sourced" && (
+                    <button
+                      type="button"
+                      onClick={() => setShowResetConfirm(true)}
+                      title="Clear status and reset to Sourced"
+                      className="flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] font-medium text-fg-subtle transition-colors hover:bg-surface-hover hover:text-red-500 cursor-pointer"
+                    >
+                      <X className="h-2.5 w-2.5" />
+                      <span>Reset</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+              <SubmissionStatusSelect
+                value={status}
+                triggerClassName={cn(
+                  "h-9 w-full text-xs font-medium transition-all shadow-2xs",
+                  getStatusSelectTriggerStyle(status)
+                )}
+                onValueChange={(v) => {
+                  if (v === candidate.submission_status) return;
+
+                  if (isBackwardTransition(candidate.submission_status, v)) {
+                    setBackwardTargetStatus(v);
+                  } else if (v === "sourced") {
+                    setShowResetConfirm(true);
+                  } else if (v === "submitted") {
+                    const patch: Partial<CandidateInput> = {
+                      submission_status: "submitted",
+                      submitted_at: candidate.submitted_at || new Date().toISOString(),
+                    };
+                    saveField(patch);
+                  } else if (v === "interview") {
+                    const patch: Partial<CandidateInput> = {
+                      submission_status: "interview",
+                      submitted_at: candidate.submitted_at || new Date().toISOString(),
+                      interview_at: candidate.interview_at || new Date().toISOString(),
+                    };
+                    saveField(patch);
+                  } else if (v === "placed") {
+                    const patch: Partial<CandidateInput> = {
+                      submission_status: "placed",
+                      submitted_at: candidate.submitted_at || new Date().toISOString(),
+                      placed_at: candidate.placed_at || new Date().toISOString(),
+                    };
+                    saveField(patch);
+                  } else if (v === "rejected") {
+                    const existing = parseRejectionDetail(candidate.rejection_reason);
+                    const origin =
+                      candidate.submission_status === "interview"
+                        ? "interview"
+                        : candidate.submission_status === "submitted"
+                          ? "client_screening"
+                          : existing.origin || "general";
+
+                    const detail: RejectionDetail = {
+                      ...existing,
+                      origin,
+                      rejected_at: existing.rejected_at || new Date().toISOString(),
+                    };
+                    const patch: Partial<CandidateInput> = {
+                      submission_status: "rejected",
+                      rejection_reason: serializeRejectionDetail(detail),
+                    };
+                    saveField(patch);
+                  } else {
+                    const patch: Partial<CandidateInput> = { submission_status: v };
+                    saveField(patch);
+                  }
                 }}
-              >
-                <SelectTrigger className="h-8 w-full text-xs">
-                  <SelectValue placeholder="Rejection stage…" />
-                </SelectTrigger>
-                <SelectContent className="w-[var(--radix-select-trigger-width)]">
-                  <SelectItem value="client_screening">Client Screening</SelectItem>
-                  <SelectItem value="interview">Interview</SelectItem>
-                  <SelectItem value="general">General</SelectItem>
-                </SelectContent>
-              </Select>
-            )}
+              />
+            </div>
 
-            {status === "not_interested" && (
-              <Select
-                value={candidate.rejection_reason ?? ""}
-                onValueChange={(val) => saveField({ rejection_reason: val || null })}
-              >
-                <SelectTrigger className="h-8 w-full text-xs">
-                  <SelectValue placeholder="Reason…" />
-                </SelectTrigger>
-                <SelectContent className="w-[var(--radix-select-trigger-width)]">
-                  <SelectItem value="Rate / Compensation">Rate / Comp</SelectItem>
-                  <SelectItem value="Location / Commute">Location / Commute</SelectItem>
-                  <SelectItem value="Accepted another offer">Accepted Other Offer</SelectItem>
-                  <SelectItem value="Timing / Not looking">Timing / Not Looking</SelectItem>
-                  <SelectItem value="Role mismatch">Role Mismatch</SelectItem>
-                  <SelectItem value="Other">Other</SelectItem>
-                </SelectContent>
-              </Select>
+            {/* Companion Column (Date, Stage, Reason) */}
+            {hasCompanionControl && (
+              <div className="space-y-1">
+                <div className="flex h-5 items-center justify-between">
+                  <label className="text-[11px] font-medium text-fg-subtle">
+                    {status === "submitted"
+                      ? "Date"
+                      : status === "interview"
+                        ? "Submitted Date"
+                        : status === "placed"
+                          ? "Placed Date"
+                          : status === "rejected"
+                            ? "Rejection Stage"
+                            : "Reason"}
+                  </label>
+                </div>
+
+                {status === "submitted" && (
+                  <div className="flex items-center gap-1.5">
+                    <SubmittedDatePicker
+                      value={candidate.submitted_at}
+                      onChange={(val) => saveField({ submitted_at: val })}
+                      className="h-9 flex-1 min-w-0"
+                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={handleRetractSubmission}
+                          className="flex h-7.5 shrink-0 items-center gap-1 rounded-md border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 px-2 text-[10.5px] font-medium text-amber-700 dark:text-amber-300 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <ArrowCounterClockwise className="h-2.5 w-2.5" />
+                          <span>Retract</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Retract to In Touch</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+
+                {status === "placed" && (
+                  <PlacedDatePicker
+                    value={candidate.placed_at}
+                    onChange={(val) => saveField({ placed_at: val })}
+                    className="h-9"
+                  />
+                )}
+
+                {status === "interview" && (
+                  <SubmittedDatePicker
+                    value={candidate.submitted_at}
+                    onChange={(val) => saveField({ submitted_at: val })}
+                    className="h-9"
+                  />
+                )}
+
+                {status === "rejected" && (
+                  <div className="flex items-center gap-1.5">
+                    <Select
+                      value={parseRejectionDetail(candidate.rejection_reason).origin || "client_screening"}
+                      onValueChange={(val) => {
+                        const existing = parseRejectionDetail(candidate.rejection_reason);
+                        const detail: RejectionDetail = {
+                          ...existing,
+                          origin: val as RejectionOrigin,
+                          rejected_at: existing.rejected_at || new Date().toISOString(),
+                        };
+                        const patch: Partial<CandidateInput> = {
+                          rejection_reason: serializeRejectionDetail(detail),
+                        };
+                        if (val === "internal") {
+                          patch.submitted_at = null; // Clear submitted_at so internal pass is excluded from submission count and calendar
+                        }
+                        saveField(patch);
+                        if (val === "internal") {
+                          toast.info("Candidate marked as Internal / Team Pass (excluded from submissions)");
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="h-9 flex-1 min-w-0 text-xs">
+                        <SelectValue placeholder="Rejection stage…" />
+                      </SelectTrigger>
+                      <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                        <SelectItem value="client_screening">Client Screening</SelectItem>
+                        <SelectItem value="interview">Interview</SelectItem>
+                        <SelectItem value="internal">Internal / Team Pass</SelectItem>
+                        <SelectItem value="general">General</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            saveField({ submission_status: "in_touch" });
+                            toast.success("Candidate restored to In Touch");
+                          }}
+                          className="flex h-7.5 shrink-0 items-center gap-1 rounded-md border border-blue-500/30 bg-blue-500/10 hover:bg-blue-500/20 px-2 text-[10.5px] font-medium text-blue-700 dark:text-blue-300 transition-colors cursor-pointer shadow-2xs"
+                        >
+                          <ArrowCounterClockwise className="h-2.5 w-2.5" />
+                          <span>Reopen</span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>Reconsider Candidate (Move to In Touch)</TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+
+                {status === "not_interested" && (
+                  <Select
+                    value={candidate.rejection_reason ?? ""}
+                    onValueChange={(val) => saveField({ rejection_reason: val || null })}
+                  >
+                    <SelectTrigger className="h-9 w-full text-xs">
+                      <SelectValue placeholder="Reason…" />
+                    </SelectTrigger>
+                    <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                      <SelectItem value="Rate / Compensation">Rate / Comp</SelectItem>
+                      <SelectItem value="Location / Commute">Location / Commute</SelectItem>
+                      <SelectItem value="Accepted another offer">Accepted Other Offer</SelectItem>
+                      <SelectItem value="Timing / Not looking">Timing / Not Looking</SelectItem>
+                      <SelectItem value="Role mismatch">Role Mismatch</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+              </div>
             )}
           </div>
 
@@ -1037,19 +1191,20 @@ function CandidatePanelBody({
                     (e.target as HTMLInputElement).blur();
                   }
                 }}
-                className="h-7 w-full rounded border border-border/70 bg-surface px-2 text-[11px] text-fg outline-none focus:border-red-500/50"
+                className="h-8.5 w-full rounded-lg border border-border/70 bg-surface px-2.5 text-[11.5px] text-fg outline-none transition-colors focus:border-red-500/50"
               />
             </div>
           )}
         </div>
 
-        {/* Notes Section (between Status and Skills & Tools) */}
-        <div className="w-full space-y-1.5">
-          <div className="flex items-center justify-between">
-            <p className="flex items-center gap-1.5 text-xs text-fg-subtle font-medium">
-              <NotePencil className="h-3.5 w-3.5 text-fg-muted" />
-              <span>Notes</span>
-            </p>
+        {/* Divider */}
+        <div className="h-px bg-border/60" />
+
+        {/* Section 4: Notes */}
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-fg">
+            <NotePencil className="h-4 w-4 text-fg-subtle" weight="bold" />
+            <span>Notes</span>
           </div>
           <textarea
             value={notesDraft}
@@ -1061,22 +1216,27 @@ function CandidatePanelBody({
               saveField({ recruiter_notes: trimmed || null });
             }}
             placeholder="Add notes about this candidate…"
-            rows={2}
-            className="w-full rounded-lg border border-border bg-surface px-2.5 py-1.5 text-xs text-fg placeholder:text-fg-subtle outline-none transition-colors focus:border-primary/60 focus:ring-1 focus:ring-primary/20 resize-y min-h-[56px] max-h-36 scrollbar-thin"
+            rows={3}
+            className="w-full rounded-xl border border-border/70 bg-surface px-3 py-2 text-xs text-fg placeholder:text-fg-subtle/70 outline-none transition-colors focus:border-primary/60 focus:ring-1 focus:ring-primary/20 resize-y min-h-[70px] max-h-36 scrollbar-thin"
           />
         </div>
 
-        {/* Skills & Tools Badges Section */}
-        <div className="flex flex-col rounded-lg border border-border bg-surface p-3 space-y-2.5">
+        {/* Divider */}
+        <div className="h-px bg-border/60" />
+
+        {/* Section 5: Skills & Tools */}
+        <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
-              <Tag className="h-3.5 w-3.5 text-primary" weight="bold" />
+            <div className="flex items-center gap-1.5 text-[12.5px] font-semibold text-fg">
+              <Tag className="h-4 w-4 text-fg-subtle" weight="bold" />
               <span>Skills & Tools</span>
-              <span className="rounded-full bg-primary/10 px-1.5 py-0.2 text-[10px] font-medium text-primary">
-                {candidateSkills.length}
-              </span>
+              {candidateSkills.length > 0 && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10.5px] font-semibold text-primary">
+                  {candidateSkills.length}
+                </span>
+              )}
             </div>
-            {!isAddingSkill ? (
+            {!isAddingSkill && candidateSkills.length > 0 && (
               <Button
                 type="button"
                 variant="ghost"
@@ -1087,7 +1247,7 @@ function CandidatePanelBody({
                 <Plus className="h-3 w-3" />
                 Add Skill
               </Button>
-            ) : null}
+            )}
           </div>
 
           {/* Inline Add Skill Input */}
@@ -1107,13 +1267,13 @@ function CandidatePanelBody({
                 }}
                 autoFocus
                 placeholder="Type skill(s) e.g. AWS, Node, Python & press Enter…"
-                className="h-7 text-xs flex-1"
+                className="h-7.5 text-xs flex-1"
               />
               <Button
                 type="button"
                 size="sm"
                 onClick={() => handleAddSkill()}
-                className="h-7 px-2.5 text-xs"
+                className="h-7.5 px-2.5 text-xs"
               >
                 Add
               </Button>
@@ -1125,40 +1285,58 @@ function CandidatePanelBody({
                   setIsAddingSkill(false);
                   setNewSkillInput("");
                 }}
-                className="h-7 px-2 text-xs text-fg-subtle"
+                className="h-7.5 px-2 text-xs text-fg-subtle"
               >
                 Cancel
               </Button>
             </div>
           )}
 
-          {/* Skills Badge Pills */}
+          {/* Skills Badges List */}
           {candidateSkills.length > 0 ? (
-            <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto scrollbar-thin">
-              {candidateSkills.map((skill) => (
+            <div className="flex flex-wrap items-center gap-1.5 max-h-[140px] overflow-y-auto scrollbar-thin">
+              {candidateSkills.map((skill: string) => (
                 <span
                   key={skill}
-                  className="group inline-flex items-center gap-1 rounded-md border border-primary/25 bg-primary/10 px-2 py-0.5 text-[11.5px] font-medium text-primary transition-colors hover:border-primary/40 hover:bg-primary/15"
+                  className="group inline-flex items-center gap-1 rounded-md border border-border/80 bg-surface px-2.5 py-1 text-[11.5px] font-medium text-fg shadow-2xs transition-colors hover:border-border"
                 >
                   <span>{skill}</span>
                   <button
                     type="button"
                     onClick={() => handleRemoveSkill(skill)}
                     title={`Remove ${skill}`}
-                    className="rounded p-0.5 text-primary/60 opacity-60 hover:opacity-100 hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
+                    className="rounded p-0.5 text-fg-subtle hover:text-red-500 hover:bg-red-500/10 transition-all cursor-pointer"
                   >
                     <X className="h-3 w-3" />
                   </button>
                 </span>
               ))}
+
+              {!isAddingSkill && (
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSkill(true)}
+                  className="inline-flex items-center gap-1 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2.5 py-1 text-[11.5px] font-medium text-primary hover:bg-primary/10 hover:border-primary/60 transition-colors cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Add Skill</span>
+                </button>
+              )}
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center py-3 text-center">
-              <p className="text-xs text-fg-muted">No skills listed yet.</p>
-              <p className="text-[11px] text-fg-subtle">
-                Auto-fill from resume or click &quot;Add Skill&quot; to highlight technologies.
-              </p>
-            </div>
+            !isAddingSkill && (
+              <div className="flex items-center gap-2 py-1">
+                <span className="text-xs text-fg-subtle">No skills listed yet.</span>
+                <button
+                  type="button"
+                  onClick={() => setIsAddingSkill(true)}
+                  className="inline-flex items-center gap-1 rounded-md border border-dashed border-primary/40 bg-primary/5 px-2 py-0.5 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                >
+                  <Plus className="h-3 w-3" />
+                  <span>Add Skill</span>
+                </button>
+              </div>
+            )
           )}
         </div>
       </div>
@@ -1278,30 +1456,82 @@ function getPlainTextFromNotes(raw?: string | null): string {
   }
 }
 
-function InlineField({
-  label,
-  value,
-  onSave,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  onSave: (v: string) => void;
-  placeholder?: string;
-}) {
+
+function getStatusSelectTriggerStyle(status: string): string {
+  switch (status) {
+    case "sourced":
+      return "bg-slate-500/10 hover:bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30";
+    case "in_touch":
+      return "bg-blue-500/10 hover:bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30";
+    case "pipeline":
+      return "bg-indigo-500/10 hover:bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/30";
+    case "submitted":
+      return "bg-amber-500/10 hover:bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30";
+    case "interview":
+      return "bg-purple-500/10 hover:bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30";
+    case "placed":
+      return "bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30";
+    case "rejected":
+      return "bg-red-500/10 hover:bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30";
+    case "not_interested":
+      return "bg-slate-500/10 hover:bg-slate-500/15 text-slate-700 dark:text-slate-400 border-slate-500/30";
+    default:
+      return "bg-slate-500/10 hover:bg-slate-500/15 text-slate-700 dark:text-slate-300 border-slate-500/30";
+  }
+}
+
+function getAdaptiveNameSize(name: string): string {
+  const len = name.trim().length;
+  if (len <= 20) return "text-[18px] font-bold tracking-tight text-fg";
+  if (len <= 30) return "text-[16px] font-bold tracking-tight text-fg";
+  return "text-[14px] font-semibold tracking-tight text-fg";
+}
+
+function HeroNameField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
+  useEffect(() => setDraft(value), [value]);
+
+  const fontClass = getAdaptiveNameSize(draft || value || "Candidate");
 
   return (
-    <div className="min-w-0 space-y-1.5">
-      <p className="text-xs text-fg-subtle">{label}</p>
-      <Input
+    <div className="min-w-0">
+      <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder={placeholder}
-        className="h-8 text-[13px]"
+        placeholder="Candidate Name"
+        title={draft || value}
+        className={cn(
+          "w-full bg-transparent text-fg leading-tight placeholder:text-fg-subtle outline-none transition-colors rounded px-1 -ml-1 hover:bg-surface-hover/80 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate",
+          fontClass
+        )}
+        onBlur={() => {
+          const t = draft.trim();
+          if (!t || t === value) {
+            setDraft(value);
+            return;
+          }
+          onSave(t);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </div>
+  );
+}
+
+function HeroTitleField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  return (
+    <div className="min-w-0 mt-0.5">
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="Role / Title…"
+        title={draft || value}
+        className="w-full bg-transparent text-[13px] text-fg-muted placeholder:text-fg-subtle/60 outline-none transition-colors rounded px-1 -ml-1 hover:bg-surface-hover/80 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate"
         onBlur={() => {
           const t = draft.trim();
           if (t === value) return;
@@ -1311,6 +1541,101 @@ function InlineField({
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
       />
+    </div>
+  );
+}
+
+function HeroMetaField({
+  icon,
+  value,
+  placeholder,
+  onSave,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  placeholder: string;
+  onSave: (v: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+
+  return (
+    <div className="flex items-center gap-1.5 min-w-0 group">
+      {icon}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={placeholder}
+        title={draft || value}
+        className="w-full min-w-0 bg-transparent text-[12px] text-fg-muted font-medium placeholder:text-fg-subtle/50 outline-none transition-colors rounded px-1 hover:bg-surface-hover/80 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate"
+        onBlur={() => {
+          const t = draft.trim();
+          if (t === value) return;
+          onSave(t);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+      />
+    </div>
+  );
+}
+
+function ContactField({
+  icon,
+  value,
+  placeholder,
+  onSave,
+  onCopy,
+}: {
+  icon: React.ReactNode;
+  value: string;
+  placeholder: string;
+  onSave: (v: string) => void;
+  onCopy: () => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  const [copied, setCopied] = useState(false);
+  useEffect(() => setDraft(value), [value]);
+
+  const handleCopy = () => {
+    if (!value) return;
+    onCopy();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+
+  return (
+    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-colors hover:border-border">
+      {icon}
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder={placeholder}
+        className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-fg outline-none placeholder:text-fg-subtle truncate"
+        onBlur={() => {
+          const t = draft.trim();
+          if (t === value) return;
+          onSave(t);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") (e.target as HTMLInputElement).blur();
+        }}
+      />
+      {value ? (
+        <button
+          type="button"
+          onClick={handleCopy}
+          title={copied ? "Copied!" : "Copy"}
+          className="shrink-0 rounded p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg cursor-pointer"
+        >
+          {copied ? (
+            <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+          ) : (
+            <Copy className="h-3 w-3" />
+          )}
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -1327,74 +1652,58 @@ function LinkedInField({
   onCopy: () => void;
 }) {
   const [draft, setDraft] = useState(value);
-  useEffect(() => {
-    setDraft(value);
-  }, [value]);
-
-  return (
-    <div className="min-w-0 space-y-1.5">
-      <p className="text-xs text-fg-subtle">LinkedIn</p>
-      <div className="flex h-8 items-center gap-1 rounded-lg border border-border bg-surface-hover px-2">
-        <LinkedinLogo className="h-3.5 w-3.5 shrink-0 text-primary" />
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="https://linkedin.com/in/…"
-          className="h-full min-w-0 flex-1 bg-transparent text-[13px] text-fg outline-none placeholder:text-fg-subtle"
-          onBlur={() => {
-            const t = draft.trim();
-            if (t === value) return;
-            onSave(t);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") (e.target as HTMLInputElement).blur();
-          }}
-        />
-        {value ? (
-          <>
-            <button
-              onClick={onOpen}
-              title="Open link"
-              className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-            >
-              <ArrowSquareOut className="h-3.5 w-3.5" />
-            </button>
-            <button
-              onClick={onCopy}
-              title="Copy link"
-              className="shrink-0 rounded p-0.5 text-fg-subtle transition-colors hover:bg-surface-active hover:text-fg"
-            >
-              <Copy className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function NameField({ value, onSave }: { value: string; onSave: (v: string) => void }) {
-  const [draft, setDraft] = useState(value);
+  const [copied, setCopied] = useState(false);
   useEffect(() => setDraft(value), [value]);
+
+  const handleCopy = () => {
+    if (!value) return;
+    onCopy();
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1400);
+  };
+
   return (
-    <div className="min-w-0 space-y-1.5">
-      <p className="text-xs text-fg-subtle">Name</p>
-      <Input
+    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-colors hover:border-border">
+      <LinkedinLogo className="h-3.5 w-3.5 shrink-0 text-[#0077b5]" weight="fill" />
+      <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        className="h-8 text-[13px] font-medium"
+        placeholder="LinkedIn URL…"
+        className="h-full min-w-0 flex-1 bg-transparent text-[12px] text-fg outline-none placeholder:text-fg-subtle truncate"
         onBlur={() => {
           const t = draft.trim();
-          if (!t || t === value) {
-            setDraft(value);
-            return;
-          }
+          if (t === value) return;
           onSave(t);
         }}
         onKeyDown={(e) => {
           if (e.key === "Enter") (e.target as HTMLInputElement).blur();
         }}
       />
+      {value ? (
+        <div className="flex shrink-0 items-center gap-0.5">
+          <button
+            type="button"
+            onClick={onOpen}
+            title="Open in browser"
+            className="shrink-0 rounded p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg cursor-pointer"
+          >
+            <ArrowSquareOut className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={handleCopy}
+            title={copied ? "Copied!" : "Copy link"}
+            className="shrink-0 rounded p-1 text-fg-subtle transition-colors hover:bg-surface-hover hover:text-fg cursor-pointer"
+          >
+            {copied ? (
+              <Check className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+            ) : (
+              <Copy className="h-3 w-3" />
+            )}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
+

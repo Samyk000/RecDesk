@@ -263,6 +263,12 @@ pub fn update_job_in(
 #[tauri::command]
 pub fn delete_job(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let ts = now();
+    // Candidates are preserved as unassigned when their job is deleted
+    conn.execute(
+        "UPDATE candidates SET job_id = NULL, last_updated = ?1 WHERE job_id = ?2",
+        params![ts, id],
+    )?;
     conn.execute("DELETE FROM jobs WHERE id = ?1", params![id])?;
     Ok(())
 }
@@ -303,7 +309,23 @@ pub fn delete_jobs(state: State<'_, AppState>, ids: Vec<String>) -> AppResult<us
     if ids.is_empty() {
         return Ok(0);
     }
+    let ts = now();
     let tx = conn.transaction()?;
+
+    // Candidates are preserved as unassigned when jobs are deleted
+    for chunk in ids.chunks(500) {
+        let placeholders: Vec<String> = chunk.iter().map(|_| "?".to_string()).collect();
+        let sql = format!(
+            "UPDATE candidates SET job_id = NULL, last_updated = ?1 WHERE job_id IN ({})",
+            placeholders.join(",")
+        );
+        let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = vec![Box::new(ts.clone())];
+        for id in chunk {
+            p.push(Box::new(id.clone()));
+        }
+        tx.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
+    }
+
     let mut total_affected = 0;
     for chunk in ids.chunks(500) {
         let placeholders: Vec<String> = chunk.iter().map(|_| "?".to_string()).collect();
@@ -319,7 +341,11 @@ pub fn delete_jobs(state: State<'_, AppState>, ids: Vec<String>) -> AppResult<us
             tx.execute(&sql, rusqlite::params_from_iter(p.iter().map(|b| b.as_ref())))?;
     }
     tx.commit()?;
+
     Ok(total_affected)
 }
 
-
+#[tauri::command]
+pub fn get_stale_jobs_count(state: State<'_, AppState>) -> usize {
+    state.stale_jobs_held.swap(0, std::sync::atomic::Ordering::Relaxed)
+}

@@ -85,7 +85,7 @@ export function PlacedDatePicker({ value, onChange, className }: Props) {
         type="button"
         onClick={() => setOpen((prev) => !prev)}
         className={cn(
-          "flex h-7 w-full items-center justify-between gap-1.5 rounded-md border border-border bg-surface-hover/80 px-2 text-[11.5px] text-fg transition-all hover:bg-surface-hover hover:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 cursor-pointer",
+          "flex h-9 w-full items-center justify-between gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs text-fg transition-all hover:bg-surface-hover hover:border-emerald-500/50 focus:outline-none focus:ring-1 focus:ring-emerald-500/40 cursor-pointer shadow-2xs",
           open && "ring-1 ring-emerald-500/50 border-emerald-500/50",
         )}
       >

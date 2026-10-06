@@ -3,7 +3,8 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Candidate {
     pub id: String,
-    pub job_id: String,
+    #[serde(default)]
+    pub job_id: Option<String>,
     pub name: String,
     #[serde(default)]
     pub email: Option<String>,

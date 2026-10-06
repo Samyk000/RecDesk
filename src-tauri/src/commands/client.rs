@@ -121,6 +121,12 @@ pub fn update_client(
 #[tauri::command]
 pub fn delete_client(state: State<'_, AppState>, id: String) -> AppResult<()> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let ts = now();
+    // Candidates are preserved as unassigned when their client (and thus jobs) are deleted
+    conn.execute(
+        "UPDATE candidates SET job_id = NULL, last_updated = ?1 WHERE job_id IN (SELECT id FROM jobs WHERE client_id = ?2)",
+        params![ts, id],
+    )?;
     conn.execute("DELETE FROM clients WHERE id = ?1", params![id])?;
     Ok(())
 }

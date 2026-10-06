@@ -75,7 +75,7 @@ export function useJobs(clientId?: string, status?: string, search?: string) {
   });
 }
 
-export function useJob(id: string | undefined) {
+export function useJob(id: string | null | undefined) {
   return useQuery({
     queryKey: ["job", id],
     queryFn: () => apiJobs.get(id!),
@@ -179,11 +179,29 @@ export function useInfiniteCandidatesWithJob(
   status?: string,
   clientId?: string,
   pageSize = 50,
+  sortBy?: string,
+  sortDir?: string,
 ) {
   return useInfiniteQuery({
-    queryKey: ["candidatesWithJob", "infinite", search ?? "", status ?? "", clientId ?? ""],
+    queryKey: [
+      "candidatesWithJob",
+      "infinite",
+      search ?? "",
+      status ?? "",
+      clientId ?? "",
+      sortBy ?? "",
+      sortDir ?? "",
+    ],
     queryFn: ({ pageParam = 0 }) =>
-      apiCandidates.withJob(clientId, search, status, pageSize, pageParam as number),
+      apiCandidates.withJob(
+        clientId,
+        search,
+        status,
+        pageSize,
+        pageParam as number,
+        sortBy,
+        sortDir,
+      ),
     initialPageParam: 0,
     getNextPageParam: (lastPage, _allPages, lastPageParam) => {
       if (!lastPage || lastPage.length < pageSize) return undefined;
@@ -220,14 +238,32 @@ export function useUpdateCandidate() {
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CandidateInput }) =>
       apiCandidates.update(id, input),
-    onSuccess: (cand) => {
+    onSuccess: (cand, vars) => {
       qc.setQueryData(["candidate", cand.id], cand);
+
+      const affectsMetrics =
+        vars.input.submission_status !== undefined ||
+        vars.input.interview_status !== undefined ||
+        vars.input.submitted_at !== undefined ||
+        vars.input.interview_at !== undefined ||
+        vars.input.placed_at !== undefined ||
+        vars.input.rejection_reason !== undefined ||
+        vars.input.candidate_status !== undefined;
+
+      const affectsJob = vars.input.job_id !== undefined;
+
+      if (affectsMetrics || affectsJob) {
+        qc.invalidateQueries({ queryKey: ["dashboard"] });
+        qc.invalidateQueries({ queryKey: ["jobs"] });
+        qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
+      }
+
+      if (vars.input.name !== undefined || vars.input.current_title !== undefined) {
+        qc.invalidateQueries({ queryKey: ["globalSearch"] });
+      }
+
       qc.invalidateQueries({ queryKey: ["candidates"] });
       qc.invalidateQueries({ queryKey: ["candidatesWithJob"] });
-      qc.invalidateQueries({ queryKey: ["job", cand.job_id] });
-      qc.invalidateQueries({ queryKey: ["jobs"] });
-      qc.invalidateQueries({ queryKey: ["dashboard"] });
-      qc.invalidateQueries({ queryKey: ["globalSearch"] });
     },
   });
 }

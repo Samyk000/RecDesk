@@ -111,3 +111,32 @@ export function htmlToPlainText(html: string): string {
     .forEach((el) => el.after("\n"));
   return (doc.body.textContent ?? "").replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
+
+/**
+ * Safely parses date strings that might contain trailing timezone abbreviations
+ * (e.g. "2026-10-04T14:30 EST", "2026-08-10 external", or plain "2026-08-10").
+ * Strips non-standard suffixes before Date parsing so Chromium doesn't yield Invalid Date.
+ */
+export function parseSafeDate(val?: string | null): { date: Date | null; tz: string } {
+  if (!val || !val.trim()) return { date: null, tz: "" };
+  const trimmed = val.trim();
+  const parts = trimmed.split(/\s+/);
+  const dateTimePart = parts[0] || "";
+  const tz = parts.slice(1).join(" ");
+
+  const d = new Date(dateTimePart);
+  if (!Number.isNaN(d.getTime())) {
+    return { date: d, tz };
+  }
+
+  const match = dateTimePart.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    const fallback = new Date(year, month - 1, day, 12, 0, 0);
+    return { date: Number.isNaN(fallback.getTime()) ? null : fallback, tz };
+  }
+
+  return { date: null, tz };
+}

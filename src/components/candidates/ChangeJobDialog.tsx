@@ -72,7 +72,7 @@ export function ChangeJobDialog({
       return matchEmail || matchPhone;
     });
 
-    return new Set(matches.map((c) => c.job_id));
+    return new Set(matches.map((c) => c.job_id).filter(Boolean) as string[]);
   }, [allCandidates, candidate]);
 
   // Filtered list of jobs
@@ -123,7 +123,9 @@ export function ChangeJobDialog({
         });
 
         // Invalidate relevant caches
-        queryClient.invalidateQueries({ queryKey: ["job", oldJobId] });
+        if (oldJobId) {
+          queryClient.invalidateQueries({ queryKey: ["job", oldJobId] });
+        }
         queryClient.invalidateQueries({ queryKey: ["job", targetJob.id] });
         queryClient.invalidateQueries({ queryKey: ["jobs"] });
         queryClient.invalidateQueries({ queryKey: ["candidate", candidate.id] });
@@ -131,39 +133,46 @@ export function ChangeJobDialog({
         queryClient.invalidateQueries({ queryKey: ["candidatesWithJob"] });
         queryClient.invalidateQueries({ queryKey: ["dashboard"] });
 
-        toast.success(`Moved ${candidate.name} to "${targetJob.title}"`, {
-          action: {
-            label: "Undo",
-            onClick: async () => {
-              try {
-                await updateCandidate.mutateAsync({
-                  id: candidate.id,
-                  // Undo the exact columns the move touched (sparse updates no
-                  // longer re-send the whole row).
-                  input: toCandidateInput(candidate, {
-                    job_id: previousCandidateState.job_id,
-                    screening_answers: previousCandidateState.screening_answers,
-                    submission_status: previousCandidateState.submission_status,
-                    interview_status: previousCandidateState.interview_status,
-                    interview_at: previousCandidateState.interview_at,
-                    submitted_at: previousCandidateState.submitted_at,
-                    placed_at: previousCandidateState.placed_at,
-                    rejection_reason: previousCandidateState.rejection_reason,
-                    match_score: previousCandidateState.match_score,
-                  }),
-                });
-                queryClient.invalidateQueries({ queryKey: ["job", oldJobId] });
-                queryClient.invalidateQueries({ queryKey: ["job", targetJob.id] });
-                queryClient.invalidateQueries({ queryKey: ["candidate", candidate.id] });
-                queryClient.invalidateQueries({ queryKey: ["candidates"] });
-                queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-                toast.success(`Reverted ${candidate.name} back to original role`);
-              } catch {
-                toast.error("Failed to undo move");
-              }
+        toast.success(
+          oldJobId
+            ? `Moved ${candidate.name} to "${targetJob.title}"`
+            : `Assigned ${candidate.name} to "${targetJob.title}"`,
+          {
+            action: {
+              label: "Undo",
+              onClick: async () => {
+                try {
+                  await updateCandidate.mutateAsync({
+                    id: candidate.id,
+                    // Undo the exact columns the move touched (sparse updates no
+                    // longer re-send the whole row).
+                    input: toCandidateInput(candidate, {
+                      job_id: previousCandidateState.job_id,
+                      screening_answers: previousCandidateState.screening_answers,
+                      submission_status: previousCandidateState.submission_status,
+                      interview_status: previousCandidateState.interview_status,
+                      interview_at: previousCandidateState.interview_at,
+                      submitted_at: previousCandidateState.submitted_at,
+                      placed_at: previousCandidateState.placed_at,
+                      rejection_reason: previousCandidateState.rejection_reason,
+                      match_score: previousCandidateState.match_score,
+                    }),
+                  });
+                  if (oldJobId) {
+                    queryClient.invalidateQueries({ queryKey: ["job", oldJobId] });
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["job", targetJob.id] });
+                  queryClient.invalidateQueries({ queryKey: ["candidate", candidate.id] });
+                  queryClient.invalidateQueries({ queryKey: ["candidates"] });
+                  queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+                  toast.success(`Reverted ${candidate.name} back to original role`);
+                } catch {
+                  toast.error("Failed to undo move");
+                }
+              },
             },
-          },
-        });
+          }
+        );
 
         onOpenChange(false);
         onSuccess?.(targetJob.id, "move");
@@ -215,7 +224,11 @@ export function ChangeJobDialog({
             </div>
             <div className="min-w-0">
               <DialogTitle className="text-sm font-semibold text-fg truncate">
-                {mode === "move" ? "Move Candidate to Job" : "Copy Candidate to Job"}
+                {mode === "move"
+                  ? candidate.job_id
+                    ? "Move Candidate to Job"
+                    : "Assign Candidate to Job"
+                  : "Copy Candidate to Job"}
               </DialogTitle>
               <p className="text-[11.5px] text-fg-subtle truncate">
                 Candidate: <span className="font-medium text-fg">{candidate.name}</span>
@@ -236,7 +249,7 @@ export function ChangeJobDialog({
               )}
             >
               <ArrowsLeftRight className="h-3.5 w-3.5 text-primary" />
-              <span>Move (Transfer)</span>
+              <span>{candidate.job_id ? "Move (Transfer)" : "Assign Role"}</span>
             </button>
             <button
               type="button"

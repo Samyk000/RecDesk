@@ -20,7 +20,7 @@ import {
 import { InfiniteScrollTrigger } from "../components/common/InfiniteScrollTrigger";
 import { useDebounce } from "../hooks/useDebounce";
 import { useSelection } from "../hooks/useSelection";
-import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
+import { useTableSort, SortIcon } from "../hooks/useTableSort";
 import { Button } from "../components/ui/button";
 import { EmptyState } from "../components/common/EmptyState";
 import { SearchInput } from "../components/common/SearchInput";
@@ -50,40 +50,15 @@ import {
 } from "../components/ui/dropdown";
 import { ChangeJobDialog } from "../components/candidates/ChangeJobDialog";
 import { apiCandidates } from "../lib/api";
-import { getCandidateSkills } from "../lib/candidateUtils";
+import {
+  getCandidateSkills,
+  type CandidateSortKey,
+} from "../lib/candidateUtils";
 import { BULK_STATUSES, submissionPalette } from "../lib/constants";
 import { cn, errorMessage, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import type { Candidate, CandidateWithJob } from "../types";
 
 const DETAIL_STATUSES = new Set(["submitted", "interview", "placed", "rejected"]);
-
-type SortKey =
-  | "candidate_title"
-  | "experience_years"
-  | "job_title"
-  | "client_name"
-  | "location"
-  | "last_updated";
-
-const COMPARE: (a: CandidateWithJob, b: CandidateWithJob, key: SortKey) => number = (a, b, key) => {
-  if (key === "candidate_title") {
-    const tA = (a.current_title ?? "").trim();
-    const tB = (b.current_title ?? "").trim();
-    if (!tA && !tB) return a.name.localeCompare(b.name);
-    if (!tA) return 1;
-    if (!tB) return -1;
-    return tA.localeCompare(tB);
-  }
-  if (key === "experience_years") {
-    const expA = a.experience_years ?? -1;
-    const expB = b.experience_years ?? -1;
-    return expA - expB;
-  }
-  if (key === "job_title") return a.job_title.localeCompare(b.job_title);
-  if (key === "client_name") return a.client_name.localeCompare(b.client_name);
-  if (key === "location") return (a.location ?? "").localeCompare(b.location ?? "");
-  return a.last_updated.localeCompare(b.last_updated);
-};
 
 export function Pipeline() {
   const [params, setParams] = useSearchParams();
@@ -91,7 +66,7 @@ export function Pipeline() {
   const debounced = useDebounce(search, 200);
   const [selectedSkills, setSelectedSkills] = useState<string[]>([]);
   const [selectMode, setSelectMode] = useState(false);
-  const { sortKey, sortDir, toggleSort } = useTableSort<SortKey>("last_updated");
+  const { sortKey, sortDir, toggleSort } = useTableSort<CandidateSortKey>("last_updated");
   const [formOpen, setFormOpen] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [matchCandidateTarget, setMatchCandidateTarget] = useState<Candidate | null>(null);
@@ -114,6 +89,10 @@ export function Pipeline() {
   } = useInfiniteCandidatesWithJob(
     debounced || undefined,
     "pipeline",
+    undefined,
+    50,
+    sortKey,
+    sortDir,
   );
 
   const allLoadedCandidates = useMemo(() => {
@@ -154,7 +133,7 @@ export function Pipeline() {
     });
   }, [allLoadedCandidates, selectedSkills]);
 
-  const displayedCandidates = useSortedRows(filteredCandidates, sortKey, sortDir, COMPARE);
+  const displayedCandidates = filteredCandidates;
 
   const selection = useSelection(
     displayedCandidates.map((c) => c.id),

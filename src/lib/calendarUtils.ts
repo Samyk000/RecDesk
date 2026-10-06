@@ -215,37 +215,39 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
     // 1. EXTERNAL SUBMISSION EVENTS
     // ==========================================
     const isSubmittedStage = cand.submission_status === "submitted";
-    const hasSubmissionDate = !!cand.submitted_at?.trim();
     const isExt = isExternalSubmission(cand);
 
-    if (isExt || isSubmittedStage || hasSubmissionDate) {
-      const rawDate = cand.submitted_at || cand.date_added || cand.last_updated;
+    // Only generate a submission event if the candidate is in the submitted stage
+    // or is an external submission (interview, placed, or client-rejected).
+    // Candidates moved back to in_touch/pipeline/sourced or with internal passes are excluded.
+    if (isExt || isSubmittedStage) {
+      const rawDate = cand.submitted_at || cand.date_added;
       const dateKey = formatDateKey(rawDate);
 
-        if (dateKey) {
-          const outcome =
-            cand.submission_status === "rejected"
-              ? "rejected"
-              : cand.submission_status === "placed"
-                ? "placed"
-                : cand.submission_status === "interview"
-                  ? "passed"
-                  : "pending";
+      if (dateKey) {
+        const outcome =
+          cand.submission_status === "rejected"
+            ? "rejected"
+            : cand.submission_status === "placed"
+              ? "placed"
+              : cand.submission_status === "interview"
+                ? "passed"
+                : "pending";
 
-          events.push({
-            id: `sub_${cand.id}_${dateKey}`,
-            type: "submission",
-            dateKey,
-            rawDate: rawDate,
-            formattedTime: formatTimeFromIso(rawDate),
-            candidate: cand,
-            status: "submitted",
-            subStage: null,
-            outcome,
-            eventOutcome: getEventOutcome(cand, "submission"),
-          });
-        }
+        events.push({
+          id: `sub_${cand.id}_${dateKey}`,
+          type: "submission",
+          dateKey,
+          rawDate: rawDate,
+          formattedTime: formatTimeFromIso(rawDate),
+          candidate: cand,
+          status: "submitted",
+          subStage: null,
+          outcome,
+          eventOutcome: getEventOutcome(cand, "submission"),
+        });
       }
+    }
 
     // ==========================================
     // 2. INTERVIEW EVENTS
@@ -331,11 +333,47 @@ export function extractCalendarEvents(candidates: CandidateWithJob[]): CalendarE
     }
   }
 
-  // Sort events chronologically
+  // Sort events so latest entries appear on top:
+  // 1. Calendar date (latest date first: b.dateKey vs a.dateKey)
+  // 2. Type: Interviews first, Submissions second, Placements third
+  // 3. For interviews: latest scheduled time on top, latest round on top
+  // 4. For submissions: latest submission time on top
+  // 5. Stable tie-breaker: latest creation date_added on top (addB - addA)
+  // 6. Candidate name
   return events.sort((a, b) => {
-    const timeA = getSubmissionTimestamp(a.rawDate);
-    const timeB = getSubmissionTimestamp(b.rawDate);
-    return timeA - timeB;
+    if (a.dateKey !== b.dateKey) {
+      return b.dateKey.localeCompare(a.dateKey);
+    }
+
+    const typePriority: Record<CalendarEventType, number> = {
+      interview: 1,
+      submission: 2,
+      placement: 3,
+    };
+    const pA = typePriority[a.type] ?? 99;
+    const pB = typePriority[b.type] ?? 99;
+    if (pA !== pB) return pA - pB;
+
+    if (a.type === "interview" && b.type === "interview") {
+      const timeA = getSubmissionTimestamp(a.rawDate);
+      const timeB = getSubmissionTimestamp(b.rawDate);
+      if (timeA !== timeB) return timeB - timeA;
+      const rA = a.roundNumber ?? 1;
+      const rB = b.roundNumber ?? 1;
+      if (rA !== rB) return rB - rA;
+    }
+
+    if (a.type === "submission" && b.type === "submission") {
+      const timeA = getSubmissionTimestamp(a.rawDate);
+      const timeB = getSubmissionTimestamp(b.rawDate);
+      if (timeA !== timeB) return timeB - timeA;
+    }
+
+    const addA = a.candidate.date_added ? new Date(a.candidate.date_added).getTime() : 0;
+    const addB = b.candidate.date_added ? new Date(b.candidate.date_added).getTime() : 0;
+    if (addA !== addB) return addB - addA;
+
+    return a.candidate.name.localeCompare(b.candidate.name) || a.id.localeCompare(b.id);
   });
 }
 

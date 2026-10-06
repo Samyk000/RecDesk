@@ -7,6 +7,7 @@ mod rows;
 #[cfg(test)]
 mod tests;
 
+use std::sync::atomic::AtomicUsize;
 use std::sync::Mutex;
 
 use database::init_db;
@@ -14,6 +15,7 @@ use tauri::Manager;
 
 pub struct AppState {
     pub db: Mutex<rusqlite::Connection>,
+    pub stale_jobs_held: AtomicUsize,
 }
 
 pub fn run() {
@@ -25,9 +27,10 @@ pub fn run() {
             let dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&dir)?;
             let conn = init_db(&dir.join("workspace.db"))?;
-            let _ = commands::job::auto_hold_stale_jobs(&conn);
+            let stale_count = commands::job::auto_hold_stale_jobs(&conn).unwrap_or(0);
             app.manage(AppState {
                 db: Mutex::new(conn),
+                stale_jobs_held: AtomicUsize::new(stale_count),
             });
             Ok(())
         })
@@ -46,6 +49,7 @@ pub fn run() {
             commands::job::delete_job,
             commands::job::bulk_update_jobs,
             commands::job::delete_jobs,
+            commands::job::get_stale_jobs_count,
             // candidates
             commands::candidate::get_candidates,
             commands::candidate::get_candidate,

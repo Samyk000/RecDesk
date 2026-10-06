@@ -36,10 +36,10 @@ pub const CANDIDATE_SELECT_JOIN: &str = r#"
          c.candidate_status, c.submitted_at, c.interview_at, c.rejection_reason,
          c.date_added, c.last_updated, c.linkedin_url, NULL, c.submission_details,
          c.placed_at, NULL, NULL,
-         j.title, j.job_id, cl.name
+         COALESCE(j.title, 'Unassigned'), COALESCE(j.job_id, '—'), COALESCE(cl.name, '—')
   FROM candidates c
-  JOIN jobs j ON j.id = c.job_id
-  JOIN clients cl ON cl.id = j.client_id
+  LEFT JOIN jobs j ON j.id = c.job_id
+  LEFT JOIN clients cl ON cl.id = j.client_id
 "#;
 
 fn apply_status_condition(
@@ -196,6 +196,10 @@ pub fn create_candidate(
             ts
         ],
     )?;
+    let _ = conn.execute(
+        "UPDATE jobs SET updated_at = ?1 WHERE id = ?2",
+        params![&ts, &job_id],
+    );
     let cand = conn.query_row(
         &format!("{CANDIDATE_SELECT} WHERE c.id = ?1"),
         params![&id],
@@ -243,14 +247,17 @@ pub fn update_candidate_in(
         columns.push(format!("name = ?{}", values.len() + 1));
         values.push(Box::new(v));
     }
-    if let Some(raw) = &input.job_id {
+    let target_job_id: Option<String> = if let Some(raw) = &input.job_id {
         let v = raw.trim().to_string();
         if v.is_empty() {
             return Err("Job assignment is required".into());
         }
         columns.push(format!("job_id = ?{}", values.len() + 1));
-        values.push(Box::new(v));
-    }
+        values.push(Box::new(v.clone()));
+        Some(v)
+    } else {
+        None
+    };
 
     set_if_present!("email", input.email);
     set_if_present!("phone", input.phone);
@@ -292,6 +299,13 @@ pub fn update_candidate_in(
         conn.execute(&sql, rusqlite::params_from_iter(values.iter().map(|b| b.as_ref())))?;
     if affected == 0 {
         return Err("Candidate not found".into());
+    }
+
+    if let Some(jid) = target_job_id {
+        let _ = conn.execute(
+            "UPDATE jobs SET updated_at = ?1 WHERE id = ?2",
+            params![now(), &jid],
+        );
     }
 
     let cand = conn.query_row(
@@ -427,7 +441,9 @@ pub fn delete_candidate(state: State<'_, AppState>, id: String) -> AppResult<()>
             )
             .unwrap_or(0);
         if other_count == 0 {
-            let _ = std::fs::remove_file(p);
+            if let Err(e) = std::fs::remove_file(&p) {
+                eprintln!("recdesk: failed to remove unreferenced resume {p}: {e}");
+            }
         }
     }
     Ok(())
@@ -481,21 +497,26 @@ pub fn delete_candidates(state: State<'_, AppState>, ids: Vec<String>) -> AppRes
     }
     tx.commit()?;
 
-    // Clean up unreferenced resume files
-    for p in paths_to_check {
+    clean_unreferenced_resumes(&conn, &paths_to_check);
+
+    Ok(total_affected)
+}
+
+pub fn clean_unreferenced_resumes(conn: &rusqlite::Connection, paths: &[String]) {
+    for p in paths {
         let other_count: i64 = conn
             .query_row(
                 "SELECT COUNT(*) FROM candidates WHERE resume_path = ?1",
-                params![&p],
+                params![p],
                 |r| r.get(0),
             )
             .unwrap_or(0);
         if other_count == 0 {
-            let _ = std::fs::remove_file(p);
+            if let Err(e) = std::fs::remove_file(p) {
+                eprintln!("recdesk: failed to remove unreferenced resume {p}: {e}");
+            }
         }
     }
-
-    Ok(total_affected)
 }
 
 #[tauri::command]
@@ -506,6 +527,8 @@ pub fn get_candidates_with_job(
     search: Option<String>,
     limit: Option<i64>,
     offset: Option<i64>,
+    sort_by: Option<String>,
+    sort_dir: Option<String>,
 ) -> AppResult<Vec<CandidateWithJob>> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
     let mut conditions: Vec<String> = Vec::new();
@@ -534,7 +557,20 @@ pub fn get_candidates_with_job(
         sql.push_str(" WHERE ");
         sql.push_str(&conditions.join(" AND "));
     }
-    sql.push_str(" ORDER BY c.last_updated DESC");
+
+    let order_col = match sort_by.as_deref() {
+        Some("name") => "c.name",
+        Some("candidate_title") => "COALESCE(c.current_title, '')",
+        Some("experience_years") => "COALESCE(c.experience_years, -1)",
+        Some("job_title") => "COALESCE(j.title, 'Unassigned')",
+        Some("client_name") => "COALESCE(cl.name, '—')",
+        Some("location") => "COALESCE(c.location, '')",
+        Some("date_added") => "c.date_added",
+        Some("last_updated") => "c.last_updated",
+        _ => "c.last_updated",
+    };
+    let dir = if sort_dir.as_deref() == Some("asc") { "ASC" } else { "DESC" };
+    sql.push_str(&format!(" ORDER BY {} {}, c.last_updated DESC", order_col, dir));
 
     // SQLite requires a LIMIT clause for OFFSET to take effect.
     if let Some(lim) = limit {
