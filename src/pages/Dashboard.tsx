@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowRight,
@@ -6,7 +6,6 @@ import {
   Building,
   CalendarCheck,
   CheckCircle,
-  Clock,
   IdentificationCard,
   Lightning,
   PaperPlaneTilt,
@@ -14,17 +13,16 @@ import {
   UserPlus,
 } from "@phosphor-icons/react";
 import { MetricSparkline } from "../components/dashboard/MetricSparkline";
+import { ZoneClock } from "../components/dashboard/ZoneClock";
 import { useDashboardStats } from "../hooks/useQueries";
 import { PageLoader } from "../components/common/Spinner";
 import { QueryErrorState } from "../components/common/QueryErrorState";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { EmptyState } from "../components/common/EmptyState";
 import { Button } from "../components/ui/button";
-import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import { jobPalette, submissionPalette } from "../lib/constants";
 import { getCandidateSubStageLabel } from "../lib/candidateUtils";
-import { cn, formatZoneTime, nameInitials, timeAgo, titleCase } from "../lib/utils";
-import { useProfile } from "../store/profile";
+import { cn, nameInitials, timeAgo, titleCase } from "../lib/utils";
 import { CandidateForm } from "../components/candidates/CandidateForm";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
 import { ClientForm } from "../components/clients/ClientForm";
@@ -417,60 +415,6 @@ export function Dashboard() {
   );
 }
 
-function getMinimalZoneInfo(zone: string): { letter: string; fullLabel: string } {
-  if (zone === "America/New_York") return { letter: "E", fullLabel: "Eastern Time (EDT / EST)" };
-  if (zone === "America/Chicago") return { letter: "C", fullLabel: "Central Time (CDT / CST)" };
-  if (zone === "America/Denver") return { letter: "M", fullLabel: "Mountain Time (MDT / MST)" };
-  if (zone === "America/Los_Angeles") return { letter: "P", fullLabel: "Pacific Time (PDT / PST)" };
-  if (zone === "Asia/Kolkata" || zone === "Asia/Calcutta") return { letter: "IST", fullLabel: "India Standard Time (IST)" };
-  if (zone === "UTC") return { letter: "UTC", fullLabel: "Coordinated Universal Time (UTC)" };
-  const city = zone.split("/")[1] || zone;
-  return { letter: city.slice(0, 3).toUpperCase(), fullLabel: zone };
-}
-
-function ZoneClock() {
-  const timeZones = useProfile((s) => s.timeZones);
-  const [, setTick] = useState(0);
-
-  useEffect(() => {
-    if (timeZones.length === 0) return;
-    let id: number;
-    const schedule = () => {
-      const now = new Date();
-      const delay = 60_000 - (now.getSeconds() * 1000 + now.getMilliseconds()) + 250;
-      id = window.setTimeout(() => {
-        setTick((t) => t + 1);
-        schedule();
-      }, delay);
-    };
-    schedule();
-    return () => clearTimeout(id);
-  }, [timeZones.length]);
-
-  if (timeZones.length === 0) return null;
-
-  return (
-    <div className="flex w-full items-center rounded-xl border border-border/80 bg-surface/80 px-2.5 py-2 text-xs font-medium tabular-nums text-fg-muted shadow-2xs divide-x divide-border/70 backdrop-blur-xs">
-      {timeZones.map((zone) => {
-        const info = getMinimalZoneInfo(zone);
-        return (
-          <Tooltip key={zone}>
-            <TooltipTrigger asChild>
-              <span className="flex-1 flex items-center justify-center gap-1.5 px-2 py-0.5 text-[11.5px] font-medium text-fg-muted cursor-default hover:text-fg transition-colors">
-                <Clock className="h-3 w-3 shrink-0 text-primary/75" />
-                <span>{formatZoneTime(zone)}</span>
-              </span>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-[11.5px]">
-              <p className="font-semibold">{info.fullLabel}</p>
-              <p className="text-[10px] opacity-80">{zone}</p>
-            </TooltipContent>
-          </Tooltip>
-        );
-      })}
-    </div>
-  );
-}
 
 function Section({
   title,

@@ -94,12 +94,12 @@ export function errorMessage(e: unknown): string {
   return "Something went wrong";
 }
 
-export function formatZoneTime(zone: string, now = new Date()): string {
+export function formatZoneTime(zone: string, includeTz = false, now = new Date()): string {
   return new Intl.DateTimeFormat("en-US", {
     timeZone: zone,
     hour: "numeric",
     minute: "2-digit",
-    timeZoneName: "short",
+    ...(includeTz ? { timeZoneName: "short" } : {}),
   }).format(now);
 }
 
