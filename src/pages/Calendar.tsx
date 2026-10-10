@@ -308,7 +308,7 @@ export function Calendar() {
                 onClick={() => setFilterType("all")}
                 className={cn(
                   "px-2 py-0.5 rounded font-medium transition-all cursor-pointer",
-                  filterType === "all" ? "bg-primary text-white" : "text-fg-muted hover:text-fg",
+                  filterType === "all" ? "bg-primary text-primary-fg" : "text-fg-muted hover:text-fg",
                 )}
               >
                 All
@@ -498,7 +498,7 @@ export function Calendar() {
                       className={cn(
                         "flex h-5 w-5 items-center justify-center rounded-full text-[11.5px] font-medium transition-colors",
                         cell.isToday
-                          ? "bg-primary text-white font-bold"
+                          ? "bg-primary text-primary-fg font-bold"
                           : isSelected
                             ? "font-bold text-primary"
                             : cell.isCurrentMonth
@@ -683,7 +683,7 @@ export function Calendar() {
                 className={cn(
                   "px-2 py-0.5 rounded font-medium transition-all cursor-pointer",
                   viewScope === "day"
-                    ? "bg-primary text-white font-semibold"
+                    ? "bg-primary text-primary-fg font-semibold"
                     : "text-fg-subtle hover:text-fg",
                 )}
               >
@@ -695,7 +695,7 @@ export function Calendar() {
                 className={cn(
                   "px-2 py-0.5 rounded font-medium transition-all cursor-pointer",
                   viewScope === "month"
-                    ? "bg-primary text-white font-semibold"
+                    ? "bg-primary text-primary-fg font-semibold"
                     : "text-fg-subtle hover:text-fg",
                 )}
               >

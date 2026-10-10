@@ -264,7 +264,7 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
                 className={cn(
                   "rounded px-1.5 py-0.5 font-bold transition-colors cursor-pointer",
                   currentPeriod === "AM"
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-primary-fg"
                     : "text-fg-subtle hover:text-fg",
                 )}
               >
@@ -276,7 +276,7 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
                 className={cn(
                   "rounded px-1.5 py-0.5 font-bold transition-colors cursor-pointer",
                   currentPeriod === "PM"
-                    ? "bg-primary text-white"
+                    ? "bg-primary text-primary-fg"
                     : "text-fg-subtle hover:text-fg",
                 )}
               >
@@ -322,7 +322,7 @@ export function InterviewSchedulePicker({ value, onChange, className }: Props) {
               emitChange(selectedDate, selectedTime, selectedTz);
               setOpen(false);
             }}
-            className="w-full rounded-md bg-primary py-1 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 cursor-pointer shadow-xs"
+            className="w-full rounded-md bg-primary py-1 text-[11px] font-semibold text-primary-fg transition-opacity hover:opacity-90 cursor-pointer shadow-xs"
           >
             Done
           </button>

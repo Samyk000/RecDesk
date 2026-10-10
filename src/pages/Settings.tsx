@@ -35,12 +35,12 @@ const themeOptions: { value: ThemeMode; label: string; icon: typeof Sun }[] = [
 ];
 
 const colorThemes: { value: ThemeName; label: string; primary: string; bg: string; darkBg: string }[] = [
-  { value: "blue", label: "Blue", primary: "#2563eb", bg: "#edf2f9", darkBg: "#0c0c0f" },
-  { value: "teal", label: "Teal", primary: "#0d9488", bg: "#e3f2ee", darkBg: "#0a1211" },
-  { value: "violet", label: "Violet", primary: "#7c3aed", bg: "#eee9fa", darkBg: "#0d0b15" },
-  { value: "rose", label: "Rose", primary: "#e11d48", bg: "#fae9ed", darkBg: "#150d10" },
-  { value: "amber", label: "Amber", primary: "#d97706", bg: "#f5ede0", darkBg: "#120e0b" },
-  { value: "slate", label: "Slate", primary: "#0284c7", bg: "#e4ebf3", darkBg: "#080c14" },
+  { value: "blue", label: "Titanium", primary: "#2563eb", bg: "#f8fafc", darkBg: "#08090c" },
+  { value: "teal", label: "Emerald", primary: "#059669", bg: "#f8fafc", darkBg: "#070a09" },
+  { value: "violet", label: "Indigo", primary: "#6366f1", bg: "#f8fafc", darkBg: "#08080d" },
+  { value: "rose", label: "Crimson", primary: "#e11d48", bg: "#fafafa", darkBg: "#0a0809" },
+  { value: "amber", label: "Amber", primary: "#d97706", bg: "#faf8f5", darkBg: "#0a0907" },
+  { value: "slate", label: "Coral", primary: "#ea580c", bg: "#fafafa", darkBg: "#0c0a09" },
 ];
 
 export function Settings() {
@@ -242,7 +242,7 @@ export function Settings() {
               <p className="mt-0.5 text-xs text-fg-subtle">Interface mode and color themes.</p>
             </div>
             <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary capitalize">
-              {mode} • {theme}
+              {mode} • {colorThemes.find((c) => c.value === theme)?.label ?? theme}
             </span>
           </div>
 
@@ -286,7 +286,7 @@ export function Settings() {
                     )}
                   >
                     <span
-                      className="relative h-3.5 w-3.5 shrink-0 overflow-hidden rounded-full border border-border-strong"
+                      className="relative h-3.5 w-3.5 shrink-0 overflow-hidden rounded-full border border-border-strong shadow-2xs"
                       style={{
                         background: `linear-gradient(135deg, ${opt.bg} 50%, ${opt.darkBg} 50%)`,
                       }}
@@ -296,7 +296,7 @@ export function Settings() {
                         style={{ background: opt.primary }}
                       />
                     </span>
-                    {opt.label}
+                    <span className="truncate">{opt.label}</span>
                   </button>
                 ))}
               </div>

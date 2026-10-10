@@ -28,144 +28,146 @@
 }
 
 /* ============================================================
-   Base palettes — Default theme (Blue), light + dark.
-   Each theme below redefines every token for BOTH modes so the
-   app colors follow the theme while light/dark stay independent.
+   Base palettes — Default theme: Titanium, light + dark.
+   Architectural neutral foundations with electric royal blue.
    ============================================================ */
 :root,
 .theme-blue {
-  --bg: #edf2f9;
-  --bg-sidebar: #e2ebf6;
-  --fg: #111827;
-  --fg-muted: #374151;
-  --fg-subtle: #6b7280;
-  --surface: #fbfdff;
-  --surface-hover: #e8f0fa;
-  --surface-active: #dbe7f5;
-  --border: #d3e0f1;
-  --border-strong: #b8ceea;
+  --bg: #f8fafc;
+  --bg-sidebar: #f1f5f9;
+  --fg: #0f172a;
+  --fg-muted: #334155;
+  --fg-subtle: #64748b;
+  --surface: #ffffff;
+  --surface-hover: #f1f5f9;
+  --surface-active: #e2e8f0;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
   --primary: #2563eb;
   --primary-hover: #1d4ed8;
   --primary-fg: #ffffff;
   --selection: #2563eb;
-  --shadow-popover: 0 8px 32px rgb(16 24 40 / 0.14), 0 2px 8px rgb(16 24 40 / 0.08);
-  --shadow-raise: 0 1px 2px rgb(16 24 40 / 0.05), 0 4px 12px rgb(16 24 40 / 0.08);
-  --shadow-float: 0 4px 12px rgb(16 24 40 / 0.08), 0 16px 40px rgb(16 24 40 / 0.16);
+  --shadow-popover: 0 10px 30px -5px rgb(15 23 42 / 0.12), 0 4px 10px -2px rgb(15 23 42 / 0.06);
+  --shadow-raise: 0 1px 3px 0 rgb(15 23 42 / 0.05), 0 1px 2px -1px rgb(15 23 42 / 0.05);
+  --shadow-float: 0 12px 28px -4px rgb(15 23 42 / 0.12), 0 6px 12px -2px rgb(15 23 42 / 0.06);
 
   color-scheme: light;
 }
 
 .dark,
 .dark.theme-blue {
-  --bg: #0c0c0f;
-  --bg-sidebar: #111114;
-  --fg: #eaeaef;
-  --fg-muted: #a1a1aa;
-  --fg-subtle: #71717a;
-  --surface: #17171b;
-  --surface-hover: #1f1f24;
-  --surface-active: #26262c;
-  --border: #232329;
-  --border-strong: #34343c;
+  --bg: #08090c;
+  --bg-sidebar: #0d0f14;
+  --fg: #f8fafc;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --surface: #12151c;
+  --surface-hover: #181d26;
+  --surface-active: #202632;
+  --border: #1e2430;
+  --border-strong: #2d3648;
   --primary: #3b82f6;
   --primary-hover: #60a5fa;
   --primary-fg: #ffffff;
   --selection: #3b82f6;
-  --shadow-popover: 0 8px 32px rgb(0 0 0 / 0.6), 0 2px 8px rgb(0 0 0 / 0.4);
-  --shadow-raise: 0 1px 2px rgb(0 0 0 / 0.3), 0 4px 12px rgb(0 0 0 / 0.4);
-  --shadow-float: 0 4px 12px rgb(0 0 0 / 0.4), 0 16px 40px rgb(0 0 0 / 0.55);
+  --shadow-popover: 0 16px 36px -4px rgb(0 0 0 / 0.65), 0 6px 14px -2px rgb(0 0 0 / 0.45);
+  --shadow-raise: 0 1px 3px 0 rgb(0 0 0 / 0.4), 0 1px 2px -1px rgb(0 0 0 / 0.4);
+  --shadow-float: 0 20px 40px -6px rgb(0 0 0 / 0.75), 0 8px 16px -2px rgb(0 0 0 / 0.55);
 
   color-scheme: dark;
 }
 
 /* ============================================================
-   Theme: Teal
+   Theme: Teal (Emerald)
+   Clean, authoritative fintech emerald with crisp neutrals.
    ============================================================ */
 .theme-teal {
-  --bg: #e3f2ee;
-  --bg-sidebar: #d5eae5;
-  --fg: #13221f;
-  --fg-muted: #334a45;
-  --fg-subtle: #627c76;
-  --surface: #f7fcfa;
-  --surface-hover: #e0f0eb;
-  --surface-active: #d0e8e1;
-  --border: #c4e1d9;
-  --border-strong: #a8d2c7;
-  --primary: #0d9488;
-  --primary-hover: #0f766e;
+  --bg: #f8fafc;
+  --bg-sidebar: #f0fdf9;
+  --fg: #0f172a;
+  --fg-muted: #334155;
+  --fg-subtle: #64748b;
+  --surface: #ffffff;
+  --surface-hover: #f0fdfa;
+  --surface-active: #ccfbf1;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --primary: #059669;
+  --primary-hover: #047857;
   --primary-fg: #ffffff;
-  --selection: #0d9488;
+  --selection: #059669;
 }
 
 .dark.theme-teal {
-  --bg: #0a1211;
-  --bg-sidebar: #0e1817;
-  --fg: #e6efed;
-  --fg-muted: #9db3af;
-  --fg-subtle: #6d837f;
-  --surface: #12201e;
-  --surface-hover: #192826;
-  --surface-active: #1f302e;
-  --border: #1d2c2a;
-  --border-strong: #2c3d3a;
-  --primary: #2dd4bf;
-  --primary-hover: #5eead4;
-  --primary-fg: #04211d;
-  --selection: #2dd4bf;
+  --bg: #070a09;
+  --bg-sidebar: #0c100e;
+  --fg: #f8fafc;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --surface: #101714;
+  --surface-hover: #16201c;
+  --surface-active: #1d2a25;
+  --border: #1a2721;
+  --border-strong: #263931;
+  --primary: #10b981;
+  --primary-hover: #34d399;
+  --primary-fg: #022c22;
+  --selection: #10b981;
 }
 
 /* ============================================================
-   Theme: Violet
+   Theme: Violet (Indigo)
+   Raycast / Linear-style modern studio indigo-violet.
    ============================================================ */
 .theme-violet {
-  --bg: #eee9fa;
-  --bg-sidebar: #e3dcf6;
-  --fg: #1a162b;
-  --fg-muted: #433b5d;
-  --fg-subtle: #726892;
-  --surface: #faf8ff;
-  --surface-hover: #eae2f8;
-  --surface-active: #ded3f3;
-  --border: #d5c9f0;
-  --border-strong: #beaee4;
-  --primary: #7c3aed;
-  --primary-hover: #6d28d9;
+  --bg: #f8fafc;
+  --bg-sidebar: #f5f3ff;
+  --fg: #0f172a;
+  --fg-muted: #334155;
+  --fg-subtle: #64748b;
+  --surface: #ffffff;
+  --surface-hover: #f5f3ff;
+  --surface-active: #ede9fe;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --primary: #6366f1;
+  --primary-hover: #4f46e5;
   --primary-fg: #ffffff;
-  --selection: #7c3aed;
+  --selection: #6366f1;
 }
 
 .dark.theme-violet {
-  --bg: #0d0b15;
-  --bg-sidebar: #121020;
-  --fg: #eae7f3;
-  --fg-muted: #a5a0b8;
-  --fg-subtle: #756f89;
-  --surface: #171428;
-  --surface-hover: #1e1a31;
-  --surface-active: #26213c;
-  --border: #262238;
-  --border-strong: #363152;
-  --primary: #a78bfa;
-  --primary-hover: #c4b5fd;
-  --primary-fg: #1e1038;
-  --selection: #a78bfa;
+  --bg: #08080d;
+  --bg-sidebar: #0d0d14;
+  --fg: #f8fafc;
+  --fg-muted: #94a3b8;
+  --fg-subtle: #64748b;
+  --surface: #12121b;
+  --surface-hover: #191925;
+  --surface-active: #212130;
+  --border: #1f1f2e;
+  --border-strong: #2f2f45;
+  --primary: #818cf8;
+  --primary-hover: #a5b4fc;
+  --primary-fg: #1e1b4b;
+  --selection: #818cf8;
 }
 
 /* ============================================================
-   Theme: Rose
+   Theme: Rose (Crimson)
+   Luxury executive crimson with warm gallery neutrals.
    ============================================================ */
 .theme-rose {
-  --bg: #fae9ed;
-  --bg-sidebar: #f4dce2;
-  --fg: #26141a;
-  --fg-muted: #523640;
-  --fg-subtle: #86636f;
-  --surface: #fff8f9;
-  --surface-hover: #f6e1e7;
-  --surface-active: #edd1d9;
-  --border: #e8c4ce;
-  --border-strong: #d9aab7;
+  --bg: #fafafa;
+  --bg-sidebar: #fff1f2;
+  --fg: #18181b;
+  --fg-muted: #3f3f46;
+  --fg-subtle: #71717a;
+  --surface: #ffffff;
+  --surface-hover: #fff1f2;
+  --surface-active: #ffe4e6;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
   --primary: #e11d48;
   --primary-hover: #be123c;
   --primary-fg: #ffffff;
@@ -173,36 +175,37 @@
 }
 
 .dark.theme-rose {
-  --bg: #150d10;
-  --bg-sidebar: #1a1115;
-  --fg: #f4e9ec;
-  --fg-muted: #b5a0a7;
-  --fg-subtle: #83707a;
-  --surface: #201519;
-  --surface-hover: #281b20;
-  --surface-active: #302228;
-  --border: #2c1f24;
-  --border-strong: #402e35;
+  --bg: #0a0809;
+  --bg-sidebar: #100d0e;
+  --fg: #fafafa;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --surface: #161113;
+  --surface-hover: #1f181a;
+  --surface-active: #281f23;
+  --border: #251a1e;
+  --border-strong: #38262e;
   --primary: #fb7185;
   --primary-hover: #fda4af;
-  --primary-fg: #2b0a12;
+  --primary-fg: #4c0519;
   --selection: #fb7185;
 }
 
 /* ============================================================
-   Theme: Amber (Soothing Warm Sand & Espresso Gold)
+   Theme: Amber (Amber)
+   Warm architectural ivory, rich bronze gold, espresso obsidian.
    ============================================================ */
 .theme-amber {
-  --bg: #f5ede0;
-  --bg-sidebar: #ebe0cf;
-  --fg: #261b11;
-  --fg-muted: #544131;
-  --fg-subtle: #886f58;
-  --surface: #fcf9f4;
-  --surface-hover: #ede2d0;
-  --surface-active: #e2d3be;
-  --border: #decbb2;
-  --border-strong: #cbb393;
+  --bg: #faf8f5;
+  --bg-sidebar: #f5f0e8;
+  --fg: #1c1917;
+  --fg-muted: #44403c;
+  --fg-subtle: #78716c;
+  --surface: #ffffff;
+  --surface-hover: #fbf7f0;
+  --surface-active: #f5edd9;
+  --border: #e7e2d9;
+  --border-strong: #d5cdbf;
   --primary: #d97706;
   --primary-hover: #b45309;
   --primary-fg: #ffffff;
@@ -210,57 +213,58 @@
 }
 
 .dark.theme-amber {
-  --bg: #120e0b;
-  --bg-sidebar: #18130f;
-  --fg: #f4eee7;
-  --fg-muted: #c0b1a0;
-  --fg-subtle: #887766;
-  --surface: #1f1914;
-  --surface-hover: #28201a;
-  --surface-active: #322921;
-  --border: #2e231b;
-  --border-strong: #453528;
+  --bg: #0a0907;
+  --bg-sidebar: #110f0c;
+  --fg: #fafaf9;
+  --fg-muted: #a8a29e;
+  --fg-subtle: #78716c;
+  --surface: #16130f;
+  --surface-hover: #1e1a14;
+  --surface-active: #27221b;
+  --border: #241e17;
+  --border-strong: #382e23;
   --primary: #f59e0b;
   --primary-hover: #fbbf24;
-  --primary-fg: #271400;
+  --primary-fg: #451a03;
   --selection: #f59e0b;
 }
 
 /* ============================================================
-   Theme: Slate (Soothing Obsidian Slate & Ice Cyan)
+   Theme: Slate (Coral)
+   Warm sunset terracotta and rich espresso stone — vibrant, inviting.
    ============================================================ */
 .theme-slate {
-  --bg: #e4ebf3;
-  --bg-sidebar: #d8e2ed;
-  --fg: #0e1726;
-  --fg-muted: #384960;
-  --fg-subtle: #5c708c;
-  --surface: #f7fafd;
-  --surface-hover: #e1ebf5;
-  --surface-active: #d2e0ee;
-  --border: #bfd0e2;
-  --border-strong: #9db8d4;
-  --primary: #0284c7;
-  --primary-hover: #0369a1;
+  --bg: #fafafa;
+  --bg-sidebar: #fff8f5;
+  --fg: #1c1917;
+  --fg-muted: #44403c;
+  --fg-subtle: #78716c;
+  --surface: #ffffff;
+  --surface-hover: #fff3ee;
+  --surface-active: #ffe5db;
+  --border: #f0e6e0;
+  --border-strong: #e2d2c8;
+  --primary: #ea580c;
+  --primary-hover: #c2410c;
   --primary-fg: #ffffff;
-  --selection: #0284c7;
+  --selection: #ea580c;
 }
 
 .dark.theme-slate {
-  --bg: #080c14;
-  --bg-sidebar: #0d1320;
-  --fg: #f1f5f9;
-  --fg-muted: #94a3b8;
-  --fg-subtle: #64748b;
-  --surface: #111a2c;
-  --surface-hover: #17233a;
-  --surface-active: #1e2d4a;
-  --border: #1e2c45;
-  --border-strong: #2c3f62;
-  --primary: #38bdf8;
-  --primary-hover: #7dd3fc;
-  --primary-fg: #082f49;
-  --selection: #38bdf8;
+  --bg: #0c0a09;
+  --bg-sidebar: #13100e;
+  --fg: #fafaf9;
+  --fg-muted: #a8a29e;
+  --fg-subtle: #78716c;
+  --surface: #1c1714;
+  --surface-hover: #261f1c;
+  --surface-active: #322824;
+  --border: #29211c;
+  --border-strong: #3d312a;
+  --primary: #fb923c;
+  --primary-hover: #fdba74;
+  --primary-fg: #431407;
+  --selection: #fb923c;
 }
 
 @layer base {
