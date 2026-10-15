@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Briefcase, Clock, ListChecks, Plus, Trash, X } from "@phosphor-icons/react";
+import { Briefcase, Broom, Clock, ListChecks, Plus, Trash, X } from "@phosphor-icons/react";
 import { toast } from "sonner";
 import { useJobs, useBulkUpdateJobs, useBulkDeleteJobs } from "../hooks/useQueries";
 import { useTableSort, useSortedRows, SortIcon } from "../hooks/useTableSort";
@@ -13,6 +13,7 @@ import { Button } from "../components/ui/button";
 import { PageHeader } from "../components/common/PageHeader";
 import { ConfirmDialog } from "../components/common/ConfirmDialog";
 import { JobFormDialog } from "../components/jobs/JobFormDialog";
+import { StaleJobsCleanupDialog } from "../components/jobs/StaleJobsCleanupDialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import {
   Select,
@@ -24,6 +25,7 @@ import {
 import { JOB_STATUSES, jobPalette } from "../lib/constants";
 import { cn, errorMessage, timeAgo, titleCase } from "../lib/utils";
 import { useDebounce } from "../hooks/useDebounce";
+import { getStaleZeroCandidateJobs } from "../lib/jobCleanup";
 import type { JobWithStats } from "../types";
 
 type JobSortKey = "title" | "job_id" | "client_name" | "candidate_count" | "updated_at";
@@ -47,12 +49,16 @@ export function Jobs() {
   const [formOpen, setFormOpen] = useState(false);
   const [selectMode, setSelectMode] = useState(false);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   const { sortKey, sortDir, toggleSort } = useTableSort<JobSortKey>("updated_at");
   const { data, isLoading } = useJobs(
     undefined,
     status === "all" ? undefined : status || undefined,
     debounced || undefined,
   );
+  // Unfiltered jobs query across the entire workspace to identify stale 0-candidate roles
+  const { data: allJobs } = useJobs();
+  const staleJobs = useMemo(() => getStaleZeroCandidateJobs(allJobs), [allJobs]);
   const sortedJobs = useSortedRows(data, sortKey, sortDir, COMPARE_JOBS);
   const selection = useSelection(
     sortedJobs.map((j) => j.id),
@@ -151,14 +157,46 @@ export function Jobs() {
         </div>
 
         <div className="ml-auto flex items-center gap-2">
+          {/* 1. Stale 0-Candidate Jobs Cleanup Action */}
           <Tooltip>
             <TooltipTrigger asChild>
               <button
                 type="button"
-                className="flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs font-medium text-fg-muted hover:border-amber-500/40 hover:bg-amber-500/5 hover:text-fg transition-all cursor-pointer shadow-2xs"
+                onClick={() => setCleanupOpen(true)}
+                className={cn(
+                  "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-all cursor-pointer shadow-2xs active:scale-97",
+                  staleJobs.length > 0
+                    ? "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 hover:border-amber-500/60"
+                    : "border-border/80 bg-surface text-fg-muted hover:border-border hover:bg-surface-hover hover:text-fg",
+                )}
               >
-                <Clock className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                <span className="hidden sm:inline">Auto-hold: 2w</span>
+                <Broom className="h-3.5 w-3.5 text-amber-500 shrink-0" weight="duotone" />
+                <span>Clean Stale</span>
+                {staleJobs.length > 0 && (
+                  <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[10px] font-bold text-amber-700 dark:text-amber-300 font-mono">
+                    {staleJobs.length}
+                  </span>
+                )}
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" align="end" className="text-xs">
+              <span>
+                {staleJobs.length > 0
+                  ? `${staleJobs.length} stale job(s) with 0 candidates`
+                  : "No stale jobs found"}
+              </span>
+            </TooltipContent>
+          </Tooltip>
+
+          {/* 2. Automated Lifecycle Policy Badge */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="flex h-8 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 text-xs font-medium text-fg-muted hover:border-border-strong hover:bg-surface-hover hover:text-fg transition-all cursor-pointer shadow-2xs"
+              >
+                <Clock className="h-3.5 w-3.5 text-fg-subtle shrink-0" />
+                <span className="hidden sm:inline">Lifecycle: 2w Hold · 10d Close</span>
               </button>
             </TooltipTrigger>
             <TooltipContent
@@ -168,13 +206,20 @@ export function Jobs() {
             >
               <div className="flex items-center gap-1.5 text-xs font-semibold text-fg">
                 <Clock className="h-4 w-4 text-amber-500 shrink-0" />
-                <span>14-Day Auto-Hold Policy</span>
+                <span>Automated Job Lifecycle</span>
               </div>
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-fg-muted font-normal">
-                Active jobs with no candidate activity or updates for <strong>14 days (2 weeks)</strong> automatically move to <strong className="text-amber-500 font-medium">On Hold</strong> to keep your pipeline clean and focused.
-              </p>
-              <p className="mt-1.5 text-[10px] text-fg-subtle border-t border-border/50 pt-1.5 font-medium">
-                Any candidate submission or job update resets the 14-day timer.
+              <div className="mt-2 space-y-1.5 text-[11.5px] leading-relaxed text-fg-muted font-normal">
+                <div className="flex items-start gap-1.5">
+                  <span className="font-semibold text-fg shrink-0">1. Active → Hold:</span>
+                  <span>Jobs idle for <strong>14 days (2 weeks)</strong> automatically move to <strong>On Hold</strong>.</span>
+                </div>
+                <div className="flex items-start gap-1.5">
+                  <span className="font-semibold text-fg shrink-0">2. Hold → Closed:</span>
+                  <span>Jobs staying on hold for <strong>10 days</strong> automatically move to <strong>Closed</strong>.</span>
+                </div>
+              </div>
+              <p className="mt-2 text-[10px] text-fg-subtle border-t border-border/50 pt-1.5 font-medium">
+                Any candidate submission or job update resets the lifecycle timer.
               </p>
             </TooltipContent>
           </Tooltip>
@@ -383,6 +428,11 @@ export function Jobs() {
       </div>
 
       <JobFormDialog open={formOpen} onOpenChange={setFormOpen} />
+      <StaleJobsCleanupDialog
+        open={cleanupOpen}
+        onOpenChange={setCleanupOpen}
+        jobs={staleJobs}
+      />
       {bulkDeleteOpen && (
         <ConfirmDialog
           open={bulkDeleteOpen}

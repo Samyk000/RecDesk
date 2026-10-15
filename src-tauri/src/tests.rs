@@ -1210,6 +1210,54 @@ Built high-throughput data platforms with Snowplow, Airbyte, and ClickHouse.
     }
 
     #[test]
+    fn auto_close_held_jobs_transitions_after_10_days() {
+        let conn = test_conn();
+        let cid = new_id();
+        let ts = now();
+
+        conn.execute(
+            "INSERT INTO clients (id, name, created_at, updated_at) VALUES (?1, 'Client', ?2, ?2)",
+            params![cid, ts],
+        )
+        .unwrap();
+
+        let recent_held_id = new_id();
+        let stale_held_id = new_id();
+
+        // Recently placed on hold: updated 3 days ago
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-RECENT-HOLD', 'Recent Held Job', 'on_hold', '[]', '[]', datetime('now', '-5 days'), datetime('now', '-3 days'))",
+            params![recent_held_id, cid],
+        )
+        .unwrap();
+
+        // Stale held job: updated 15 days ago
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, status, boolean_strings, screening_questions, created_at, updated_at)
+             VALUES (?1, ?2, 'REQ-STALE-HOLD', 'Stale Held Job', 'on_hold', '[]', '[]', datetime('now', '-25 days'), datetime('now', '-15 days'))",
+            params![stale_held_id, cid],
+        )
+        .unwrap();
+
+        let changed = crate::commands::job::auto_close_held_jobs(&conn).unwrap();
+        assert_eq!(changed, 1);
+
+        let recent_status: String = conn
+            .query_row("SELECT status FROM jobs WHERE id = ?1", params![recent_held_id], |r| r.get(0))
+            .unwrap();
+        let stale_row: (String, Option<String>) = conn
+            .query_row("SELECT status, closed_at FROM jobs WHERE id = ?1", params![stale_held_id], |r| {
+                Ok((r.get(0)?, r.get(1)?))
+            })
+            .unwrap();
+
+        assert_eq!(recent_status, "on_hold");
+        assert_eq!(stale_row.0, "closed");
+        assert!(stale_row.1.is_some());
+    }
+
+    #[test]
     fn online_backup_replicates_database_accurately() {
         let conn = test_conn();
         let cid = new_id();
@@ -1492,6 +1540,168 @@ Built high-throughput data platforms with Snowplow, Airbyte, and ClickHouse.
             |r| r.get(0),
         ).unwrap();
         assert_ne!(job_updated_at, ts_initial);
+    }
+
+    #[test]
+    fn json_snapshot_export_import_roundtrip_fidelity() {
+        use crate::commands::data::{export_json, import_json};
+
+        let conn = test_conn();
+        let cid = new_id();
+        let jid = new_id();
+        let cand_id = new_id();
+        let ts = "2026-03-15T12:00:00Z";
+
+        // Insert rich Client
+        conn.execute(
+            "INSERT INTO clients (id, name, company, email, hiring_manager, address, notes, created_at, updated_at, sort_order)
+             VALUES (?1, 'Acme Corp', 'Acme Inc', 'client@acme.com', 'Jane Boss', '123 Main St', 'VIP client', ?2, ?2, 5)",
+            params![cid, ts],
+        ).unwrap();
+
+        // Insert rich Job
+        conn.execute(
+            "INSERT INTO jobs (id, client_id, job_id, title, location, work_model, contract_type, bill_rate, pay_rate,
+                status, refined_jd, boolean_strings, candidate_pitch, screening_questions, notes, created_at, updated_at, closed_at, sort_order)
+             VALUES (?1, ?2, 'JOB-999', 'Staff Architect', 'Austin, TX', 'hybrid', 'c2c', '$120/hr', '$95/hr',
+                'active', 'Detailed JD content here', '[{\"name\":\"Boolean 1\",\"query\":\"(Java OR Rust) AND Cloud\"}]',
+                'Why join us pitch', '[\"Years of rust?\",\"Relocation okay?\"]', 'Internal recruiter note', ?3, ?3, NULL, 2)",
+            params![jid, cid, ts],
+        ).unwrap();
+
+        // Insert rich Candidate with all JSON metadata
+        conn.execute(
+            "INSERT INTO candidates (id, job_id, name, email, phone, location, current_title, current_company,
+                experience_years, resume_path, linkedin_url, recruiter_notes, match_score, submission_status,
+                interview_status, client_feedback, candidate_status, submitted_at, interview_at, placed_at,
+                rejection_reason, screening_answers, submission_details, status_history, interview_feedback, date_added, last_updated)
+             VALUES (?1, ?2, 'Alice Developer', 'alice@example.com', '+1-555-0199', 'Dallas, TX', 'Senior Dev', 'TechCo',
+                8, 'C:\\resumes\\alice.pdf', 'https://linkedin.com/in/alice', 'Strong candidate', 94, 'interview',
+                'round_2', 'Client loved the architecture demo', 'active', ?3, ?3, NULL,
+                NULL, '{\"q1\":\"10 yrs\"}', '{\"rate\":\"$95/hr\"}', '[{\"from\":\"sourced\",\"to\":\"interview\",\"at\":\"2026-03-15\"}]',
+                '{\"rating\":5}', ?3, ?3)",
+            params![cand_id, jid, ts],
+        ).unwrap();
+
+        // 1. Export to JSON
+        let json_snapshot = export_json(&conn).unwrap();
+        assert!(json_snapshot.contains("Acme Corp"));
+        assert!(json_snapshot.contains("JOB-999"));
+        assert!(json_snapshot.contains("Alice Developer"));
+        assert!(json_snapshot.contains("$120/hr"));
+        assert!(json_snapshot.contains("Java OR Rust"));
+
+        // 2. Import into a fresh brand new database
+        let mut fresh_conn = test_conn();
+        let summary = import_json(&mut fresh_conn, &json_snapshot, true).unwrap();
+        assert_eq!(summary.clients, 1);
+        assert_eq!(summary.jobs, 1);
+        assert_eq!(summary.candidates, 1);
+
+        // 3. Verify Client restored with exact details
+        let client = fresh_conn.query_row(
+            "SELECT id, name, company, email, hiring_manager, address, notes, sort_order FROM clients WHERE id = ?1",
+            params![cid],
+            |r| Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, Option<String>>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<String>>(5)?,
+                r.get::<_, Option<String>>(6)?,
+                r.get::<_, i64>(7)?,
+            )),
+        ).unwrap();
+        assert_eq!(client.0, cid);
+        assert_eq!(client.1, "Acme Corp");
+        assert_eq!(client.2.as_deref(), Some("Acme Inc"));
+        assert_eq!(client.3.as_deref(), Some("client@acme.com"));
+        assert_eq!(client.4.as_deref(), Some("Jane Boss"));
+        assert_eq!(client.5.as_deref(), Some("123 Main St"));
+        assert_eq!(client.6.as_deref(), Some("VIP client"));
+        assert_eq!(client.7, 5);
+
+        // 4. Verify Job restored with exact details & relationship to client
+        let job = fresh_conn.query_row(
+            "SELECT id, client_id, job_id, title, bill_rate, pay_rate, boolean_strings, screening_questions, status FROM jobs WHERE id = ?1",
+            params![jid],
+            |r| Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, String>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, String>(3)?,
+                r.get::<_, Option<String>>(4)?,
+                r.get::<_, Option<String>>(5)?,
+                r.get::<_, String>(6)?,
+                r.get::<_, String>(7)?,
+                r.get::<_, String>(8)?,
+            )),
+        ).unwrap();
+        assert_eq!(job.0, jid);
+        assert_eq!(job.1, cid);
+        assert_eq!(job.2, "JOB-999");
+        assert_eq!(job.3, "Staff Architect");
+        assert_eq!(job.4.as_deref(), Some("$120/hr"));
+        assert_eq!(job.5.as_deref(), Some("$95/hr"));
+        assert!(job.6.contains("Java OR Rust"));
+        assert!(job.7.contains("Years of rust?"));
+        assert_eq!(job.8, "active");
+
+        // 5. Verify Candidate restored with exact details, stage dates, feedback, and relationship to job
+        let cand = fresh_conn.query_row(
+            "SELECT id, job_id, name, email, match_score, submission_status, interview_status, client_feedback,
+                    screening_answers, submission_details, status_history, interview_feedback FROM candidates WHERE id = ?1",
+            params![cand_id],
+            |r| Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, Option<String>>(1)?,
+                r.get::<_, String>(2)?,
+                r.get::<_, Option<String>>(3)?,
+                r.get::<_, Option<i64>>(4)?,
+                r.get::<_, String>(5)?,
+                r.get::<_, Option<String>>(6)?,
+                r.get::<_, Option<String>>(7)?,
+                r.get::<_, String>(8)?,
+                r.get::<_, String>(9)?,
+                r.get::<_, String>(10)?,
+                r.get::<_, String>(11)?,
+            )),
+        ).unwrap();
+        assert_eq!(cand.0, cand_id);
+        assert_eq!(cand.1.as_deref(), Some(jid.as_str()));
+        assert_eq!(cand.2, "Alice Developer");
+        assert_eq!(cand.3.as_deref(), Some("alice@example.com"));
+        assert_eq!(cand.4, Some(94));
+        assert_eq!(cand.5, "interview");
+        assert_eq!(cand.6.as_deref(), Some("round_2"));
+        assert_eq!(cand.7.as_deref(), Some("Client loved the architecture demo"));
+        assert!(cand.8.contains("q1"));
+        assert!(cand.9.contains("$95/hr"));
+        assert!(cand.10.contains("sourced"));
+        assert!(cand.11.contains("rating"));
+    }
+
+    #[test]
+    fn demo_data_file_imports_cleanly() {
+        use crate::commands::data::import_json;
+
+        let demo_path = std::path::Path::new("../recdesk-demo-data.json");
+        if !demo_path.exists() {
+            return;
+        }
+        let json = std::fs::read_to_string(demo_path).expect("Failed to read demo data file");
+        let mut conn = test_conn();
+        let summary = import_json(&mut conn, &json, true).expect("Failed to import demo data JSON");
+        assert_eq!(summary.clients, 4);
+        assert_eq!(summary.jobs, 7);
+        assert_eq!(summary.candidates, 20);
+
+        // Verify dashboard query works on the imported demo data
+        let total_cands: i64 = conn.query_row("SELECT COUNT(*) FROM candidates", [], |r| r.get(0)).unwrap();
+        assert_eq!(total_cands, 20);
+        let active_jobs: i64 = conn.query_row("SELECT COUNT(*) FROM jobs WHERE status = 'active'", [], |r| r.get(0)).unwrap();
+        assert_eq!(active_jobs, 5);
     }
 }
 

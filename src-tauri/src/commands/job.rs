@@ -39,6 +39,18 @@ pub fn auto_hold_stale_jobs(conn: &rusqlite::Connection) -> AppResult<usize> {
     Ok(affected)
 }
 
+pub fn auto_close_held_jobs(conn: &rusqlite::Connection) -> AppResult<usize> {
+    let ts = now();
+    let affected = conn.execute(
+        "UPDATE jobs
+         SET status = 'closed', updated_at = ?1, closed_at = COALESCE(closed_at, ?1)
+         WHERE status = 'on_hold'
+           AND updated_at < datetime('now', '-10 days')",
+        params![ts],
+    )?;
+    Ok(affected)
+}
+
 #[tauri::command]
 pub fn get_jobs(
     state: State<'_, AppState>,
@@ -47,6 +59,8 @@ pub fn get_jobs(
     search: Option<String>,
 ) -> AppResult<Vec<JobWithStats>> {
     let conn = state.db.lock().map_err(|e| AppError::Msg(e.to_string()))?;
+    let _ = auto_hold_stale_jobs(&conn);
+    let _ = auto_close_held_jobs(&conn);
     let mut conditions: Vec<String> = Vec::new();
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
 

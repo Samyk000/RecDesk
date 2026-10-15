@@ -28,6 +28,7 @@ pub fn run() {
             std::fs::create_dir_all(&dir)?;
             let conn = init_db(&dir.join("workspace.db"))?;
             let stale_count = commands::job::auto_hold_stale_jobs(&conn).unwrap_or(0);
+            let _ = commands::job::auto_close_held_jobs(&conn);
             app.manage(AppState {
                 db: Mutex::new(conn),
                 stale_jobs_held: AtomicUsize::new(stale_count),
