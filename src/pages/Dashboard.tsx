@@ -108,7 +108,7 @@ export function Dashboard() {
       {/* 1. Header & KPI Stats */}
       <div className="shrink-0">
         {/* Top Header Row: Left Title + Right Stacked Timezones & Quick Actions Box */}
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 relative z-20">
           {/* Left: Title & Subtitle */}
           <div className="shrink-0">
             <h1 className="font-display text-[26px] font-bold tracking-tight text-fg leading-none">
