@@ -3,7 +3,6 @@ import {
   ArrowSquareOut,
   Check,
   Copy,
-  LinkedinLogo,
 } from "@phosphor-icons/react";
 import { cn } from "../../lib/utils";
 
@@ -68,7 +67,7 @@ export function HeroNameField({
         placeholder="Candidate Name"
         title={draft || value}
         className={cn(
-          "w-full bg-transparent text-fg leading-tight placeholder:text-fg-subtle outline-none transition-colors rounded px-1 -ml-1 hover:bg-surface-hover/80 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate",
+          "w-full bg-transparent text-fg leading-tight placeholder:text-fg-subtle outline-none transition-colors rounded px-1 -ml-1 hover:bg-primary/10 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate",
           fontClass
         )}
         onBlur={() => {
@@ -104,7 +103,7 @@ export function HeroTitleField({
         onChange={(e) => setDraft(e.target.value)}
         placeholder="Role / Title…"
         title={draft || value}
-        className="w-full bg-transparent text-[13px] text-fg-muted placeholder:text-fg-subtle/60 outline-none transition-colors rounded px-1 -ml-1 hover:bg-surface-hover/80 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate"
+        className="w-full bg-transparent text-[13px] text-fg-muted placeholder:text-fg-subtle/60 outline-none transition-colors rounded px-1 -ml-1 hover:bg-primary/10 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate"
         onBlur={() => {
           const t = draft.trim();
           if (t === value) return;
@@ -140,7 +139,7 @@ export function HeroMetaField({
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder}
         title={draft || value}
-        className="w-full min-w-0 bg-transparent text-[12px] text-fg-muted font-medium placeholder:text-fg-subtle/50 outline-none transition-colors rounded px-1 hover:bg-surface-hover/80 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate"
+        className="w-full min-w-0 bg-transparent text-[12px] text-fg-muted font-medium placeholder:text-fg-subtle/50 outline-none transition-colors rounded px-1 hover:bg-primary/10 focus:bg-surface focus:ring-1 focus:ring-primary/40 truncate"
         onBlur={() => {
           const t = draft.trim();
           if (t === value) return;
@@ -161,7 +160,7 @@ export function ContactField({
   onSave,
   onCopy,
 }: {
-  icon: ReactNode;
+  icon?: ReactNode;
   value: string;
   placeholder: string;
   onSave: (v: string) => void;
@@ -179,7 +178,7 @@ export function ContactField({
   };
 
   return (
-    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-colors hover:border-border">
+    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-all hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 shadow-2xs">
       {icon}
       <input
         value={draft}
@@ -236,8 +235,7 @@ export function LinkedInField({
   };
 
   return (
-    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-colors hover:border-border">
-      <LinkedinLogo className="h-3.5 w-3.5 shrink-0 text-[#0077b5]" weight="fill" />
+    <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-all hover:border-border focus-within:border-primary/50 focus-within:ring-1 focus-within:ring-primary/20 shadow-2xs">
       <input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}

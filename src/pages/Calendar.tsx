@@ -14,6 +14,7 @@ import { QueryErrorState } from "../components/common/QueryErrorState";
 import { StatusBadge } from "../components/common/StatusBadge";
 import { DetailDrawer } from "../components/common/DetailDrawer";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
+import { useCandidateDrawer } from "../store/candidateDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import {
   extractCalendarEvents,
@@ -144,6 +145,7 @@ function OutcomeIndicator({ outcome }: { outcome: CalendarEventOutcome }) {
 
 export function Calendar() {
   const { data: candidates, isLoading, isError, refetch } = useCandidatesWithJob();
+  const { candidateId: drawerCandidateId } = useCandidateDrawer();
 
   const [currentDate, setCurrentDate] = useState(() => new Date());
   const [selectedDateKey, setSelectedDateKey] = useState<string>(
@@ -836,7 +838,7 @@ export function Calendar() {
       </div>
 
       {/* Candidate Detail Overlay Drawer */}
-      {activeCandidateId && (
+      {activeCandidateId && !drawerCandidateId && (
         <DetailDrawer onClose={() => setActiveCandidateId(null)}>
           <CandidateDetailPanel
             candidateId={activeCandidateId}

@@ -25,6 +25,72 @@ export function formatDateShort(iso: string | null | undefined): string {
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+export function getDayOrdinal(day: number): string {
+  if (day > 3 && day < 21) return `${day}th`;
+  switch (day % 10) {
+    case 1:
+      return `${day}st`;
+    case 2:
+      return `${day}nd`;
+    case 3:
+      return `${day}rd`;
+    default:
+      return `${day}th`;
+  }
+}
+
+export function formatDateOrdinal(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const trimmed = iso.trim();
+  if (!trimmed) return "-";
+
+  // Match YYYY-MM-DD from start, whether followed by T, space, or end of string
+  const match = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const day = Number(match[3]);
+    if (year > 1900 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+      const monthName = MONTHS[month - 1] || "Dec";
+      const year2 = String(year).slice(-2);
+      return `${getDayOrdinal(day)} ${monthName} ${year2}`;
+    }
+  }
+
+  const d = new Date(trimmed);
+  if (Number.isNaN(d.getTime())) return "-";
+  const day = d.getDate();
+  const monthName = MONTHS[d.getMonth()] || "Dec";
+  const year2 = String(d.getFullYear()).slice(-2);
+  return `${getDayOrdinal(day)} ${monthName} ${year2}`;
+}
+
+export function parseDateOnly(iso: string | null | undefined): string {
+  if (!iso) {
+    const d = new Date();
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  const trimmed = iso.trim();
+  const match = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (match) {
+    const yyyy = match[1];
+    const mm = match[2].padStart(2, "0");
+    const dd = match[3].padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  const d = new Date(trimmed);
+  if (!Number.isNaN(d.getTime())) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const dd = String(d.getDate()).padStart(2, "0");
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  return "";
+}
+
 export function formatDateAbbr(iso: string | null | undefined): string {
   if (!iso) return "-";
   const d = new Date(iso);

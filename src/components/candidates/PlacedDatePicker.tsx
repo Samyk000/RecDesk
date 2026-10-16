@@ -1,24 +1,18 @@
 import { useState, useRef, useEffect } from "react";
 import { CheckCircle, CalendarDots } from "@phosphor-icons/react";
-import { cn } from "../../lib/utils";
+import { cn, formatDateOrdinal, parseDateOnly } from "../../lib/utils";
 
 interface Props {
   value?: string | null;
   onChange: (val: string | null) => void;
   className?: string;
+  showIcon?: boolean;
 }
 
 function formatDateDisplay(isoDate?: string | null): string {
   if (!isoDate) return "Select placement date…";
-  const parts = isoDate.trim().split(/\s+/)[0];
-  const [year, month, day] = parts.split("-").map(Number);
-  if (!year || !month || !day) return isoDate;
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  const formatted = formatDateOrdinal(isoDate);
+  return formatted === "-" ? "Select placement date…" : formatted;
 }
 
 function getTodayString(): string {
@@ -38,17 +32,17 @@ function getYesterdayString(): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
-export function PlacedDatePicker({ value, onChange, className }: Props) {
+export function PlacedDatePicker({ value, onChange, className, showIcon = true }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   const [selectedDate, setSelectedDate] = useState(() => {
-    return value ? value.trim().split(/\s+/)[0] : getTodayString();
+    return value ? parseDateOnly(value) || getTodayString() : getTodayString();
   });
 
   useEffect(() => {
     if (value) {
-      setSelectedDate(value.trim().split(/\s+/)[0]);
+      setSelectedDate(parseDateOnly(value) || getTodayString());
     } else {
       setSelectedDate(getTodayString());
     }
@@ -90,7 +84,7 @@ export function PlacedDatePicker({ value, onChange, className }: Props) {
         )}
       >
         <span className="flex items-center gap-1.5 min-w-0 truncate">
-          <CheckCircle className="h-3 w-3 shrink-0 text-emerald-500" />
+          {showIcon && <CheckCircle className="h-3 w-3 shrink-0 text-emerald-500" />}
           <span className={cn("truncate font-medium text-[11px]", !hasValue && "text-fg-muted font-normal")}>
             {hasValue ? formatDateDisplay(value) : "Select placement date…"}
           </span>

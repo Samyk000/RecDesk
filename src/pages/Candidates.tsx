@@ -32,6 +32,7 @@ import { StatusFilter } from "../components/candidates/StatusFilter";
 import { SubmissionStatusSelect } from "../components/candidates/SubmissionStatusSelect";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
 import { DetailDrawer } from "../components/common/DetailDrawer";
+import { useCandidateDrawer } from "../store/candidateDrawer";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../components/ui/tooltip";
 import {
   Select,
@@ -54,6 +55,7 @@ const DETAIL_STATUSES = new Set(["submitted", "interview", "placed", "rejected"]
 
 export function Candidates() {
   const [params, setParams] = useSearchParams();
+  const { candidateId: drawerCandidateId } = useCandidateDrawer();
   const [search, setSearch] = useState("");
   const debounced = useDebounce(search, 200);
   const status = params.get("status") || "all";
@@ -548,7 +550,7 @@ export function Candidates() {
       </div>
 
       <CandidateForm open={formOpen} onOpenChange={setFormOpen} />
-      {params.get("candidate") && (
+      {params.get("candidate") && !drawerCandidateId && (
         <DetailDrawer onClose={closePanel}>
           <CandidateDetailPanel candidateId={params.get("candidate")!} onClose={closePanel} />
         </DetailDrawer>

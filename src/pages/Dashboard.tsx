@@ -29,11 +29,13 @@ import { ClientForm } from "../components/clients/ClientForm";
 import { QuickScreenDialog } from "../components/candidates/QuickScreenDialog";
 import { CandidateDetailPanel } from "../components/candidates/CandidateDetailPanel";
 import { DetailDrawer } from "../components/common/DetailDrawer";
+import { useCandidateDrawer } from "../store/candidateDrawer";
 
 export function Dashboard() {
   const { data, isLoading, isError, refetch } = useDashboardStats();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
+  const { candidateId: drawerCandidateId } = useCandidateDrawer();
   const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
   const activeCandidateId = selectedCandidateId ?? params.get("candidate");
 
@@ -403,7 +405,7 @@ export function Dashboard() {
       />
 
       {/* Candidate Detail Overlay Drawer */}
-      {activeCandidateId && (
+      {activeCandidateId && !drawerCandidateId && (
         <DetailDrawer onClose={handleCloseCandidate}>
           <CandidateDetailPanel
             candidateId={activeCandidateId}

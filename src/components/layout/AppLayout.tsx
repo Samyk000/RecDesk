@@ -10,12 +10,22 @@ import { ErrorBoundary } from "../common/ErrorBoundary";
 import { apiJobs } from "../../lib/api";
 import { cn } from "../../lib/utils";
 
+import { useCandidateDrawer } from "../../store/candidateDrawer";
+import { DetailDrawer } from "../common/DetailDrawer";
+import { CandidateDetailPanel } from "../candidates/CandidateDetailPanel";
+
 export function AppLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [jobFormOpen, setJobFormOpen] = useState(false);
+  const { candidateId: drawerCandidateId, closeCandidateDrawer } = useCandidateDrawer();
   const location = useLocation();
   const navigate = useNavigate();
   const isDashboard = location.pathname === "/";
+
+  // Automatically close candidate drawer on page navigation
+  useEffect(() => {
+    closeCandidateDrawer();
+  }, [location.pathname, closeCandidateDrawer]);
 
   useEffect(() => {
     apiJobs
@@ -74,6 +84,14 @@ export function AppLayout() {
       </div>
       <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
       {jobFormOpen && <JobFormDialog open={jobFormOpen} onOpenChange={setJobFormOpen} />}
+      {drawerCandidateId && (
+        <DetailDrawer onClose={closeCandidateDrawer}>
+          <CandidateDetailPanel
+            candidateId={drawerCandidateId}
+            onClose={closeCandidateDrawer}
+          />
+        </DetailDrawer>
+      )}
     </TooltipProvider>
   );
 }

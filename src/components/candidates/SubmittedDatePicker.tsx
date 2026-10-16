@@ -1,45 +1,29 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { CalendarBlank, CalendarDots, X } from "@phosphor-icons/react";
-import { cn } from "../../lib/utils";
+import { cn, formatDateOrdinal, parseDateOnly } from "../../lib/utils";
 
 interface Props {
   value?: string | null;
   onChange: (val: string | null) => void;
   className?: string;
-}
-
-function parseSubmissionDate(val?: string | null): string {
-  if (!val) {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const dd = String(d.getDate()).padStart(2, "0");
-    return `${yyyy}-${mm}-${dd}`;
-  }
-  const parts = val.trim().split(/\s+/);
-  return parts[0] || "";
+  showIcon?: boolean;
 }
 
 function formatDateDisplay(isoDate?: string | null): string {
   if (!isoDate) return "Select date…";
-  const [year, month, day] = isoDate.split("-").map(Number);
-  if (!year || !month || !day) return isoDate;
-  const d = new Date(year, month - 1, day);
-  return d.toLocaleDateString("en-US", {
-    month: "short",
-    day: "numeric",
-  });
+  const formatted = formatDateOrdinal(isoDate);
+  return formatted === "-" ? "Select date…" : formatted;
 }
 
-export function SubmittedDatePicker({ value, onChange, className }: Props) {
+export function SubmittedDatePicker({ value, onChange, className, showIcon = true }: Props) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  const initialDate = useMemo(() => parseSubmissionDate(value), [value]);
+  const initialDate = useMemo(() => parseDateOnly(value), [value]);
   const [selectedDate, setSelectedDate] = useState(initialDate);
 
   useEffect(() => {
-    setSelectedDate(parseSubmissionDate(value));
+    setSelectedDate(parseDateOnly(value));
   }, [value]);
 
   useEffect(() => {
@@ -82,7 +66,7 @@ export function SubmittedDatePicker({ value, onChange, className }: Props) {
         )}
       >
         <span className="flex items-center gap-1.5 min-w-0 truncate">
-          <CalendarBlank className="h-3.5 w-3.5 shrink-0 text-amber-500" />
+          {showIcon && <CalendarBlank className="h-3.5 w-3.5 shrink-0 text-amber-500" />}
           <span className={cn("truncate font-medium text-xs", !hasValue && "text-fg-muted font-normal")}>
             {hasValue ? formatDateDisplay(selectedDate) : "Select date…"}
           </span>

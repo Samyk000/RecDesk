@@ -165,8 +165,9 @@ export function CandidateResumeSection({
 
   return (
     <div className="space-y-1">
-      <div className="flex h-5 items-center">
-        <label className="text-[11px] font-medium text-fg-subtle">Resume</label>
+      <div className="flex h-5 items-center gap-1.5 text-fg-subtle">
+        <FileText className="h-3 w-3 shrink-0" />
+        <label className="text-[11px] font-medium">Resume</label>
       </div>
       <div className="min-w-0">
         {candidate.resume_path ? (
@@ -202,8 +203,7 @@ export function CandidateResumeSection({
               </button>
             </div>
           ) : (
-            <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-colors hover:border-border">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-primary/80" />
+            <div className="flex h-9 items-center gap-1.5 rounded-lg border border-border/80 bg-surface px-2.5 transition-all hover:border-primary/40 shadow-2xs">
               <button
                 type="button"
                 onClick={openResume}

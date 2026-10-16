@@ -11,14 +11,23 @@ import {
 } from "@phosphor-icons/react";
 import {
   US_STATES_AZ,
+  US_CITIES,
   fuzzySearchGeo,
 } from "../../lib/geoTimezones";
 import { formatZoneTime, cn } from "../../lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 
+const ALPHABET = [
+  "ALL",
+  "A", "B", "C", "D", "E", "F", "G", "H", "I", "J",
+  "K", "L", "M", "N", "O", "P", "R", "S", "T", "U",
+  "V", "W"
+] as const;
+
 export function ZoneDirectoryPopover() {
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [selectedLetter, setSelectedLetter] = useState<string>("ALL");
   const [now, setNow] = useState(() => new Date());
   const [coords, setCoords] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
 
@@ -101,6 +110,7 @@ export function ZoneDirectoryPopover() {
       }, 50);
     } else {
       setQuery("");
+      setSelectedLetter("ALL");
     }
   }, [isOpen]);
 
@@ -109,6 +119,22 @@ export function ZoneDirectoryPopover() {
     if (!query.trim()) return [];
     return fuzzySearchGeo(query, now);
   }, [query, now]);
+
+  // Filtered states for selected letter
+  const statesForLetter = useMemo(() => {
+    if (selectedLetter === "ALL") return US_STATES_AZ;
+    return US_STATES_AZ.filter((s) =>
+      s.name.toUpperCase().startsWith(selectedLetter)
+    );
+  }, [selectedLetter]);
+
+  // Filtered major cities for selected letter
+  const citiesForLetter = useMemo(() => {
+    if (selectedLetter === "ALL") return [];
+    return US_CITIES.filter((c) =>
+      c.city.toUpperCase().startsWith(selectedLetter)
+    ).slice(0, 16);
+  }, [selectedLetter]);
 
   const toggleOpen = () => {
     if (!isOpen) {
@@ -161,7 +187,7 @@ export function ZoneDirectoryPopover() {
               top: `${coords.top}px`,
               right: `${coords.right}px`,
             }}
-            className="fixed z-[9999] w-[460px] max-w-[calc(100vw-32px)] rounded-2xl border border-border bg-surface shadow-2xl shadow-black/30 backdrop-blur-xl animate-scale-in overflow-hidden select-none"
+            className="fixed z-[9999] w-[500px] max-w-[calc(100vw-32px)] rounded-2xl border border-border bg-surface shadow-2xl shadow-black/30 backdrop-blur-xl animate-scale-in overflow-hidden select-none"
           >
           {/* Header & Search Bar */}
           <div className="border-b border-border/80 bg-surface-hover/30 p-3 space-y-2.5">
@@ -189,7 +215,12 @@ export function ZoneDirectoryPopover() {
                 ref={inputRef}
                 type="text"
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  if (e.target.value) {
+                    setSelectedLetter("ALL");
+                  }
+                }}
                 placeholder="Search city or state (e.g. Austin, taxes, Arezone)..."
                 className="w-full rounded-lg border border-border/80 bg-surface pl-8 pr-7 py-1.5 text-xs text-fg placeholder:text-fg-subtle/70 outline-none transition-all focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
@@ -223,10 +254,10 @@ export function ZoneDirectoryPopover() {
           </div>
 
           {/* Main Content Area */}
-          <div className="max-h-[340px] overflow-y-auto p-2 [scrollbar-width:thin]">
-            {query.trim() ? (
-              /* ================= SEARCH RESULTS MODE ================= */
-              searchResults.length > 0 ? (
+          {query.trim() ? (
+            /* ================= SEARCH RESULTS MODE ================= */
+            <div className="max-h-[350px] overflow-y-auto p-2 [scrollbar-width:thin]">
+              {searchResults.length > 0 ? (
                 <div className="space-y-1">
                   {searchResults.map((item, idx) => (
                     <div
@@ -262,7 +293,7 @@ export function ZoneDirectoryPopover() {
                       {/* Right: Badge, Time & Details */}
                       <div className="flex flex-col items-end shrink-0 pl-2 text-right">
                         <div className="flex items-center gap-1.5">
-                          <span className="rounded bg-primary/15 px-1.5 py-0.5 text-[10px] font-bold text-primary font-mono tracking-tight">
+                          <span className="rounded bg-primary/10 border border-primary/20 px-1.5 py-0.2 text-[9.5px] font-bold text-primary font-mono tracking-tight">
                             {item.badge}
                           </span>
                           <span className="font-mono text-xs font-semibold tabular-nums text-fg">
@@ -293,49 +324,189 @@ export function ZoneDirectoryPopover() {
                     Try typing the city name, full state, or 2-letter state code (e.g. Austin, Texas, TX, Seattle).
                   </p>
                 </div>
-              )
-            ) : (
-              /* ================= BROWSE A-Z STATES MODE ================= */
-              <div className="grid grid-cols-2 gap-1.5">
-                {US_STATES_AZ.map((state) => {
-                  const stateTime = formatZoneTime(state.zone, false, now);
-
+              )}
+            </div>
+          ) : (
+            /* ================= DUAL PANE: LEFT A-Z RAIL + MAIN BROWSE PANE ================= */
+            <div className="flex min-h-0 overflow-hidden">
+              {/* Left A-Z Navigation Rail */}
+              <div className="w-8 shrink-0 border-r border-border/70 bg-surface-hover/20 py-1.5 px-0.5 flex flex-col items-center gap-0.5 max-h-[350px] overflow-y-auto [scrollbar-width:none] select-none">
+                {ALPHABET.map((letter) => {
+                  const isSelected = selectedLetter === letter;
                   return (
-                    <div
-                      key={state.code}
+                    <button
+                      key={letter}
+                      type="button"
                       onClick={() => {
-                        setQuery(state.name);
-                        inputRef.current?.focus();
+                        setSelectedLetter((prev) => (prev === letter ? "ALL" : letter));
                       }}
-                      className="group flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-hover/20 px-2.5 py-1.5 transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-2xs cursor-pointer active:scale-[0.98]"
-                      title={state.split ? `${state.name}: ${state.split.details} · Click to view cities & zones` : `${state.name} · Click to view`}
+                      className={cn(
+                        "flex items-center justify-center rounded transition-all cursor-pointer select-none font-mono",
+                        letter === "ALL"
+                          ? "w-6 h-4.5 text-[8.5px] font-bold tracking-tight mb-1"
+                          : "w-6 h-3.5 text-[10px] font-medium",
+                        isSelected
+                          ? "bg-primary text-primary-foreground font-bold shadow-2xs"
+                          : "text-fg-subtle hover:text-fg hover:bg-surface-active",
+                      )}
+                      title={letter === "ALL" ? "View all states" : `Jump to ${letter}`}
                     >
-                      {/* Left: Code badge & Name */}
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-active font-mono text-[10px] font-bold text-primary group-hover:bg-primary/10 transition-colors">
-                          {state.code}
-                        </span>
-                        <span className="text-[11px] font-medium text-fg truncate">
-                          {state.name}
-                        </span>
-                      </div>
-
-                      {/* Right: Zone badge & Live Time */}
-                      <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
-                        <span className="rounded bg-primary/10 px-1 py-0.2 font-bold text-primary">
-                          {state.badge}
-                          {state.split && <span className="text-amber-500 ml-0.5">*</span>}
-                        </span>
-                        <span className="text-fg-muted font-semibold tabular-nums">
-                          {stateTime}
-                        </span>
-                      </div>
-                    </div>
+                      {letter}
+                    </button>
                   );
                 })}
               </div>
-            )}
-          </div>
+
+              {/* Right Content Area */}
+              <div className="flex-1 min-w-0 max-h-[350px] overflow-y-auto p-2 [scrollbar-width:thin]">
+                {selectedLetter === "ALL" ? (
+                  /* --- All 51 States Grid --- */
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between px-1 text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">
+                      <span>All 50 US States + DC</span>
+                      <span className="font-mono text-[9.5px] normal-case text-fg-subtle/80">Click state to view cities</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {US_STATES_AZ.map((state) => {
+                        const stateTime = formatZoneTime(state.zone, false, now);
+
+                        return (
+                          <div
+                            key={state.code}
+                            onClick={() => {
+                              setQuery(state.name);
+                              inputRef.current?.focus();
+                            }}
+                            className="group flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-hover/20 px-2 py-1.5 transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-2xs cursor-pointer active:scale-[0.98]"
+                            title={state.split ? `${state.name}: ${state.split.details} · Click to view cities & zones` : `${state.name} · Click to view`}
+                          >
+                            {/* Left: Code badge (Neutral theme text) & Name */}
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-active border border-border/70 font-mono text-[9.5px] font-bold text-fg group-hover:border-primary/40 transition-colors">
+                                {state.code}
+                              </span>
+                              <span className="text-[11px] font-medium text-fg truncate group-hover:text-primary transition-colors">
+                                {state.name}
+                              </span>
+                            </div>
+
+                            {/* Right: Zone badge & Live Time */}
+                            <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
+                              <span className="rounded bg-primary/10 border border-primary/20 px-1 py-0.2 font-bold text-primary text-[9.5px]">
+                                {state.badge}
+                                {state.split && <span className="text-amber-500 ml-0.5">*</span>}
+                              </span>
+                              <span className="text-fg-muted group-hover:text-fg font-semibold tabular-nums text-[10.5px]">
+                                {stateTime}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  /* --- Filtered by Selected Letter (States + Major Cities) --- */
+                  <div className="space-y-3">
+                    {/* States Starting with Letter */}
+                    {statesForLetter.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between px-1 text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">
+                          <span>States ({statesForLetter.length})</span>
+                          <span className="font-mono text-[9.5px] normal-case text-fg-subtle/80">Starting with {selectedLetter}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {statesForLetter.map((state) => {
+                            const stateTime = formatZoneTime(state.zone, false, now);
+
+                            return (
+                              <div
+                                key={state.code}
+                                onClick={() => {
+                                  setQuery(state.name);
+                                  inputRef.current?.focus();
+                                }}
+                                className="group flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-hover/20 px-2.5 py-1.5 transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-2xs cursor-pointer active:scale-[0.98]"
+                                title={state.split ? `${state.name}: ${state.split.details} · Click to view cities & zones` : `${state.name} · Click to view`}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-active border border-border/70 font-mono text-[9.5px] font-bold text-fg group-hover:border-primary/40 transition-colors">
+                                    {state.code}
+                                  </span>
+                                  <span className="text-[11.5px] font-medium text-fg truncate group-hover:text-primary transition-colors">
+                                    {state.name}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
+                                  <span className="rounded bg-primary/10 border border-primary/20 px-1 py-0.2 font-bold text-primary text-[9.5px]">
+                                    {state.badge}
+                                    {state.split && <span className="text-amber-500 ml-0.5">*</span>}
+                                  </span>
+                                  <span className="text-fg-muted group-hover:text-fg font-semibold tabular-nums text-[10.5px]">
+                                    {stateTime}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Major Cities Starting with Letter */}
+                    {citiesForLetter.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between px-1 text-[10px] font-semibold text-fg-subtle uppercase tracking-wider">
+                          <span>Major Cities ({citiesForLetter.length})</span>
+                          <span className="font-mono text-[9.5px] normal-case text-fg-subtle/80">Starting with {selectedLetter}</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {citiesForLetter.map((city) => {
+                            const cityTime = formatZoneTime(city.zone, false, now);
+
+                            return (
+                              <div
+                                key={`${city.city}-${city.stateCode}`}
+                                onClick={() => {
+                                  setQuery(city.city);
+                                  inputRef.current?.focus();
+                                }}
+                                className="group flex items-center justify-between gap-1.5 rounded-lg border border-border/50 bg-surface-hover/20 px-2.5 py-1.5 transition-all hover:border-primary/40 hover:bg-primary/5 hover:shadow-2xs cursor-pointer active:scale-[0.98]"
+                                title={`${city.city}, ${city.stateCode} (${city.stateName}) · Click to inspect`}
+                              >
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-surface-active border border-border/70 font-mono text-[9px] font-semibold text-fg-subtle group-hover:text-fg group-hover:border-primary/30 transition-colors">
+                                    {city.stateCode}
+                                  </span>
+                                  <span className="text-[11px] font-medium text-fg truncate group-hover:text-primary transition-colors">
+                                    {city.city}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0 font-mono text-[10px]">
+                                  <span className="rounded bg-primary/10 border border-primary/20 px-1 py-0.2 font-bold text-primary text-[9.5px]">
+                                    {city.badge}
+                                  </span>
+                                  <span className="text-fg-muted group-hover:text-fg font-semibold tabular-nums text-[10.5px]">
+                                    {cityTime}
+                                  </span>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {statesForLetter.length === 0 && citiesForLetter.length === 0 && (
+                      <div className="py-8 text-center text-xs text-fg-subtle">
+                        No states or major cities found starting with {selectedLetter}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Footer Note */}
           <div className="border-t border-border/80 bg-surface-hover/20 px-3 py-1.5 flex items-center justify-between text-[10px] text-fg-subtle">
@@ -343,7 +514,9 @@ export function ZoneDirectoryPopover() {
               <Info className="h-3 w-3 text-fg-subtle/80 shrink-0" />
               <span>*Spans multiple time zones</span>
             </span>
-            <span className="font-mono text-fg-subtle/70">50 States + DC</span>
+            <span className="font-mono text-fg-subtle/70">
+              {selectedLetter === "ALL" ? "50 States + DC" : `Filter: ${selectedLetter}`}
+            </span>
           </div>
         </div>,
         document.body,

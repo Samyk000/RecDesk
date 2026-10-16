@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { CalendarCheck, CaretDown, CalendarBlank } from "@phosphor-icons/react";
 import { useCandidatesWithJob } from "../../hooks/useQueries";
 import { cn } from "../../lib/utils";
 import { parseInterviewRounds, getInterviewTimestamp } from "../../lib/candidateUtils";
+import { useCandidateDrawer } from "../../store/candidateDrawer";
 import type { CandidateWithJob } from "../../types";
 
 function formatInterviewSchedule(iso: string | null | undefined): {
@@ -116,7 +116,7 @@ interface SidebarInterviewItem {
 }
 
 export function SidebarInterviews() {
-  const navigate = useNavigate();
+  const { openCandidateDrawer } = useCandidateDrawer();
   const { data: candidates } = useCandidatesWithJob(undefined, "interview");
 
   // Collapsible state (closed/collapsed by default, persisted in localStorage)
@@ -168,7 +168,7 @@ export function SidebarInterviews() {
   }, [candidates]);
 
   const handleOpenCandidate = (candidate: CandidateWithJob) => {
-    navigate(`/candidates?candidate=${candidate.id}`);
+    openCandidateDrawer(candidate.id);
   };
 
   return (

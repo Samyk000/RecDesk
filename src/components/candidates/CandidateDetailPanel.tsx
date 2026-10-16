@@ -5,17 +5,23 @@ import {
   ArrowSquareOut,
   ArrowsLeftRight,
   Briefcase,
+  CalendarBlank,
   Check,
+  CheckCircle,
   CircleNotch,
   CurrencyDollar,
   EnvelopeSimple,
   IdentificationCard,
+  Info,
+  LinkedinLogo,
   ListChecks,
   MapPin,
   NotePencil,
   Phone,
   PhoneCall,
   Trash,
+  Trophy,
+  WarningCircle,
   X,
 } from "@phosphor-icons/react";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -536,8 +542,8 @@ function CandidatePanelBody({
       </div>
 
       <div className="flex flex-1 flex-col space-y-4 overflow-y-auto px-4 py-3.5 scrollbar-thin">
-        {/* Section 1: Candidate Hero (Name, Title, Location, Pay Rate) */}
-        <div className="flex items-start justify-between gap-3 pt-0.5 pb-0.5">
+        {/* Section 1: Candidate Hero Badge (Name, Title, Location, Pay Rate) */}
+        <div className="flex items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/[0.035] dark:bg-primary/[0.07] p-3 shadow-2xs">
           {/* Left: Name & Title */}
           <div className="flex flex-1 min-w-0 flex-col">
             <HeroNameField
@@ -551,17 +557,16 @@ function CandidatePanelBody({
           </div>
 
           {/* Right: Location & Pay Rate with subtle vertical divider */}
-          <div className="flex shrink-0 items-center gap-3 self-stretch">
-            <div className="w-px bg-border/60 self-stretch my-0.5" />
-            <div className="flex w-[140px] flex-col justify-center gap-1">
+          <div className="flex shrink-0 items-center border-l border-primary/20 pl-3 self-stretch">
+            <div className="flex w-[136px] flex-col justify-center gap-1">
               <HeroMetaField
-                icon={<MapPin className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
+                icon={<MapPin className="h-3.5 w-3.5 shrink-0 text-primary/70" />}
                 value={candidate.location ?? ""}
                 placeholder="Add location…"
                 onSave={(v) => saveField({ location: v || null })}
               />
               <HeroMetaField
-                icon={<CurrencyDollar className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
+                icon={<CurrencyDollar className="h-3.5 w-3.5 shrink-0 text-primary/70" />}
                 value={payRate}
                 placeholder="Add rate…"
                 onSave={(v) => {
@@ -577,18 +582,18 @@ function CandidatePanelBody({
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-border/60" />
+        <div className="h-0.5 bg-border/60" />
 
         {/* Section 2: Contact & Documents (2x2 Grid) */}
         <div className="space-y-2.5">
           {/* Row 1: Email & Phone */}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1">
-              <div className="flex h-5 items-center">
-                <label className="text-[11px] font-medium text-fg-subtle">Email</label>
+              <div className="flex h-5 items-center gap-1.5 text-fg-subtle">
+                <EnvelopeSimple className="h-3 w-3 shrink-0" />
+                <label className="text-[11px] font-medium">Email</label>
               </div>
               <ContactField
-                icon={<EnvelopeSimple className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
                 value={candidate.email ?? ""}
                 placeholder="Add email…"
                 onSave={(v) => saveField({ email: v || null })}
@@ -597,11 +602,11 @@ function CandidatePanelBody({
             </div>
 
             <div className="space-y-1">
-              <div className="flex h-5 items-center">
-                <label className="text-[11px] font-medium text-fg-subtle">Phone</label>
+              <div className="flex h-5 items-center gap-1.5 text-fg-subtle">
+                <Phone className="h-3 w-3 shrink-0" />
+                <label className="text-[11px] font-medium">Phone</label>
               </div>
               <ContactField
-                icon={<Phone className="h-3.5 w-3.5 shrink-0 text-fg-subtle" />}
                 value={candidate.phone ?? ""}
                 placeholder="Add phone…"
                 onSave={(v) => saveField({ phone: v || null })}
@@ -613,8 +618,9 @@ function CandidatePanelBody({
           {/* Row 2: LinkedIn & Resume */}
           <div className="grid grid-cols-2 gap-2.5">
             <div className="space-y-1">
-              <div className="flex h-5 items-center">
-                <label className="text-[11px] font-medium text-fg-subtle">LinkedIn</label>
+              <div className="flex h-5 items-center gap-1.5 text-fg-subtle">
+                <LinkedinLogo className="h-3 w-3 shrink-0 text-[#0077b5]" weight="fill" />
+                <label className="text-[11px] font-medium">LinkedIn</label>
               </div>
               <LinkedInField
                 value={candidate.linkedin_url ?? ""}
@@ -632,7 +638,7 @@ function CandidatePanelBody({
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-border/60" />
+        <div className="h-0.5 bg-border/60" />
 
         {/* Section 3: Status & Dates (Pipeline Stage) */}
         <div className="space-y-2">
@@ -640,7 +646,10 @@ function CandidatePanelBody({
             {/* Status Column */}
             <div className="space-y-1">
               <div className="flex h-5 items-center justify-between">
-                <label className="text-[11px] font-medium text-fg-subtle">Status</label>
+                <div className="flex items-center gap-1.5 text-fg-subtle">
+                  <CheckCircle className="h-3 w-3 shrink-0" />
+                  <label className="text-[11px] font-medium">Status</label>
+                </div>
                 <div className="flex items-center gap-1.5">
                   {previousStatusSnapshot && previousStatusSnapshot.submission_status !== candidate.submission_status && (
                     <button
@@ -730,17 +739,28 @@ function CandidatePanelBody({
             {hasCompanionControl && (
               <div className="space-y-1">
                 <div className="flex h-5 items-center justify-between">
-                  <label className="text-[11px] font-medium text-fg-subtle">
-                    {status === "submitted"
-                      ? "Date"
-                      : status === "interview"
-                        ? "Submitted Date"
-                        : status === "placed"
-                          ? "Placed Date"
-                          : status === "rejected"
-                            ? "Rejection Stage"
-                            : "Reason"}
-                  </label>
+                  <div className="flex items-center gap-1.5 text-fg-subtle">
+                    {status === "submitted" || status === "interview" ? (
+                      <CalendarBlank className="h-3 w-3 shrink-0" />
+                    ) : status === "placed" ? (
+                      <Trophy className="h-3 w-3 shrink-0 text-emerald-500" />
+                    ) : status === "rejected" ? (
+                      <WarningCircle className="h-3 w-3 shrink-0 text-red-500" />
+                    ) : (
+                      <Info className="h-3 w-3 shrink-0" />
+                    )}
+                    <label className="text-[11px] font-medium">
+                      {status === "submitted"
+                        ? "Date"
+                        : status === "interview"
+                          ? "Submitted Date"
+                          : status === "placed"
+                            ? "Placed Date"
+                            : status === "rejected"
+                              ? "Rejection Stage"
+                              : "Reason"}
+                    </label>
+                  </div>
                 </div>
 
                 {status === "submitted" && (
@@ -749,6 +769,7 @@ function CandidatePanelBody({
                       value={candidate.submitted_at}
                       onChange={(val) => saveField({ submitted_at: val })}
                       className="h-9 flex-1 min-w-0"
+                      showIcon={false}
                     />
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -771,6 +792,7 @@ function CandidatePanelBody({
                     value={candidate.placed_at}
                     onChange={(val) => saveField({ placed_at: val })}
                     className="h-9"
+                    showIcon={false}
                   />
                 )}
 
@@ -779,6 +801,7 @@ function CandidatePanelBody({
                     value={candidate.submitted_at}
                     onChange={(val) => saveField({ submitted_at: val })}
                     className="h-9"
+                    showIcon={false}
                   />
                 )}
 
@@ -922,7 +945,7 @@ function CandidatePanelBody({
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-border/60" />
+        <div className="h-0.5 bg-border/60" />
 
         {/* Section 4: Notes */}
         <div className="space-y-1.5">
@@ -946,7 +969,7 @@ function CandidatePanelBody({
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-border/60" />
+        <div className="h-0.5 bg-border/60" />
 
         {/* Section 5: Skills & Tools */}
         <CandidateSkillsSection

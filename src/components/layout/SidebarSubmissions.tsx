@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { PaperPlaneTilt, CaretDown, CalendarBlank } from "@phosphor-icons/react";
 import { useCandidatesWithJob } from "../../hooks/useQueries";
 import { isExternalSubmission, getSubmissionTimestamp } from "../../lib/candidateUtils";
 import { cn } from "../../lib/utils";
+import { useCandidateDrawer } from "../../store/candidateDrawer";
 import type { CandidateWithJob } from "../../types";
 
 function formatSubmissionDate(iso?: string | null): {
@@ -49,7 +49,7 @@ function formatSubmissionDate(iso?: string | null): {
 }
 
 export function SidebarSubmissions() {
-  const navigate = useNavigate();
+  const { openCandidateDrawer } = useCandidateDrawer();
   const { data: candidates } = useCandidatesWithJob(undefined, "submitted");
 
   // Collapsible state (closed/collapsed by default, persisted in localStorage)
@@ -89,7 +89,7 @@ export function SidebarSubmissions() {
   }, [candidates]);
 
   const handleOpenCandidate = (candidate: CandidateWithJob) => {
-    navigate(`/candidates?candidate=${candidate.id}`);
+    openCandidateDrawer(candidate.id);
   };
 
   return (
